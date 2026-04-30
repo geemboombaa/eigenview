@@ -59,8 +59,8 @@
 .chip.active-chip{color:var(--accent,#5ee3a1);border-color:rgba(94,227,161,.3);background:rgba(94,227,161,.06);}
 .chip.dormant{color:var(--warn,#ffc857);border-color:rgba(255,200,87,.35);background:rgba(255,200,87,.06);}
 .chip.novelty{color:var(--vol,#d2a6ff);border-color:rgba(210,166,255,.35);background:rgba(210,166,255,.06);}
-/* Actions — hidden until hover */
-.card-actions{display:flex;gap:6px;padding:2px 14px 12px;opacity:0;transition:opacity .15s;}
+/* Actions — always faintly visible, full on hover/selected */
+.card-actions{display:flex;gap:6px;padding:2px 14px 12px;opacity:0.45;transition:opacity .15s;position:relative;z-index:2;}
 .pick-card:hover .card-actions{opacity:1;}
 .pick-card.selected .card-actions{opacity:1;}
 .pc-btn{background:var(--panel-3,#1d2231);border:1px solid var(--border,#232836);color:var(--text-dim);padding:5px 10px;border-radius:4px;font-family:var(--font-mono,'SF Mono',monospace);font-size:9px;letter-spacing:1px;cursor:pointer;transition:color .1s,border-color .1s;}
@@ -338,8 +338,8 @@
       window.EV?.Store.set('selectedTicker', ticker);
       window.EV?.Store.set('selectedPick', pick);
       // Scroll to detail module
-      const detail = document.querySelector('[data-module-id="price-chart"],[data-module-id="detail-combo"]');
-      if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const detail = document.querySelector('[data-module-type="price-chart"],[data-module-type="factor-strip"]');
+      if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     _filterAndRender(cat) {

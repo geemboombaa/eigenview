@@ -18,3 +18,9 @@ build/
 cassettes/
 tests/fixtures/cassettes/
 *.snap
+
+# Node / Playwright
+node_modules/
+package-lock.json
+tests/ui/report/
+test-results/

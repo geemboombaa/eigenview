@@ -73,6 +73,7 @@
       this._chart = null;
       this._series = {};
       this._maximized = false;
+      this._lastData = null;
 
       this._render();
       this._bindHeader();
@@ -104,12 +105,27 @@
       // escape key to close maximize
       this._onEscape = (e) => { if (e.key === 'Escape' && this._maximized) this._toggleMaximize(); };
       document.addEventListener('keydown', this._onEscape);
+
+      // ResizeObserver: fire _resizeChart when container gets real dimensions
+      const body = this._qs('#pc-body');
+      if (body && window.ResizeObserver) {
+        this._ro = new ResizeObserver(() => this._resizeChart());
+        this._ro.observe(body);
+      }
+
+      // MutationObserver: rebuild chart when data-theme changes (light/dark switch)
+      this._themeObs = new MutationObserver(() => {
+        if (this._lastData) this._buildChart(this._lastData);
+      });
+      this._themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
     unmount() {
       super.unmount();
       if (this._onEscape) document.removeEventListener('keydown', this._onEscape);
       if (this._chart) { this._chart.remove(); this._chart = null; }
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      if (this._themeObs) { this._themeObs.disconnect(); this._themeObs = null; }
     }
 
     resize(_size) {
@@ -205,6 +221,7 @@
         return;
       }
 
+      this._lastData = data;
       this._showState('none');
       this._buildChart(data);
 

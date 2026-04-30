@@ -212,10 +212,25 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Module bar overlays the module content at top */
+.ev-module-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 30;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.15s;
+}
+
 .ev-module:hover { border-color: var(--border-soft); }
 .ev-module.ev-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
 
-/* Drag handle */
+/* Drag handle — inside absolute ev-module-bar */
 .ev-drag-handle {
   height: 20px;
   background: transparent;
@@ -226,7 +241,7 @@ html, body {
   gap: 3px;
   opacity: 0;
   transition: opacity 0.15s;
-  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .ev-drag-handle span {
@@ -234,28 +249,18 @@ html, body {
   height: 2px;
   background: var(--accent-dim);
   border-radius: 1px;
-  pointer-events: none;
 }
 
 .ev-drag-handle:active { cursor: grabbing; }
-.ev-module:hover .ev-drag-handle,
-.edit-mode .ev-drag-handle { opacity: 1; }
-
-/* Module bar (label + close) */
-.ev-module-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  height: 20px;
-  flex-shrink: 0;
-}
 
 .ev-module-label {
   font-size: 8px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
 }
 
 .ev-module-close {
@@ -268,13 +273,24 @@ html, body {
   background: none;
   border: none;
   line-height: 1;
+  pointer-events: none;
 }
 
-.ev-module:hover .ev-module-close,
-.edit-mode .ev-module-close { opacity: 1; }
+/* In edit mode: bar gets pointer events, handles become visible */
+.canvas.edit-mode .ev-module-bar {
+  pointer-events: auto;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 100%);
+}
+.canvas.edit-mode .ev-drag-handle,
+.canvas.edit-mode .ev-module-label,
+.canvas.edit-mode .ev-module-close {
+  opacity: 1;
+  pointer-events: auto;
+}
+.canvas.edit-mode .ev-module:hover .ev-module-bar { background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%); }
 .ev-module-close:hover { color: var(--short); }
 
-/* Module content wrapper */
+/* Module content wrapper (legacy, kept for compatibility) */
 .ev-module-content {
   flex: 1;
   overflow: hidden;
@@ -293,6 +309,7 @@ html, body {
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 10;
+  pointer-events: none;
 }
 
 .ev-resize-handle::before {
@@ -307,8 +324,10 @@ html, body {
   border-radius: 0 0 2px 0;
 }
 
-.ev-module:hover .ev-resize-handle,
-.edit-mode .ev-resize-handle { opacity: 1; }
+.canvas.edit-mode .ev-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
 
 /* ===== PICK CARD DIRECTION TINTS ===== */
 .pick-card[data-direction="long"] {
@@ -618,7 +637,7 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  display: flex;
+  display: none;  /* shown via JS style.display='flex' when edit mode active */
   align-items: center;
   justify-content: space-between;
   padding: 10px 20px;

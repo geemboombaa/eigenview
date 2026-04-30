@@ -69,8 +69,10 @@
           for (const part of parts) {
             const line = part.trim();
             if (!line.startsWith('data: ')) continue;
-            const token = line.slice(6);
-            if (token === '[DONE]') { onDone && onDone(); return; }
+            const raw = line.slice(6);
+            if (raw === '[DONE]') { onDone && onDone(); return; }
+            let token = raw;
+            try { token = JSON.parse(raw); } catch {}
             onToken(token);
           }
         }
@@ -137,7 +139,7 @@
     function setEditMode(on) {
       editMode = on;
       const hint = document.getElementById('ev-edit-hint');
-      if (hint) hint.hidden = !on;
+      if (hint) hint.style.display = on ? 'flex' : 'none';
       document.getElementById('ev-canvas')?.classList.toggle('edit-mode', on);
       document.querySelectorAll('.nav-slot, .chat-slot').forEach(s => s.classList.toggle('edit-mode', on));
     }
@@ -148,24 +150,32 @@
       containerEl.classList.add('ev-module');
       containerEl.setAttribute('data-module-type', id);
       const mod = new Cls(containerEl, config);
-      mod.mount();
+      mod.mount();  // module renders its own innerHTML
+
       const instId = id + '_' + Date.now();
       instances[instId] = { module: mod, el: containerEl, id };
 
-      // Close button
-      containerEl.addEventListener('click', e => {
-        if (!editMode) return;
-        const btn = e.target.closest('[data-close]');
-        if (btn) unmountInstance(instId);
-      });
+      // Inject chrome overlay AFTER mount (so innerHTML doesn't wipe it)
+      // Only for canvas modules, not nav/chat slots
+      if (!config.slot) {
+        const bar = document.createElement('div');
+        bar.className = 'ev-module-bar';
+        bar.innerHTML = `
+          <span class="ev-drag-handle"><span></span><span></span><span></span></span>
+          <span class="ev-module-label">${Cls.label || id}</span>
+          <button class="ev-module-close" title="Close panel">✕</button>`;
+        containerEl.appendChild(bar);
 
-      // Drag handle
-      const handle = containerEl.querySelector('.ev-drag-handle');
-      if (handle) _wireDrag(handle, containerEl);
+        const rh = document.createElement('div');
+        rh.className = 'ev-resize-handle';
+        containerEl.appendChild(rh);
 
-      // Resize handle
-      const rh = containerEl.querySelector('.ev-resize-handle');
-      if (rh) _wireResize(rh, containerEl, Cls, mod);
+        bar.querySelector('.ev-module-close').addEventListener('click', () => {
+          if (editMode) unmountInstance(instId);
+        });
+        _wireDrag(bar.querySelector('.ev-drag-handle'), containerEl);
+        _wireResize(rh, containerEl, Cls, mod);
+      }
 
       return instId;
     }
