@@ -70,3 +70,8 @@ source = ["src/eigenview"]
 
 [tool.coverage.report]
 fail_under = 80
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+]
