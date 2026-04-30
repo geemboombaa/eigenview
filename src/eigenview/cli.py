@@ -17,6 +17,8 @@ from eigenview.data.storage import (
     Price,
     create_tables,
 )
+from eigenview.synthesis.gate import conviction_score, entry_zone, setup_type, stop_level
+from eigenview.synthesis.scanner import run_daily_scan
 
 # Windows asyncio fix — must be set before any async work
 if sys.platform == "win32":
@@ -127,6 +129,36 @@ def status() -> None:
                     typer.echo(f"{table_name:<16} {count:>8}  {latest or '—'}")
                 except Exception as exc:
                     typer.echo(f"{table_name:<16} {'ERROR':>8}  {exc}")
+
+    asyncio.run(_run())
+
+
+@app.command(name="daily-scan")
+def daily_scan(
+    universe: str = typer.Option("test5", help="test5 | ndx100"),
+) -> None:
+    """Run full daily scan pipeline and print top picks."""
+    TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
+    tickers = TEST5
+
+    async def _run() -> None:
+        async with AsyncSessionLocal() as session:
+            qualified = await run_daily_scan(tickers, session)
+            await session.commit()
+        if not qualified:
+            typer.echo("No qualifying picks today.")
+            return
+        typer.echo(f"\n{'='*60}")
+        typer.echo(f"EigenView Daily Scan — {len(qualified)} pick(s)")
+        typer.echo(f"{'='*60}")
+        for sc in qualified:
+            conv = conviction_score(sc)
+            stype = setup_type(sc)
+            entry_lo, entry_hi = entry_zone(sc)
+            stop = stop_level(sc)
+            typer.echo(f"\n{sc.ticker} | {stype} | conviction {conv}/5")
+            typer.echo(f"  Entry: ${entry_lo}–${entry_hi}  Stop: ${stop}")
+            typer.echo(f"  TA: {sc.technical.label}  GEX: {sc.gex.label}  Flow: {sc.flow.label}")
 
     asyncio.run(_run())
 
