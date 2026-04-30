@@ -24,7 +24,7 @@ def score_flow(chains: list, ticker: str = "") -> FactorResult:
 
         if premium >= settings.flow_min_premium_usd and voi >= settings.flow_min_voi_ratio:
             qualified.append((c.call_put, premium))
-            if c.call_put == "C":
+            if c.call_put.lower() == "c":
                 call_premium += premium
             else:
                 put_premium += premium

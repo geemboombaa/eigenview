@@ -18,7 +18,7 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
 
     for c in valid:
         gex_val = c.gamma * c.oi * 100 * spot_price ** 2 * 0.01
-        if c.call_put == "C":
+        if c.call_put.lower() == "c":
             call_gex_by_strike[c.strike] = call_gex_by_strike.get(c.strike, 0.0) + gex_val
             call_oi_by_strike[c.strike] = call_oi_by_strike.get(c.strike, 0.0) + (c.oi or 0)
         else:
@@ -28,12 +28,18 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
     net_gex = sum(call_gex_by_strike.values()) - sum(put_gex_by_strike.values())
 
     call_wall: float | None = None
-    call_candidates = {k: v for k, v in call_oi_by_strike.items() if k > spot_price}
+    call_candidates = {
+        k: v for k, v in call_oi_by_strike.items()
+        if spot_price < k <= spot_price * 1.5
+    }
     if call_candidates:
         call_wall = max(call_candidates, key=call_candidates.__getitem__)
 
     put_wall: float | None = None
-    put_candidates = {k: v for k, v in put_oi_by_strike.items() if k < spot_price}
+    put_candidates = {
+        k: v for k, v in put_oi_by_strike.items()
+        if spot_price * 0.5 <= k < spot_price
+    }
     if put_candidates:
         put_wall = max(put_candidates, key=put_candidates.__getitem__)
 

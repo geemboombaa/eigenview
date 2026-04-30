@@ -5,7 +5,7 @@ __pycache__/
 *.pyo
 *.pyd
 .python-version
-data/
+/data/
 *.db
 *.sqlite
 .pytest_cache/
