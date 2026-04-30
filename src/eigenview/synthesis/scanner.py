@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from eigenview.data.chains import get_chain
 from eigenview.data.prices import get_prices
 from eigenview.data.storage import Chain
 from eigenview.factors.dormant import score_dormant
@@ -28,11 +29,12 @@ async def _score_ticker(
     session: AsyncSession,
 ) -> TickerScorecard | None:
     try:
-        df = await get_prices(ticker, timeframe="1d", limit=90, session=session)
+        df = await get_prices(ticker, timeframe="1d", days=90)
         if df.empty:
             return None
         spot = float(df["close"].iloc[-1])
 
+        chain_data = await get_chain(ticker)
         chain_rows = await session.execute(
             select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == date.today())
         )

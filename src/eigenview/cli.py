@@ -4,6 +4,10 @@ import asyncio
 import sys
 
 import typer
+
+# Windows cp1252 console can't render non-BMP chars from external data
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
 from sqlalchemy import func, select, text
 
 from eigenview.data.storage import (

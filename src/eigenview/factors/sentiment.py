@@ -28,7 +28,7 @@ async def score_sentiment(
     session: AsyncSession,
     lookback_days: int = 3,
 ) -> FactorResult:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).replace(tzinfo=None)
 
     news_rows = await session.execute(
         select(NewsItem).where(
