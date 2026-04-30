@@ -1,3 +1,14 @@
+/* ===== MODULE COMPATIBILITY ALIASES =====
+   Modules use --bg-primary / --bg-secondary / --text-primary / --text-muted.
+   These map them to the canonical theme vars so fallback dark values never fire. */
+:root {
+  --bg-primary: var(--bg, #0b0d12);
+  --bg-secondary: var(--panel, #12151d);
+  --text-primary: var(--text, #e7ebf3);
+  --text-secondary: var(--text-dim, #8a92a6);
+  --text-muted: var(--text-faint, #5b6377);
+}
+
 /* ===== DARK THEME (default) ===== */
 :root[data-theme="dark"] {
   --bg: #0b0d12;

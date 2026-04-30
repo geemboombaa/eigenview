@@ -68,6 +68,19 @@
       if (badge) badge.textContent = 'No picks today';
     }
 
+    // Auto-refresh picks every 5 minutes
+    setInterval(async () => {
+      const fresh = await EV.API.get('/api/picks');
+      if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+        EV.Store.set('picks', fresh);
+        const badge = document.getElementById('ev-scan-time');
+        if (badge) {
+          badge.textContent = `✓ ${fresh.length} pick${fresh.length !== 1 ? 's' : ''}`;
+          badge.style.color = 'var(--accent)';
+        }
+      }
+    }, 5 * 60 * 1000);
+
     // Keyboard shortcuts
     document.addEventListener('keydown', e => {
       const inInput = inputFocused();
@@ -90,6 +103,10 @@
       }
       if (e.key === '?' && !inInput) {
         document.getElementById('ev-shortcuts-overlay').hidden = false;
+        return;
+      }
+      if ((e.key === 'h' || e.key === 'H') && !inInput) {
+        window.EV_Help?.open('overview');
         return;
       }
       if ((e.key === 'e' || e.key === 'E') && !inInput) {

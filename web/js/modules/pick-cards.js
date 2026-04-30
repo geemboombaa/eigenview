@@ -118,22 +118,22 @@
     const chips = [];
     if (facs.technical?.firing) {
       const lbl = facs.technical.label ? ` ${facs.technical.label}` : '';
-      chips.push(`<span class="chip active-chip">✓ TA${lbl}</span>`);
+      chips.push(`<span class="chip active-chip" data-help-tab="ta" title="Click for TA signal details">✓ TA${lbl}</span>`);
     }
     if (facs.gex?.firing) {
-      chips.push(`<span class="chip active-chip">✓ GEX ${facs.gex.label || ''}</span>`);
+      chips.push(`<span class="chip active-chip" data-help-tab="gex" title="Click for GEX signal details">✓ GEX ${facs.gex.label || ''}</span>`);
     }
     if (facs.flow?.firing) {
-      chips.push(`<span class="chip active-chip">✓ FLOW ${facs.flow.label || ''}</span>`);
+      chips.push(`<span class="chip active-chip" data-help-tab="flow" title="Click for Flow signal details">✓ FLOW ${facs.flow.label || ''}</span>`);
     }
     if (facs.dormant?.firing) {
       const pct = Math.round((facs.dormant.strength || 0) * 100);
-      chips.push(`<span class="chip dormant">◈ DORMANT ${pct}%</span>`);
+      chips.push(`<span class="chip dormant" data-help-tab="dormant" title="Click for Dormant-Bet details">◈ DORMANT ${pct}%</span>`);
     } else if (facs.dormant?.label === 'ACCUMULATING') {
-      chips.push(`<span class="chip">◈ ACCUMULATING</span>`);
+      chips.push(`<span class="chip" data-help-tab="dormant" title="Click for Dormant-Bet details">◈ ACCUMULATING</span>`);
     }
     if (facs.sentiment?.firing) {
-      chips.push(`<span class="chip novelty">● SENTIMENT ${facs.sentiment.label || ''}</span>`);
+      chips.push(`<span class="chip novelty" data-help-tab="sentiment" title="Click for Sentiment signal details">● SENTIMENT ${facs.sentiment.label || ''}</span>`);
     }
     return chips.join('');
   }
@@ -330,6 +330,14 @@
           const t = btn.dataset.ticker;
           const struct = btn.dataset.struct;
           window.EV?.Store.set('chatPrefill', `Why recommend ${struct} for ${t}? What's the rationale given current IV and setup?`);
+        });
+      });
+
+      this.el.querySelectorAll('.chip[data-help-tab]').forEach(chip => {
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          window.EV_Help?.open(chip.dataset.helpTab);
         });
       });
     }

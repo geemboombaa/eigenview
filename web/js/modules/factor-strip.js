@@ -13,12 +13,12 @@
   };
 
   const FACTORS = [
-    { key: 'macro_regime', label: 'MACRO' },
-    { key: 'technical',    label: 'TECH' },
-    { key: 'gex',          label: 'GEX' },
-    { key: 'flow',         label: 'FLOW' },
-    { key: 'dormant',      label: 'DORMANT' },
-    { key: 'sentiment',    label: 'SENTIMENT' },
+    { key: 'macro_regime', label: 'MACRO',     helpTab: 'macro' },
+    { key: 'technical',    label: 'TECH',      helpTab: 'ta' },
+    { key: 'gex',          label: 'GEX',       helpTab: 'gex' },
+    { key: 'flow',         label: 'FLOW',      helpTab: 'flow' },
+    { key: 'dormant',      label: 'DORMANT',   helpTab: 'dormant' },
+    { key: 'sentiment',    label: 'SENTIMENT', helpTab: 'sentiment' },
   ];
 
   const STYLE = `
@@ -89,9 +89,13 @@
           const fKey = cell.dataset.factor;
           const t = cell.dataset.ticker;
           const l = cell.dataset.label;
-          const name = FACTORS.find(f => f.key === fKey)?.label || fKey;
+          const factorDef = FACTORS.find(f => f.key === fKey);
+          const name = factorDef?.label || fKey;
           if (window.EV?.Store) {
             EV.Store.set('chatPrefill', `Explain the ${name} factor for ${t}: ${l}`);
+          }
+          if (factorDef?.helpTab && window.EV_Help) {
+            window.EV_Help.open(factorDef.helpTab);
           }
         });
       });

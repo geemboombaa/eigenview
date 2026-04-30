@@ -168,9 +168,10 @@
       this._maximized = !this._maximized;
       this.el.classList.toggle('maximized', this._maximized);
       if (this._maximized) {
+        this._preMaxStyle = this.el.style.cssText;
         this.el.style.cssText = 'position:fixed;inset:0;z-index:1000;';
       } else {
-        this.el.style.cssText = '';
+        this.el.style.cssText = this._preMaxStyle || '';
       }
       const btn = this._qs('#pc-max-btn');
       if (btn) btn.textContent = this._maximized ? '⤡' : '⤢';
