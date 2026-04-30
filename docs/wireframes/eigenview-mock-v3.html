@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EigenView — Module Canvas Mock v3</title>
+<style>
+/* ===== DESIGN TOKENS ===== */
+:root[data-theme="dark"] {
+  --bg:#0b0d12; --bg-2:#0f121a; --panel:#12151d; --panel-2:#171b26; --panel-3:#1d2231;
+  --border:#232836; --border-soft:#1a1e2a;
+  --text:#e7ebf3; --text-dim:#8a92a6; --text-faint:#5b6377;
+  --accent:#5ee3a1; --accent-dim:#2f8c63;
+  --long:#5ee3a1; --short:#ff6b6b; --vol:#d2a6ff; --warn:#ffc857; --info:#6ab7ff;
+  --chip-bg:#1d2231; --chip-border:#2b3245;
+  --shadow:0 2px 12px rgba(0,0,0,0.45);
+  --shadow-lg:0 8px 32px rgba(0,0,0,0.6);
+  --drag-handle:rgba(94,227,161,0.12);
+}
+:root[data-theme="light"] {
+  --bg:#f6f7fa; --bg-2:#eff1f5; --panel:#ffffff; --panel-2:#fafbfd; --panel-3:#f1f3f8;
+  --border:#dfe3eb; --border-soft:#e8ebf0;
+  --text:#16181d; --text-dim:#54606f; --text-faint:#8a94a5;
+  --accent:#0d9d63; --accent-dim:#7ccba8;
+  --long:#0d9d63; --short:#d9342b; --vol:#7c3aed; --warn:#b56a00; --info:#1e6fce;
+  --chip-bg:#eef1f6; --chip-border:#d7dce4;
+  --shadow:0 2px 10px rgba(20,30,50,0.08);
+  --shadow-lg:0 8px 24px rgba(20,30,50,0.15);
+  --drag-handle:rgba(13,157,99,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:var(--bg);color:var(--text);
+  font-family:'SF Mono',Consolas,Monaco,monospace;
+  font-size:13px;line-height:1.5;height:100vh;overflow:hidden;
+}
+
+/* ===== SHELL ===== */
+.shell{
+  display:grid;
+  grid-template-columns:220px 1fr 340px;
+  grid-template-rows:56px 1fr;
+  grid-template-areas:"head head head" "nav main chat";
+  height:100vh;width:100vw;
+}
+
+/* ===== HEADER ===== */
+header{
+  grid-area:head;display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;background:var(--panel);border-bottom:1px solid var(--border);
+  z-index:100;
+}
+.brand{display:flex;align-items:baseline;gap:10px;}
+.brand-mark{font-family:Georgia,serif;font-size:18px;font-weight:600;letter-spacing:0.3px;}
+.brand-mark span{color:var(--accent);}
+.brand-tag{color:var(--text-faint);font-size:9px;letter-spacing:1.8px;text-transform:uppercase;}
+
+.head-center{flex:1;max-width:480px;margin:0 24px;}
+.search-wrap{position:relative;}
+.search-wrap::before{content:"⌕";position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:14px;}
+.search{
+  width:100%;background:var(--panel-3);border:1px solid var(--border);color:var(--text);
+  padding:7px 12px 7px 30px;border-radius:6px;font-family:inherit;font-size:12px;
+}
+.search:focus{outline:none;border-color:var(--accent);}
+.search::placeholder{color:var(--text-faint);}
+
+.head-right{display:flex;align-items:center;gap:14px;color:var(--text-dim);font-size:11px;}
+.scan-time{font-size:10px;letter-spacing:0.3px;}
+.scan-time .ok{color:var(--accent);}
+
+/* Template switcher */
+.tpl-switcher{
+  display:flex;align-items:center;gap:0;
+  background:var(--panel-3);border:1px solid var(--border);border-radius:5px;overflow:hidden;
+}
+.tpl-btn{
+  background:none;border:none;color:var(--text-dim);padding:5px 10px;
+  font-family:inherit;font-size:9px;letter-spacing:1px;cursor:pointer;
+  border-right:1px solid var(--border);
+}
+.tpl-btn:last-child{border-right:none;}
+.tpl-btn:hover{color:var(--text);}
+.tpl-btn.active{background:var(--panel);color:var(--accent);}
+
+.theme-btn{
+  background:var(--panel-3);border:1px solid var(--border);color:var(--text-dim);
+  padding:5px 10px;border-radius:4px;font-family:inherit;font-size:11px;cursor:pointer;
+  letter-spacing:1px;
+}
+.theme-btn:hover{color:var(--text);border-color:var(--accent-dim);}
+
+/* ===== MODULE CHROME (shared by all panels) ===== */
+.module{
+  background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  position:relative;overflow:visible;
+  transition:border-color 0.15s;
+}
+.module:hover>.module-drag{opacity:1;}
+.module:hover{border-color:var(--border-soft);}
+.module.dragging{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-dim);opacity:0.85;z-index:1000;}
+.module.drop-target{border-color:var(--accent-dim);border-style:dashed;}
+
+/* Drag handle — top bar */
+.module-drag{
+  position:absolute;top:0;left:0;right:0;height:22px;
+  background:var(--drag-handle);
+  border-radius:8px 8px 0 0;
+  cursor:grab;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity 0.15s;
+  z-index:10;
+  gap:3px;
+}
+.module-drag:active{cursor:grabbing;}
+.module-drag span{width:22px;height:2px;background:var(--accent-dim);border-radius:1px;}
+
+/* Module label badge */
+.module-label{
+  position:absolute;top:-9px;left:12px;
+  font-size:8px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-faint);background:var(--bg);padding:0 5px;
+  pointer-events:none;
+}
+
+/* Resize handle — bottom-right corner */
+.module-resize{
+  position:absolute;bottom:0;right:0;width:16px;height:16px;
+  cursor:se-resize;opacity:0;transition:opacity 0.15s;
+  display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;
+}
+.module:hover>.module-resize{opacity:1;}
+.module-resize::before{
+  content:'';display:block;width:6px;height:6px;
+  border-right:2px solid var(--accent-dim);border-bottom:2px solid var(--accent-dim);
+  border-radius:0 0 2px 0;
+}
+
+/* Size badge */
+.size-badge{
+  position:absolute;top:8px;right:10px;
+  font-size:8px;letter-spacing:1px;color:var(--text-faint);
+  opacity:0;transition:opacity 0.15s;
+  background:var(--panel-3);border:1px solid var(--chip-border);
+  padding:1px 5px;border-radius:2px;
+}
+.module:hover .size-badge{opacity:1;}
+
+/* ===== NAV ===== */
+nav.side{
+  grid-area:nav;background:var(--bg-2);border-right:1px solid var(--border);
+  overflow-y:auto;padding:14px 0;
+}
+.nav-group{padding:0 14px;margin-bottom:18px;}
+.nav-lbl{font-size:9px;letter-spacing:1.8px;color:var(--text-faint);text-transform:uppercase;margin-bottom:8px;padding-left:4px;}
+.nav-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px;border-radius:4px;cursor:pointer;color:var(--text-dim);
+  font-size:12px;margin-bottom:2px;transition:background 0.1s,color 0.1s;
+}
+.nav-item:hover{background:var(--panel-3);color:var(--text);}
+.nav-item.active{background:var(--panel-3);color:var(--text);border-left:2px solid var(--accent);padding-left:8px;}
+.nav-item .badge{font-size:10px;color:var(--text-faint);background:var(--chip-bg);padding:1px 6px;border-radius:8px;}
+.nav-item.active .badge{color:var(--accent);}
+.dot-warn{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:6px;flex-shrink:0;}
+
+/* ===== MAIN CANVAS ===== */
+main{
+  grid-area:main;overflow-y:auto;
+  padding:16px 20px 40px;background:var(--bg);
+  position:relative;
+}
+
+/* ===== MARKET CONTEXT STRIP (module) ===== */
+.ctx-strip{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:1px;background:var(--border);border-radius:6px;overflow:hidden;
+  border:1px solid var(--border);margin-bottom:18px;
+}
+.ctx-cell{
+  background:var(--panel);padding:10px 14px;position:relative;cursor:help;
+}
+.ctx-cell:hover{background:var(--panel-2);}
+.ctx-lbl{color:var(--text-faint);font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:4px;}
+.ctx-q{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--text-faint);font-size:8px;}
+.ctx-val{font-size:13px;font-weight:500;}
+.ctx-val .green{color:var(--accent);}
+.ctx-val .red{color:var(--short);}
+.ctx-val .amber{color:var(--warn);}
+.ctx-val .sub{color:var(--text-dim);font-weight:normal;font-size:11px;}
+.regime-pill{display:inline-block;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-weight:600;}
+.regime-green{color:var(--accent);background:rgba(94,227,161,0.12);border:1px solid rgba(94,227,161,0.25);}
+.regime-yellow{color:var(--warn);background:rgba(255,200,87,0.1);border:1px solid rgba(255,200,87,0.25);}
+
+/* Tooltip */
+.tip{
+  position:absolute;top:100%;left:0;margin-top:4px;
+  width:300px;background:var(--panel-2);border:1px solid var(--border);
+  border-radius:6px;padding:12px 14px;box-shadow:var(--shadow);
+  z-index:200;display:none;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+.ctx-cell:hover .tip{display:block;}
+.tip-t{font-size:9px;letter-spacing:1.2px;color:var(--text-faint);text-transform:uppercase;margin-bottom:4px;}
+.tip-def{font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.5;}
+.tip-now{font-size:12px;color:var(--text-dim);margin-bottom:6px;line-height:1.5;}
+.tip-so{font-size:12px;color:var(--accent);line-height:1.5;}
+.tip-so::before{content:"→ ";}
+
+/* ===== PAGE HEAD ===== */
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.page-title{display:flex;align-items:baseline;gap:10px;}
+.page-title h1{font-family:Georgia,serif;font-size:17px;font-weight:500;}
+.page-sub{color:var(--text-faint);font-size:11px;}
+.page-acts{display:flex;gap:6px;}
+.view-tog{display:flex;background:var(--panel-3);border:1px solid var(--border);border-radius:5px;overflow:hidden;}
+.view-tog button{background:none;border:none;color:var(--text-dim);padding:5px 12px;font-family:inherit;font-size:10px;letter-spacing:1px;cursor:pointer;border-right:1px solid var(--border);}
+.view-tog button:last-child{border-right:none;}
+.view-tog button.active{background:var(--panel);color:var(--accent);}
+.act-btn{background:var(--panel-3);border:1px solid var(--border);color:var(--text-dim);padding:5px 12px;border-radius:5px;font-family:inherit;font-size:10px;letter-spacing:1px;cursor:pointer;}
+.act-btn:hover{color:var(--text);}
+
+/* ===== PICKS GRID ===== */
+.picks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-bottom:24px;}
+
+/* Pick card */
+.pick-card{
+  background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  padding:16px;cursor:pointer;transition:border-color 0.12s,transform 0.12s,box-shadow 0.12s;
+  position:relative;
+}
+.pick-card:hover{border-color:var(--accent-dim);transform:translateY(-1px);box-shadow:var(--shadow);}
+.pick-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-dim);}
+
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.card-ticker{display:flex;align-items:baseline;gap:8px;}
+.ticker{font-size:20px;font-weight:600;letter-spacing:0.5px;}
+.direction-tag{font-size:9px;padding:2px 8px;border-radius:3px;letter-spacing:1px;text-transform:uppercase;font-weight:600;}
+.tag-long{color:var(--long);background:rgba(94,227,161,0.12);border:1px solid rgba(94,227,161,0.3);}
+.tag-vol{color:var(--vol);background:rgba(210,166,255,0.1);border:1px solid rgba(210,166,255,0.3);}
+
+.conv-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.conv-dots{display:flex;gap:3px;}
+.conv-dot{width:18px;height:4px;border-radius:2px;background:var(--chip-border);}
+.conv-dot.on{background:var(--accent);}
+.conv-score{font-size:10px;color:var(--text-faint);}
+
+.setup-type{font-size:10px;color:var(--text-dim);letter-spacing:0.3px;margin-bottom:8px;}
+
+.thesis-block{
+  background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;
+  padding:10px 12px;margin-bottom:10px;position:relative;
+}
+.ai-badge{
+  position:absolute;top:8px;right:8px;font-size:8px;color:var(--vol);
+  border:1px solid rgba(210,166,255,0.35);padding:1px 5px;border-radius:2px;letter-spacing:1.5px;
+}
+.thesis-text{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:12.5px;line-height:1.55;color:var(--text-dim);padding-right:36px;
+}
+
+.card-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.meta-entry{font-size:11px;color:var(--text-dim);}
+.meta-entry .val{color:var(--text);}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.chip{
+  font-size:9px;padding:3px 8px;background:var(--chip-bg);border:1px solid var(--chip-border);
+  border-radius:3px;color:var(--text-dim);letter-spacing:0.3px;
+}
+.chip.dormant{color:var(--warn);border-color:rgba(255,200,87,0.35);background:rgba(255,200,87,0.06);}
+.chip.novelty{color:var(--vol);border-color:rgba(210,166,255,0.35);background:rgba(210,166,255,0.06);}
+.chip.align{color:var(--info);border-color:rgba(106,183,255,0.35);background:rgba(106,183,255,0.06);}
+.chip.active-chip{color:var(--accent);border-color:rgba(94,227,161,0.35);background:rgba(94,227,161,0.08);}
+
+.card-actions{display:flex;gap:6px;}
+.card-btn{
+  flex:1;background:var(--panel-3);border:1px solid var(--border);color:var(--text-dim);
+  padding:6px 0;border-radius:4px;font-family:inherit;font-size:9px;letter-spacing:1px;
+  cursor:pointer;text-align:center;
+}
+.card-btn:hover{color:var(--text);border-color:var(--accent-dim);}
+.card-btn.primary{color:var(--accent);border-color:rgba(94,227,161,0.3);}
+
+/* ===== DETAIL PANEL ===== */
+.detail-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  margin-bottom:18px;overflow:hidden;
+}
+.detail-header{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-between;
+}
+.detail-ticker{font-size:26px;font-weight:600;letter-spacing:0.5px;}
+.detail-meta{display:flex;align-items:center;gap:10px;margin-top:4px;}
+.detail-price{font-size:16px;color:var(--text-dim);}
+.detail-change{font-size:13px;color:var(--accent);}
+
+.detail-header-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.detail-conv{display:flex;align-items:center;gap:8px;}
+.detail-conv .dots{display:flex;gap:3px;}
+.detail-conv .dot{width:22px;height:5px;border-radius:3px;background:var(--chip-border);}
+.detail-conv .dot.on{background:var(--accent);}
+
+/* Chart area */
+.chart-area{
+  height:280px;background:var(--bg);position:relative;
+  display:flex;align-items:center;justify-content:center;
+  border-bottom:1px solid var(--border);
+}
+.chart-placeholder{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  color:var(--text-faint);font-size:11px;letter-spacing:0.5px;
+}
+.chart-placeholder .icon{font-size:28px;opacity:0.4;}
+
+/* Fake candlestick chart */
+.fake-chart{position:absolute;inset:0;padding:16px 20px 28px;}
+.chart-tf{
+  position:absolute;top:12px;left:16px;display:flex;gap:0;
+  background:var(--panel-3);border:1px solid var(--border);border-radius:4px;overflow:hidden;
+}
+.chart-tf button{
+  background:none;border:none;color:var(--text-faint);padding:4px 10px;
+  font-family:inherit;font-size:9px;letter-spacing:1px;cursor:pointer;
+  border-right:1px solid var(--border);
+}
+.chart-tf button:last-child{border-right:none;}
+.chart-tf button.active{background:var(--panel);color:var(--text);}
+
+/* GEX levels */
+.gex-level{
+  position:absolute;left:0;right:0;display:flex;align-items:center;gap:8px;
+  padding:0 20px;pointer-events:none;
+}
+.gex-line{flex:1;border-top:1px dashed;}
+.gex-tag{font-size:9px;letter-spacing:0.8px;padding:1px 5px;border-radius:2px;white-space:nowrap;}
+.call-wall{color:var(--accent);border-color:var(--accent-dim);}
+.put-wall{color:var(--short);}
+.gamma-flip{color:var(--warn);}
+
+/* Mini candles (decorative) */
+.candles{
+  position:absolute;bottom:28px;left:20px;right:20px;top:40px;
+  display:flex;align-items:flex-end;gap:3px;
+}
+.candle{display:flex;flex-direction:column;align-items:center;gap:0;flex:1;}
+.candle-body{width:100%;border-radius:1px;min-height:2px;}
+.candle-wick{width:1px;background:var(--text-faint);}
+.bull{background:var(--accent);}
+.bear{background:var(--short);}
+
+/* EMA lines */
+.ema-svg{position:absolute;inset:40px 20px 28px;pointer-events:none;}
+
+/* Factor strip */
+.factor-strip{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:1px;
+  background:var(--border);border-top:1px solid var(--border);
+}
+.f-cell{
+  background:var(--panel);padding:10px 12px;cursor:pointer;position:relative;
+  transition:background 0.1s;
+}
+.f-cell:hover{background:var(--panel-2);}
+.f-cell.firing{border-top:2px solid var(--accent);}
+.f-cell.firing-warn{border-top:2px solid var(--warn);}
+.f-cell.not-firing{border-top:2px solid var(--border);}
+.f-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+.f-value{font-size:12px;font-weight:500;}
+.f-sub{font-size:9px;color:var(--text-faint);margin-top:2px;}
+.f-icon{position:absolute;top:8px;right:8px;font-size:11px;}
+.gate-icon{font-size:9px;padding:1px 4px;border-radius:2px;font-weight:600;}
+.gate-pass{color:var(--accent);background:rgba(94,227,161,0.1);}
+.gate-fail{color:var(--short);background:rgba(255,107,107,0.1);}
+
+/* Detail tabs */
+.detail-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);}
+.d-tab{
+  padding:10px 16px;font-size:11px;letter-spacing:0.5px;cursor:pointer;
+  color:var(--text-dim);border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.d-tab:hover{color:var(--text);}
+.d-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-content{padding:16px 18px;}
+
+/* Dormant bet content */
+.dormant-card{
+  background:var(--panel-2);border:1px solid rgba(255,200,87,0.25);border-radius:6px;
+  padding:14px;margin-bottom:12px;
+}
+.dormant-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.dormant-icon{color:var(--warn);font-size:16px;}
+.dormant-title{font-size:13px;font-weight:500;}
+.dormant-chip{font-size:8px;color:var(--warn);border:1px solid rgba(255,200,87,0.35);background:rgba(255,200,87,0.06);padding:2px 6px;border-radius:2px;letter-spacing:1px;}
+.dormant-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;}
+.d-stat{display:flex;flex-direction:column;gap:2px;}
+.d-stat-lbl{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);}
+.d-stat-val{font-size:13px;font-weight:500;}
+.prob-bar{height:4px;background:var(--chip-border);border-radius:2px;margin-bottom:4px;}
+.prob-fill{height:100%;border-radius:2px;background:var(--warn);}
+.prob-text{font-size:10px;color:var(--text-dim);}
+
+/* ===== CHAT PANEL ===== */
+.chat-panel{
+  grid-area:chat;background:var(--bg-2);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;height:100%;overflow:hidden;
+}
+.chat-head{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.chat-title{font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.ai-live{font-size:8px;color:var(--accent);letter-spacing:1.5px;border:1px solid rgba(94,227,161,0.3);padding:1px 5px;border-radius:2px;}
+.chat-context-chip{
+  font-size:9px;color:var(--vol);background:rgba(210,166,255,0.08);
+  border:1px solid rgba(210,166,255,0.25);border-radius:3px;padding:2px 8px;letter-spacing:0.5px;
+}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;}
+.chat-msg{margin-bottom:16px;}
+.msg-role{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+.msg-text{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:13px;line-height:1.55;color:var(--text);
+}
+.msg-text.ai{color:var(--text-dim);}
+.msg-number{color:var(--accent);font-weight:600;}
+
+.chat-suggestions{padding:0 16px 10px;display:flex;flex-wrap:wrap;gap:6px;}
+.sug-chip{
+  font-size:10px;padding:5px 10px;background:var(--panel);border:1px solid var(--chip-border);
+  border-radius:12px;cursor:pointer;color:var(--text-dim);letter-spacing:0.3px;
+  transition:border-color 0.1s,color 0.1s;
+}
+.sug-chip:hover{border-color:var(--accent-dim);color:var(--text);}
+.sug-chip.context{border-color:rgba(210,166,255,0.3);color:var(--vol);}
+
+.chat-input-wrap{
+  padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;
+}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-input{
+  flex:1;background:var(--panel);border:1px solid var(--border);color:var(--text);
+  padding:9px 12px;border-radius:6px;font-family:inherit;font-size:12px;resize:none;
+  min-height:38px;max-height:120px;line-height:1.4;
+}
+.chat-input:focus{outline:none;border-color:var(--accent);}
+.chat-input::placeholder{color:var(--text-faint);}
+.chat-send{
+  background:var(--accent);border:none;color:#0b0d12;
+  padding:9px 14px;border-radius:6px;font-family:inherit;font-size:11px;
+  cursor:pointer;font-weight:600;letter-spacing:0.5px;white-space:nowrap;
+}
+.chat-send:hover{opacity:0.9;}
+.chat-hint{font-size:9px;color:var(--text-faint);margin-top:6px;letter-spacing:0.3px;}
+
+/* ===== SIGNAL BENCH (collapsed) ===== */
+.bench-section{margin-top:6px;}
+.bench-header{display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;}
+.bench-title{font-size:12px;color:var(--text-dim);}
+.bench-count{font-size:10px;color:var(--text-faint);background:var(--chip-bg);padding:1px 7px;border-radius:8px;}
+.bench-toggle{color:var(--text-faint);font-size:11px;margin-left:auto;}
+
+/* ===== DRAG GHOST ===== */
+.drag-ghost{
+  position:fixed;pointer-events:none;z-index:9999;opacity:0.7;
+  border:2px solid var(--accent);border-radius:8px;background:var(--panel);
+  display:none;
+}
+
+/* ===== DRAG HINT OVERLAY ===== */
+.drag-hint{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+  padding:8px 16px;font-size:10px;color:var(--text-faint);letter-spacing:0.5px;
+  box-shadow:var(--shadow);z-index:500;
+  display:none;
+  gap:14px;
+}
+.drag-hint.visible{display:flex;}
+.hint-key{color:var(--accent);}
+
+/* ===== LAYOUT LABELS (module canvas annotation) ===== */
+.canvas-grid-overlay{
+  position:fixed;inset:56px 340px 0 220px;pointer-events:none;z-index:0;
+  display:none;
+}
+.canvas-grid-overlay.visible{display:block;}
+.grid-col{
+  position:absolute;top:0;bottom:0;border-left:1px dashed rgba(94,227,161,0.08);
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes stream{0%{opacity:0.3}100%{opacity:1}}
+.streaming::after{content:'▋';animation:stream 0.6s infinite alternate;color:var(--accent);}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--text-faint);}
+</style>
+</head>
+<body>
+
+<!-- DRAG GHOST -->
+<div class="drag-ghost" id="dragGhost"></div>
+
+<!-- ===== SHELL ===== -->
+<div class="shell">
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="brand">
+    <div class="brand-mark">Eigen<span>View</span></div>
+    <div class="brand-tag">Options Intelligence</div>
+  </div>
+
+  <div class="head-center">
+    <div class="search-wrap">
+      <input class="search" type="text" placeholder="Search ticker, factor, thesis… (Ctrl+K)"/>
+    </div>
+  </div>
+
+  <div class="head-right">
+    <div class="scan-time">Scan 08:02 ET <span class="ok">✓ 5 picks</span></div>
+
+    <div class="tpl-switcher">
+      <button class="tpl-btn active" onclick="setTpl(this,'standard')">STANDARD</button>
+      <button class="tpl-btn" onclick="setTpl(this,'minimal')">MINIMAL</button>
+      <button class="tpl-btn" onclick="setTpl(this,'pro')">PRO</button>
+      <button class="tpl-btn" onclick="setTpl(this,'focus')">FOCUS</button>
+      <button class="tpl-btn" onclick="setTpl(this,'custom')">+ CUSTOM</button>
+    </div>
+
+    <button class="theme-btn" onclick="toggleTheme()">☾ DARK</button>
+  </div>
+</header>
+
+<!-- ===== NAV ===== -->
+<nav class="side">
+  <div class="nav-group">
+    <div class="nav-lbl">Today</div>
+    <div class="nav-item active" onclick="selectNav(this)">
+      Today's Picks <span class="badge">5</span>
+    </div>
+    <div class="nav-item" onclick="selectNav(this)">
+      <span><span class="dot-warn"></span>Dormant Firing</span>
+      <span class="badge">2</span>
+    </div>
+    <div class="nav-item" onclick="selectNav(this)">
+      Signal Bench <span class="badge">11</span>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">Categories</div>
+    <div class="nav-item" onclick="selectNav(this)">Breakouts <span class="badge">2</span></div>
+    <div class="nav-item" onclick="selectNav(this)">Pullbacks <span class="badge">1</span></div>
+    <div class="nav-item" onclick="selectNav(this)">Compression <span class="badge">1</span></div>
+    <div class="nav-item" onclick="selectNav(this)">Earnings Plays <span class="badge">1</span></div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">Workflow</div>
+    <div class="nav-item" onclick="selectNav(this)">⭐ My List <span class="badge">0</span></div>
+    <div class="nav-item" onclick="selectNav(this)">Closed Picks <span class="badge">14</span></div>
+    <div class="nav-item" onclick="selectNav(this)">⟁ Alerts <span class="badge">0</span></div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-lbl">Canvas</div>
+    <div class="nav-item" onclick="toggleDragMode()">⊞ Edit Layout</div>
+    <div class="nav-item" onclick="selectNav(this)">⚙ Settings</div>
+  </div>
+</nav>
+
+<!-- ===== MAIN CANVAS ===== -->
+<main id="mainCanvas">
+
+  <!-- MODULE: market-context -->
+  <div class="module" id="mod-context" style="margin-bottom:18px;">
+    <div class="module-drag" id="drag-context" title="Drag to move"><span></span><span></span><span></span></div>
+    <span class="module-label">market-context · M</span>
+    <span class="size-badge">M</span>
+    <div class="module-resize"></div>
+
+    <div class="ctx-strip">
+      <div class="ctx-cell">
+        <div class="ctx-lbl">Macro Regime <span class="ctx-q">?</span></div>
+        <div class="ctx-val"><span class="regime-pill regime-green">GREEN</span> <span class="sub">8/10</span></div>
+        <div class="tip">
+          <div class="tip-t">Macro Regime Gate</div>
+          <div class="tip-def">Gate 0: scores 4 macro signals (SPX GEX, VIX term structure, DIX dark pool index, breadth) on a 0–10 scale. ≥7 = GREEN.</div>
+          <div class="tip-now">Score 8/10: positive GEX (+3), dark pool buying above 43% (+3), VIX below 20 (+2). VIX term structure flat (0).</div>
+          <div class="tip-so">Macro conditions favor long picks. Full screener running.</div>
+        </div>
+      </div>
+      <div class="ctx-cell">
+        <div class="ctx-lbl">SPX GEX <span class="ctx-q">?</span></div>
+        <div class="ctx-val"><span class="green">+$2.4B</span> <span class="sub">long γ</span></div>
+        <div class="tip">
+          <div class="tip-t">SPX Gamma Exposure</div>
+          <div class="tip-def">Net dealer gamma on SPX options. Positive = dealers long gamma, which suppresses index volatility. Negative = short gamma, amplifies moves.</div>
+          <div class="tip-now">+$2.4B. Dealers long gamma — market maker hedging tends to dampen SPX moves today.</div>
+          <div class="tip-so">Volatility suppressed at index level, but individual stocks can still make sharp moves.</div>
+        </div>
+      </div>
+      <div class="ctx-cell">
+        <div class="ctx-lbl">VIX Term <span class="ctx-q">?</span></div>
+        <div class="ctx-val"><span class="green">Contango</span> <span class="sub">+3.2%</span></div>
+        <div class="tip">
+          <div class="tip-t">VIX Term Structure</div>
+          <div class="tip-def">Spread between VIX M1 (front month) and M2 (second month). Contango (M2 > M1) = calm. Backwardation (M2 &lt; M1) = fear premium in the front.</div>
+          <div class="tip-now">M1 = 17.8, M2 = 18.4. Contango +3.2% — normal, calm regime.</div>
+          <div class="tip-so">No near-term fear. Favorable for long vol plays.</div>
+        </div>
+      </div>
+      <div class="ctx-cell">
+        <div class="ctx-lbl">DIX <span class="ctx-q">?</span></div>
+        <div class="ctx-val"><span class="green">44.2%</span> <span class="sub">▲ bullish</span></div>
+        <div class="tip">
+          <div class="tip-t">Dark Pool Index (DIX)</div>
+          <div class="tip-def">SqueezeMetrics measure of dark pool buying as % of total volume. >43% = institutional buying pressure. Lower = risk-off.</div>
+          <div class="tip-now">44.2% — above the 43% bullish threshold.</div>
+          <div class="tip-so">Dark pool buyers active. Historically bullish for equities over 1–2 week horizon.</div>
+        </div>
+      </div>
+      <div class="ctx-cell">
+        <div class="ctx-lbl">VIX <span class="ctx-q">?</span></div>
+        <div class="ctx-val">17.8 <span class="sub">-1.2</span></div>
+        <div class="tip">
+          <div class="tip-t">CBOE VIX (Spot)</div>
+          <div class="tip-def">30-day implied volatility of SPX options. Below 20 = low vol regime. Above 30 = elevated fear.</div>
+          <div class="tip-now">17.8 and falling. Low volatility regime — options cheaper on index level.</div>
+          <div class="tip-so">Favorable for buying options on individual names with catalysts.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE: pick-cards (feed) -->
+  <div class="module" id="mod-picks" style="margin-bottom:18px;">
+    <div class="module-drag" title="Drag to move"><span></span><span></span><span></span></div>
+    <span class="module-label">pick-cards · L</span>
+    <span class="size-badge">L</span>
+    <div class="module-resize"></div>
+
+    <div style="padding:14px 16px 12px;">
+      <div class="page-head">
+        <div class="page-title">
+          <h1>Today's Picks</h1>
+          <span class="page-sub">Tue Apr 29 · 5 qualified · scan 08:02 ET</span>
+        </div>
+        <div class="page-acts">
+          <div class="view-tog">
+            <button class="active">CARDS</button>
+            <button>LIST</button>
+            <button>TABLE</button>
+          </div>
+          <button class="act-btn">↻ REFRESH</button>
+        </div>
+      </div>
+
+      <div class="picks-grid">
+
+        <!-- Pick 1: NVDA -->
+        <div class="pick-card selected" onclick="selectPick('NVDA',this)">
+          <div class="card-top">
+            <div class="card-ticker">
+              <span class="ticker">NVDA</span>
+              <span class="direction-tag tag-long">LONG</span>
+            </div>
+            <div class="conv-wrap">
+              <div class="conv-dots">
+                <div class="conv-dot on"></div><div class="conv-dot on"></div>
+                <div class="conv-dot on"></div><div class="conv-dot on"></div>
+                <div class="conv-dot on"></div>
+              </div>
+              <div class="conv-score">5/5 · hit: 74%</div>
+            </div>
+          </div>
+          <div class="setup-type">Breakout + Dormant Activation</div>
+          <div class="thesis-block">
+            <span class="ai-badge">◆ AI</span>
+            <div class="thesis-text">NVDA breaks 20-day high on 1.8× avg volume with short gamma regime (net GEX -$1.2B) amplifying moves. A $1.4M call block at $920 strike opened 47 days ago shows 72% activation probability — OI held, earnings in 6 days. Stop at swing low $872.</div>
+          </div>
+          <div class="card-meta">
+            <span class="meta-entry">Entry <span class="val">$894–$901</span></span>
+            <span class="meta-entry">Stop <span class="val">$872</span></span>
+            <span class="meta-entry">IV Rank <span class="val">34</span></span>
+          </div>
+          <div class="chip-row">
+            <span class="chip active-chip">✓ TA</span>
+            <span class="chip active-chip">✓ GEX</span>
+            <span class="chip active-chip">✓ FLOW</span>
+            <span class="chip dormant">◈ DORMANT 72%</span>
+            <span class="chip novelty">● NOVELTY +2.1σ</span>
+          </div>
+          <div class="card-actions">
+            <button class="card-btn primary">DETAIL →</button>
+            <button class="card-btn">ASK AI</button>
+            <button class="card-btn">⭐</button>
+            <button class="card-btn">⟁</button>
+          </div>
+        </div>
+
+        <!-- Pick 2: META -->
+        <div class="pick-card" onclick="selectPick('META',this)">
+          <div class="card-top">
+            <div class="card-ticker">
+              <span class="ticker">META</span>
+              <span class="direction-tag tag-long">LONG</span>
+            </div>
+            <div class="conv-wrap">
+              <div class="conv-dots">
+                <div class="conv-dot on"></div><div class="conv-dot on"></div>
+                <div class="conv-dot on"></div><div class="conv-dot on"></div>
+                <div class="conv-dot"></div>
+              </div>
+              <div class="conv-score">4/5 · hit: 68%</div>
+            </div>
+          </div>
+          <div class="setup-type">Pullback in Trend</div>
+          <div class="thesis-block">
+            <span class="ai-badge">◆ AI</span>
+            <div class="thesis-text">META pulls back to EMA-21 ($478) after breakout, RSI at 47 — reloading spot. Call flow $820K at $520 strike (V/OI 4.2×) opened fresh. Thesis fails below $468 (weekly trend support).</div>
+          </div>
+          <div class="card-meta">
+            <span class="meta-entry">Entry <span class="val">$476–$482</span></span>
+            <span class="meta-entry">Stop <span class="val">$468</span></span>
+            <span class="meta-entry">IV Rank <span class="val">28</span></span>
+          </div>
+          <div class="chip-row">
+            <span class="chip active-chip">✓ TA</span>
+            <span class="chip active-chip">✓ GEX</span>
+            <span class="chip active-chip">✓ FLOW</span>
+            <span class="chip align">◉ CATALYST 8d</span>
+          </div>
+          <div class="card-actions">
+            <button class="card-btn primary">DETAIL →</button>
+            <button class="card-btn">ASK AI</button>
+            <button class="card-btn">⭐</button>
+            <button class="card-btn">⟁</button>
+          </div>
+        </div>
+
+        <!-- Pick 3: AMD -->
+        <div class="pick-card" onclick="selectPick('AMD',this)">
+          <div class="card-top">
+            <div class="card-ticker">
+              <span class="ticker">AMD</span>
+              <span class="direction-tag tag-vol">VOL</span>
+            </div>
+            <div class="conv-wrap">
+              <div class="conv-dots">
+                <div class="conv-dot on"></div><div class="conv-dot on"></div>
+                <div class="conv-dot on"></div><div class="conv-dot"></div>
+                <div class="conv-dot"></div>
+              </div>
+              <div class="conv-score">3/5 · hit: 61%</div>
+            </div>
+          </div>
+          <div class="setup-type">Compression Break</div>
+          <div class="thesis-block">
+            <span class="ai-badge">◆ AI</span>
+            <div class="thesis-text">AMD compressing below BB upper ($162) for 5 sessions, ATR contraction 35% vs 20-day avg. Gamma flip at $158 — break above triggers dealer hedging cascade. Earnings in 4 days adds catalyst urgency.</div>
+          </div>
+          <div class="card-meta">
+            <span class="meta-entry">Entry <span class="val">$158–$161</span></span>
+            <span class="meta-entry">Stop <span class="val">$152</span></span>
+            <span class="meta-entry">IV Rank <span class="val">52</span></span>
+          </div>
+          <div class="chip-row">
+            <span class="chip active-chip">✓ TA</span>
+            <span class="chip active-chip">✓ GEX</span>
+            <span class="chip novelty">● NOVELTY +1.8σ</span>
+            <span class="chip align">◉ EARNINGS 4d</span>
+          </div>
+          <div class="card-actions">
+            <button class="card-btn primary">DETAIL →</button>
+            <button class="card-btn">ASK AI</button>
+            <button class="card-btn">⭐</button>
+            <button class="card-btn">⟁</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULE: detail panel (NVDA selected) -->
+  <div class="module" id="mod-detail" style="margin-bottom:18px;">
+    <div class="module-drag" title="Drag to move"><span></span><span></span><span></span></div>
+    <span class="module-label">detail-combo · XL</span>
+    <span class="size-badge">XL</span>
+    <div class="module-resize"></div>
+
+    <div class="detail-header">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:12px;">
+          <div class="detail-ticker">NVDA</div>
+          <span class="direction-tag tag-long">LONG</span>
+          <span class="chip dormant" style="font-size:9px;">◈ DORMANT FIRING</span>
+        </div>
+        <div class="detail-meta">
+          <span class="detail-price">$897.42</span>
+          <span class="detail-change">+$12.80 (+1.45%)</span>
+          <span style="color:var(--text-faint);font-size:11px;">· Breakout + Dormant Activation</span>
+        </div>
+      </div>
+      <div class="detail-header-right">
+        <div class="detail-conv">
+          <span style="font-size:10px;color:var(--text-faint);">Conviction</span>
+          <div class="dots">
+            <div class="dot on"></div><div class="dot on"></div><div class="dot on"></div>
+            <div class="dot on"></div><div class="dot on"></div>
+          </div>
+          <span style="font-size:11px;color:var(--accent);">5/5</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="act-btn">⭐ PIN</button>
+          <button class="act-btn">⟁ ALERT</button>
+          <button class="act-btn" style="color:var(--short);">✗ CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-area">
+      <div class="fake-chart">
+        <!-- Candles (decorative) -->
+        <div class="candles" id="candleArea"></div>
+
+        <!-- GEX levels -->
+        <div class="gex-level" style="top:22%;">
+          <div class="gex-line" style="border-color:rgba(94,227,161,0.4);"></div>
+          <div class="gex-tag call-wall">CALL WALL $920</div>
+        </div>
+        <div class="gex-level" style="top:48%;">
+          <div class="gex-line" style="border-color:rgba(255,200,87,0.5);"></div>
+          <div class="gex-tag gamma-flip">γ FLIP $885</div>
+        </div>
+        <div class="gex-level" style="top:72%;">
+          <div class="gex-line" style="border-color:rgba(255,107,107,0.4);"></div>
+          <div class="gex-tag put-wall">PUT WALL $850</div>
+        </div>
+      </div>
+
+      <div class="chart-tf">
+        <button class="active">1D</button>
+        <button>1H</button>
+        <button>1W</button>
+      </div>
+
+      <div style="position:absolute;bottom:8px;right:14px;font-size:9px;color:var(--text-faint);letter-spacing:0.5px;">
+        TradingView Lightweight Charts · GEX walls overlay
+      </div>
+    </div>
+
+    <!-- Factor strip -->
+    <div class="factor-strip" id="factorStrip">
+      <div class="f-cell firing" onclick="factorClick('macro_regime',this)">
+        <div class="f-label">Macro Gate 0</div>
+        <div class="f-value" style="color:var(--accent);">GREEN</div>
+        <div class="f-sub">8/10 score</div>
+        <div class="f-icon"><span class="gate-icon gate-pass">✓ GATE</span></div>
+      </div>
+      <div class="f-cell firing" onclick="factorClick('technical',this)">
+        <div class="f-label">Technical Gate 1</div>
+        <div class="f-value" style="color:var(--accent);">breakout</div>
+        <div class="f-sub">80% conf · bullish</div>
+        <div class="f-icon"><span class="gate-icon gate-pass">✓ GATE</span></div>
+      </div>
+      <div class="f-cell firing" onclick="factorClick('gex',this)">
+        <div class="f-label">GEX Gate 2</div>
+        <div class="f-value" style="color:var(--short);">short_γ</div>
+        <div class="f-sub">-$1.2B net · flip $885</div>
+        <div class="f-icon"><span class="gate-icon gate-pass">✓ GATE</span></div>
+      </div>
+      <div class="f-cell firing" onclick="factorClick('flow',this)">
+        <div class="f-label">Flow Factor 1</div>
+        <div class="f-value" style="color:var(--accent);">calls</div>
+        <div class="f-sub">$1.4M sweep · VOI 4.8×</div>
+      </div>
+      <div class="f-cell firing-warn" onclick="factorClick('dormant',this)">
+        <div class="f-label">Dormant Factor 2</div>
+        <div class="f-value" style="color:var(--warn);">ACTIVE 72%</div>
+        <div class="f-sub">$920C · 47d old · 6d cat</div>
+      </div>
+      <div class="f-cell firing" onclick="factorClick('sentiment',this)">
+        <div class="f-label">Sentiment Factor 3</div>
+        <div class="f-value" style="color:var(--accent);">bullish</div>
+        <div class="f-sub">novelty +2.1σ · 5 articles</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="detail-tabs">
+      <div class="d-tab active" onclick="selectTab(this,'dormant')">◈ DORMANT BET</div>
+      <div class="d-tab" onclick="selectTab(this,'news')">NEWS</div>
+      <div class="d-tab" onclick="selectTab(this,'structure')">STRUCTURE</div>
+      <div class="d-tab" onclick="selectTab(this,'history')">HISTORY</div>
+    </div>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="tabContent">
+      <div class="dormant-card">
+        <div class="dormant-head">
+          <span class="dormant-icon">◈</span>
+          <span class="dormant-title">$920 Call — 47 days old</span>
+          <span class="dormant-chip">ACTIVATING</span>
+        </div>
+        <div class="dormant-grid">
+          <div class="d-stat">
+            <div class="d-stat-lbl">Original Premium</div>
+            <div class="d-stat-val" style="color:var(--warn);">$1,420,000</div>
+          </div>
+          <div class="d-stat">
+            <div class="d-stat-lbl">Expiry</div>
+            <div class="d-stat-val">May 16 (17d)</div>
+          </div>
+          <div class="d-stat">
+            <div class="d-stat-lbl">OI Change</div>
+            <div class="d-stat-val" style="color:var(--accent);">+14.2%</div>
+          </div>
+          <div class="d-stat">
+            <div class="d-stat-lbl">Strike vs Spot</div>
+            <div class="d-stat-val">$920 / $897 (+2.6%)</div>
+          </div>
+          <div class="d-stat">
+            <div class="d-stat-lbl">Catalyst</div>
+            <div class="d-stat-val" style="color:var(--warn);">Earnings 6d</div>
+          </div>
+          <div class="d-stat">
+            <div class="d-stat-lbl">Flow Today</div>
+            <div class="d-stat-val" style="color:var(--accent);">Aligned ✓</div>
+          </div>
+        </div>
+        <div class="prob-bar"><div class="prob-fill" style="width:72%;"></div></div>
+        <div class="prob-text">Activation probability: <strong style="color:var(--warn);">72%</strong> · OI growing, catalyst proximate, spot approaching strike, today's flow aligned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal bench (collapsed) -->
+  <div class="bench-section">
+    <div class="bench-header" onclick="toggleBench()">
+      <span style="font-size:11px;color:var(--text-faint);">SIGNAL BENCH</span>
+      <span class="bench-count">11 partial fires</span>
+      <span class="bench-toggle" id="benchToggle">▶</span>
+    </div>
+    <div id="benchContent" style="display:none;">
+      <div style="padding:10px 0;font-size:11px;color:var(--text-faint);font-style:italic;">
+        Tickers that passed TA+GEX but missed 2-of-3 soft factors. Watch for rotation.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== CHAT PANEL ===== -->
+<div class="chat-panel">
+  <div class="chat-head">
+    <div class="chat-title">
+      EigenView AI <span class="ai-live">LIVE</span>
+    </div>
+    <div class="chat-context-chip">◉ NVDA selected</div>
+  </div>
+
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-msg">
+      <div class="msg-role">EigenView</div>
+      <div class="msg-text ai">I'm reading NVDA alongside you. All 5 factors firing — highest conviction pick today. The dormant bet is the differentiator here: a <span class="msg-number">$1.4M</span> call block from <span class="msg-number">47 days ago</span> is showing <span class="msg-number">72%</span> activation probability with earnings in 6 days.</div>
+    </div>
+    <div class="chat-msg">
+      <div class="msg-role">You</div>
+      <div class="msg-text">What would kill this thesis?</div>
+    </div>
+    <div class="chat-msg">
+      <div class="msg-role">EigenView</div>
+      <div class="msg-text ai">Three things: (1) Close below <span class="msg-number">$872</span> — that's the swing low and the stop. Reclaiming gamma flip <span class="msg-number">$885</span> matters too. (2) GEX flipping positive above <span class="msg-number">+$500M</span> would suppress moves, making the options play less efficient. (3) OI collapsing on the $920 call block before earnings — would mean the smart money exited. I'd watch chain OI daily.</div>
+    </div>
+  </div>
+
+  <div class="chat-suggestions">
+    <span class="sug-chip context" onclick="sendSuggestion(this)">Why is GEX firing?</span>
+    <span class="sug-chip context" onclick="sendSuggestion(this)">Compare to META</span>
+    <span class="sug-chip context" onclick="sendSuggestion(this)">Explain dormant bet</span>
+    <span class="sug-chip" onclick="sendSuggestion(this)">Brief me on today</span>
+    <span class="sug-chip" onclick="sendSuggestion(this)">Show only dormant fires</span>
+  </div>
+
+  <div class="chat-input-wrap">
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Ask about NVDA… (press / to focus)" rows="1"
+        onkeydown="chatKeydown(event)"></textarea>
+      <button class="chat-send" onclick="sendChat()">SEND</button>
+    </div>
+    <div class="chat-hint">/ focus · Shift+Enter newline · Esc clear</div>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<!-- Drag mode hint -->
+<div class="drag-hint" id="dragHint">
+  <span><span class="hint-key">DRAG</span> panel headers to reposition</span>
+  <span><span class="hint-key">⊞</span> corner handle to resize</span>
+  <span><span class="hint-key">ESC</span> exit edit mode</span>
+</div>
+
+<script>
+// ===== THEME TOGGLE =====
+const themeBtn = document.querySelector('.theme-btn');
+function toggleTheme() {
+  const html = document.documentElement;
+  const dark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', dark ? 'light' : 'dark');
+  themeBtn.textContent = dark ? '☀ LIGHT' : '☾ DARK';
+}
+document.addEventListener('keydown', e => { if (e.key === 'T' && !inputFocused()) toggleTheme(); });
+
+// ===== TEMPLATE SWITCHER =====
+function setTpl(btn, name) {
+  document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'custom') toggleDragMode();
+}
+
+// ===== NAV =====
+function selectNav(el) {
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ===== PICK SELECTION =====
+function selectPick(ticker, card) {
+  document.querySelectorAll('.pick-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  document.querySelector('.detail-ticker').textContent = ticker;
+  document.querySelector('.chat-context-chip').textContent = '◉ ' + ticker + ' selected';
+  scrollDetailIntoView();
+}
+function scrollDetailIntoView() {
+  document.getElementById('mod-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ===== FACTOR CLICK → PREFILL CHAT =====
+function factorClick(factorId, cell) {
+  // Highlight
+  document.querySelectorAll('.f-cell').forEach(c => c.style.background = '');
+  cell.style.background = 'var(--panel-3)';
+  // Prefill chat
+  const ticker = document.querySelector('.detail-ticker').textContent;
+  const labels = {
+    macro_regime:'the Macro Regime Gate',
+    technical:'Technical Analysis',
+    gex:'GEX (Gamma Exposure)',
+    flow:'Options Flow',
+    dormant:'the Dormant Bet radar',
+    sentiment:'Sentiment/Novelty'
+  };
+  const input = document.getElementById('chatInput');
+  input.value = `Why is ${labels[factorId]||factorId} firing on ${ticker}?`;
+  input.focus();
+}
+
+// ===== TABS =====
+function selectTab(btn, name) {
+  document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const content = document.getElementById('tabContent');
+  const tabs = {
+    dormant: dormantContent,
+    news: newsContent,
+    structure: structureContent,
+    history: historyContent
+  };
+  content.innerHTML = (tabs[name] || tabs.dormant)();
+}
+const dormantContent = () => `
+  <div class="dormant-card">
+    <div class="dormant-head"><span class="dormant-icon">◈</span><span class="dormant-title">$920 Call — 47 days old</span><span class="dormant-chip">ACTIVATING</span></div>
+    <div class="dormant-grid">
+      <div class="d-stat"><div class="d-stat-lbl">Original Premium</div><div class="d-stat-val" style="color:var(--warn);">$1,420,000</div></div>
+      <div class="d-stat"><div class="d-stat-lbl">Expiry</div><div class="d-stat-val">May 16 (17d)</div></div>
+      <div class="d-stat"><div class="d-stat-lbl">OI Change</div><div class="d-stat-val" style="color:var(--accent);">+14.2%</div></div>
+      <div class="d-stat"><div class="d-stat-lbl">Strike vs Spot</div><div class="d-stat-val">$920 / $897 (+2.6%)</div></div>
+      <div class="d-stat"><div class="d-stat-lbl">Catalyst</div><div class="d-stat-val" style="color:var(--warn);">Earnings 6d</div></div>
+      <div class="d-stat"><div class="d-stat-lbl">Flow Today</div><div class="d-stat-val" style="color:var(--accent);">Aligned ✓</div></div>
+    </div>
+    <div class="prob-bar"><div class="prob-fill" style="width:72%;"></div></div>
+    <div class="prob-text">Activation probability: <strong style="color:var(--warn);">72%</strong></div>
+  </div>`;
+const newsContent = () => `
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    ${[{h:'NVDA Posts Record Data Center Revenue, Beats by $2.1B',s:'MATERIAL',z:'+2.1σ',t:'2h ago',b:true},
+       {h:'Jensen Huang: "AI demand exceeds any forecast we\'ve seen"',s:'MATERIAL',z:'+1.8σ',t:'3h ago',b:true},
+       {h:'Bernstein raises NVDA PT to $1,050',s:'NOISE',z:'0.3σ',t:'5h ago',b:false}]
+    .map(n=>`<div style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="font-size:9px;padding:1px 5px;border-radius:2px;${n.b?'color:var(--accent);background:rgba(94,227,161,0.1);border:1px solid rgba(94,227,161,0.25)':'color:var(--text-faint);background:var(--chip-bg);border:1px solid var(--chip-border)'}">${n.s}</span>
+        <span style="font-size:9px;color:var(--vol);">novelty ${n.z}</span>
+        <span style="font-size:9px;color:var(--text-faint);margin-left:auto;">${n.t}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text);line-height:1.4;">${n.h}</div>
+    </div>`).join('')}
+  </div>`;
+const structureContent = () => `
+  <div style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span class="ai-badge" style="position:static;">◆ AI</span><span style="font-size:12px;font-weight:500;">Suggested Structure</span></div>
+    <div style="font-family:-apple-system,sans-serif;font-size:13px;color:var(--text-dim);line-height:1.6;">
+      <strong style="color:var(--text);">Bull Call Spread</strong> — Buy May 16 $900C / Sell $930C<br>
+      Max gain: $3,000 per spread at $930+. Max loss: premium paid (~$800).<br>
+      IV rank 34 → buying spreads more efficient than naked calls here.
+    </div>
+    <div style="margin-top:10px;display:flex;gap:12px;font-size:11px;">
+      <span>Trigger: <strong style="color:var(--accent);">close above $901</strong></span>
+      <span>Invalid: <strong style="color:var(--short);">close below $872</strong></span>
+    </div>
+  </div>`;
+const historyContent = () => `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    ${[{l:'Breakout pattern on NVDA',h:'11/18',n:18,d:'6 months'},
+       {l:'Dormant+TA combo (all tickers)',h:'14/22',n:22,d:'90 days'},
+       {l:'Short gamma + breakout',h:'8/13',n:13,d:'90 days'},
+       {l:'NVDA any setup',h:'19/26',n:26,d:'6 months'}]
+    .map(r=>`<div style="background:var(--panel-2);border:1px solid var(--border-soft);border-radius:5px;padding:12px;">
+      <div style="font-size:10px;color:var(--text-faint);margin-bottom:6px;">${r.l}</div>
+      <div style="font-size:18px;font-weight:600;color:var(--accent);margin-bottom:2px;">${r.h}</div>
+      <div style="font-size:10px;color:var(--text-dim);">${r.n} trades · ${r.d}</div>
+    </div>`).join('')}
+  </div>`;
+
+// ===== CHAT =====
+const responses = {
+  'Why is GEX (Gamma Exposure) firing on NVDA?': 'Net dealer GEX on NVDA is -$1.2B (short gamma). Dealers hedging puts are forced to sell as price falls and buy as it rises — this amplifies intraday moves. The gamma flip at $885 is 1.4% below current price: if NVDA breaches $885, dealer flows could accelerate the move. Short gamma = good options trading environment.',
+  'Why is Technical Analysis firing on NVDA?': 'Breakout pattern at 80% confidence. NVDA closed above its 20-day high today on 1.8× average volume — both conditions required. EMA-21 ($882) > EMA-50 ($861), ADX at 31 (strong trend). RSI at 62 — not overbought. Stop at swing low $872.',
+  'Why is the Dormant Bet radar firing on NVDA?': 'A $1.42M call block at the $920 strike was opened 47 days ago (when NVDA was near $851). It scores 72% activation probability from 4 of 6 signals: OI +14.2% (growing, not closing), earnings in 6 days (catalyst proximate), spot within 2.6% of strike, and today\'s call flow aligned. The remaining two signals (IV rank and sector GEX) contribute smaller weights.',
+  'default': 'I can see NVDA has all 5 factors firing. The dormant bet is unusual — 72% activation is in the top 15% of historical readings. With earnings in 6 days, the positioning aligns well. IV rank at 34 means you\'re not overpaying for options. Ask me anything specific about the setup.'
+};
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+  addMsg('You', q, false);
+  input.value = '';
+  input.style.height = '';
+  setTimeout(() => {
+    const r = responses[q] || responses['default'];
+    addMsg('EigenView', r, true);
+  }, 600);
+}
+function sendSuggestion(el) {
+  document.getElementById('chatInput').value = el.textContent;
+  sendChat();
+}
+function addMsg(role, text, isAi) {
+  const msgs = document.getElementById('chatMsgs');
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = `<div class="msg-role">${role}</div><div class="msg-text ${isAi?'ai streaming':''}">${text}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  if (isAi) setTimeout(() => div.querySelector('.msg-text').classList.remove('streaming'), 1200);
+}
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  if (e.key === 'Escape') { e.target.value=''; e.target.blur(); }
+  // Auto-resize
+  e.target.style.height='';
+  e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';
+}
+document.addEventListener('keydown', e => {
+  if (e.key==='/' && !inputFocused()) { e.preventDefault(); document.getElementById('chatInput').focus(); }
+  if (e.key==='Escape') { document.getElementById('chatInput').value=''; }
+  if (e.key==='k' && (e.ctrlKey||e.metaKey)) { e.preventDefault(); document.querySelector('.search').focus(); }
+});
+function inputFocused() { return document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName); }
+
+// ===== DRAG MODE =====
+let dragMode = false;
+function toggleDragMode() {
+  dragMode = !dragMode;
+  const hint = document.getElementById('dragHint');
+  hint.classList.toggle('visible', dragMode);
+  document.querySelectorAll('.module-drag').forEach(h => {
+    h.style.opacity = dragMode ? '1' : '';
+  });
+  document.querySelectorAll('.module-resize').forEach(r => {
+    r.style.opacity = dragMode ? '1' : '';
+  });
+  if (!dragMode) {
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('dragging','drop-target'));
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && dragMode) toggleDragMode(); });
+
+// Basic drag on handle
+let dragging = null, dragOffX = 0, dragOffY = 0;
+document.querySelectorAll('.module-drag').forEach(handle => {
+  handle.addEventListener('pointerdown', e => {
+    if (!dragMode) return;
+    e.preventDefault();
+    const mod = handle.closest('.module');
+    dragging = mod;
+    const rect = mod.getBoundingClientRect();
+    dragOffX = e.clientX - rect.left;
+    dragOffY = e.clientY - rect.top;
+    mod.classList.add('dragging');
+    mod.style.position = 'relative';
+  });
+});
+document.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  // Visual-only in mock — just show dragging state
+});
+document.addEventListener('pointerup', () => {
+  if (dragging) {
+    dragging.classList.remove('dragging');
+    dragging = null;
+  }
+});
+
+// ===== FAKE CANDLES =====
+function buildCandles() {
+  const area = document.getElementById('candleArea');
+  if (!area) return;
+  const prices = [100,102,101,105,104,107,103,108,110,109,112,111,114,113,116,118,115,117,119,120,118,122,121,124,123,126,125,128,127,130];
+  area.innerHTML = prices.map((p,i) => {
+    const prev = prices[i-1]||p;
+    const bull = p >= prev;
+    const bodyH = Math.max(2, Math.abs(p-prev)*3);
+    const wickH = Math.random()*12+4;
+    return `<div class="candle">
+      <div class="candle-wick" style="height:${wickH/2}px;"></div>
+      <div class="candle-body ${bull?'bull':'bear'}" style="height:${bodyH}px;"></div>
+      <div class="candle-wick" style="height:${wickH/2}px;"></div>
+    </div>`;
+  }).join('');
+}
+buildCandles();
+
+// ===== BENCH TOGGLE =====
+function toggleBench() {
+  const c = document.getElementById('benchContent');
+  const t = document.getElementById('benchToggle');
+  const open = c.style.display !== 'none';
+  c.style.display = open ? 'none' : 'block';
+  t.textContent = open ? '▶' : '▼';
+}
+</script>
+</body>
+</html>

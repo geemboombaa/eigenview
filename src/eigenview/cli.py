@@ -163,6 +163,20 @@ def daily_scan(
     asyncio.run(_run())
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind host"),
+    port: int = typer.Option(8000, help="Bind port"),
+    reload: bool = typer.Option(False, help="Auto-reload on file changes"),
+) -> None:
+    """Start EigenView dashboard server."""
+    import uvicorn
+
+    typer.echo(f"EigenView starting at http://{host}:{port}")
+    typer.echo("Press Ctrl+C to stop.")
+    uvicorn.run("eigenview.api.main:app", host=host, port=port, reload=reload)
+
+
 @app.command(name="init-db")
 def init_db() -> None:
     """Create all DB tables if they don't exist."""

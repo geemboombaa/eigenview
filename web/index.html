@@ -1,19 +1,83 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>EigenView — Daily Options Intelligence</title>
-<!-- Phase 4: this file will be wired to FastAPI endpoints -->
-<!-- For now: static wireframe shell from wireframe-v2 -->
-<script>
-  // Redirect to wireframe for visual reference until Phase 4
-  // In Phase 4, replace this entire file with the wired version
-</script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EigenView — Daily Options Intelligence</title>
+  <link rel="stylesheet" href="css/themes.css"/>
+  <link rel="stylesheet" href="css/components.css"/>
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
-<p style="font-family:monospace;padding:20px;color:#5ee3a1;background:#0b0d12;min-height:100vh;margin:0">
-  EigenView — Phase 0 scaffold complete. API wiring begins in Phase 4.
-</p>
+<div id="ev-shell">
+  <header id="ev-header">
+    <div class="brand">
+      <span class="brand-mark">Eigen<em>View</em></span>
+      <span class="brand-tag">Options Intelligence</span>
+    </div>
+    <div class="header-center">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="ev-search" type="text" placeholder="Search ticker… (Ctrl+K)" autocomplete="off"/>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="ev-scan-time" class="scan-badge">—</span>
+      <div id="ev-tpl-switcher" class="tpl-switcher"></div>
+      <div id="ev-theme-switcher" class="theme-switcher">
+        <button class="theme-btn active" data-theme="dark">DARK</button>
+        <button class="theme-btn" data-theme="light">LIGHT</button>
+        <button class="theme-btn" data-theme="glass">GLASS</button>
+        <button class="theme-btn" data-theme="bento">BENTO</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="ev-body">
+    <nav id="ev-nav-slot" class="nav-slot"></nav>
+    <main id="ev-canvas" class="canvas">
+      <div id="ev-module-palette" class="module-palette" hidden>
+        <div class="palette-head">
+          <span>Add Panel</span>
+          <button id="ev-palette-close" class="btn btn-ghost">✕</button>
+        </div>
+        <div id="ev-palette-list"></div>
+      </div>
+    </main>
+    <aside id="ev-chat-slot" class="chat-slot"></aside>
+  </div>
+</div>
+
+<div id="ev-edit-hint" class="edit-hint" hidden>
+  <span><strong>EDIT MODE</strong> — drag panel headers to move · corner handle to resize · ✕ to close · <button class="btn btn-ghost" onclick="document.getElementById('ev-module-palette').hidden=false">+ Add Panel</button></span>
+  <button id="ev-edit-done" class="btn btn-primary">Done</button>
+</div>
+
+<div id="ev-shortcuts-overlay" class="shortcuts-overlay" hidden>
+  <div class="shortcuts-box">
+    <div class="shortcuts-title">Keyboard Shortcuts</div>
+    <div class="shortcuts-grid">
+      <span class="key">Ctrl+K</span><span>Search</span>
+      <span class="key">/</span><span>Focus chat</span>
+      <span class="key">T</span><span>Cycle theme</span>
+      <span class="key">E</span><span>Edit layout</span>
+      <span class="key">1–5</span><span>Switch template</span>
+      <span class="key">↑ ↓</span><span>Navigate picks</span>
+      <span class="key">Esc</span><span>Close / clear</span>
+      <span class="key">?</span><span>This overlay</span>
+    </div>
+    <button class="btn btn-ghost" onclick="document.getElementById('ev-shortcuts-overlay').hidden=true">Close</button>
+  </div>
+</div>
+
+<script src="js/framework.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/modules/market-context.js"></script>
+<script src="js/modules/category-nav.js"></script>
+<script src="js/modules/pick-cards.js"></script>
+<script src="js/modules/price-chart.js"></script>
+<script src="js/modules/factor-strip.js"></script>
+<script src="js/modules/ai-chat.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

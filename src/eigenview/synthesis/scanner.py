@@ -82,4 +82,30 @@ async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[Tick
     qualified = rank_picks(scorecards, macro_score)
     await write_picks(qualified, macro_score, session, all_scorecards=scorecards)
 
+    # Generate LLM theses for qualifying picks
+    try:
+        from datetime import date as _date
+
+        from sqlalchemy import update
+
+        from eigenview.data.storage import Pick
+        from eigenview.llm.thesis import generate_thesis
+
+        for sc in qualified:
+            if sc.technical.label == "NO DATA":
+                continue
+            factors_dict = {
+                f.factor_id: {"firing": f.firing, "label": f.label, "detail": f.detail}
+                for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
+            }
+            thesis = await generate_thesis(sc.ticker, factors_dict, sc.spot_price, None)
+            await session.execute(
+                update(Pick)
+                .where(Pick.ticker == sc.ticker, Pick.date == _date.today())
+                .values(thesis=thesis)
+            )
+        await session.flush()
+    except Exception as exc:
+        log.warning("thesis_generation_failed", error=str(exc))
+
     return qualified

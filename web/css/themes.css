@@ -1,0 +1,145 @@
+/* ===== DARK THEME (default) ===== */
+:root[data-theme="dark"] {
+  --bg: #0b0d12;
+  --bg-color: #0b0d12;
+  --bg-2: #0f121a;
+  --panel: #12151d;
+  --panel-2: #171b26;
+  --panel-3: #1d2231;
+  --border: #232836;
+  --border-soft: #1a1e2a;
+  --text: #e7ebf3;
+  --text-dim: #8a92a6;
+  --text-faint: #5b6377;
+  --accent: #5ee3a1;
+  --accent-dim: #2f8c63;
+  --long: #5ee3a1;
+  --short: #ff6b6b;
+  --vol: #d2a6ff;
+  --warn: #ffc857;
+  --info: #6ab7ff;
+  --chip-bg: #1d2231;
+  --chip-border: #2b3245;
+  --shadow: 0 2px 12px rgba(0,0,0,0.45);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+  --radius-card: 8px;
+  --font-mono: 'SF Mono', Consolas, Monaco, monospace;
+  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --blur: none;
+}
+
+/* ===== LIGHT THEME ===== */
+:root[data-theme="light"] {
+  --bg: #f6f7fa;
+  --bg-color: #f6f7fa;
+  --bg-2: #eff1f5;
+  --panel: #ffffff;
+  --panel-2: #fafbfd;
+  --panel-3: #f1f3f8;
+  --border: #dfe3eb;
+  --border-soft: #e8ebf0;
+  --text: #16181d;
+  --text-dim: #3a4455;
+  --text-faint: #6a7587;
+  --accent: #0d9d63;
+  --accent-dim: #7ccba8;
+  --long: #0d9d63;
+  --short: #d9342b;
+  --vol: #7c3aed;
+  --warn: #b56a00;
+  --info: #1e6fce;
+  --chip-bg: #eef1f6;
+  --chip-border: #d7dce4;
+  --shadow: 0 2px 10px rgba(20,30,50,0.08);
+  --shadow-lg: 0 8px 24px rgba(20,30,50,0.15);
+  --radius-card: 8px;
+  --font-mono: 'SF Mono', Consolas, Monaco, monospace;
+  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --blur: none;
+}
+
+/* ===== GLASS THEME (Apple frosted — deep navy base) ===== */
+:root[data-theme="glass"] {
+  --bg: transparent;
+  --bg-color: #0a0f1e;
+  --bg-2: rgba(255,255,255,0.04);
+  --panel: rgba(255,255,255,0.07);
+  --panel-2: rgba(255,255,255,0.05);
+  --panel-3: rgba(255,255,255,0.03);
+  --border: rgba(255,255,255,0.12);
+  --border-soft: rgba(255,255,255,0.06);
+  --text: rgba(255,255,255,0.95);
+  --text-dim: rgba(255,255,255,0.6);
+  --text-faint: rgba(255,255,255,0.35);
+  --accent: #5ee3a1;
+  --accent-dim: rgba(94,227,161,0.4);
+  --long: #5ee3a1;
+  --short: #ff6b6b;
+  --vol: #d2a6ff;
+  --warn: #ffc857;
+  --info: #6ab7ff;
+  --chip-bg: rgba(255,255,255,0.06);
+  --chip-border: rgba(255,255,255,0.14);
+  --shadow: 0 2px 20px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.7);
+  --radius-card: 12px;
+  --font-mono: 'SF Mono', Consolas, Monaco, monospace;
+  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --blur: blur(20px) saturate(180%);
+}
+
+[data-theme="glass"] body {
+  background: linear-gradient(135deg, #0a0f1e 0%, #0d1530 50%, #0a1428 100%) fixed;
+  background-color: #0a0f1e;
+}
+
+[data-theme="glass"] #ev-header,
+[data-theme="glass"] .ev-module,
+[data-theme="glass"] .nav-slot,
+[data-theme="glass"] .chat-slot {
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+/* ===== BENTO THEME (high contrast, colored module strips) ===== */
+:root[data-theme="bento"] {
+  --bg: #000000;
+  --bg-color: #000000;
+  --bg-2: #0a0a0a;
+  --panel: #0f0f0f;
+  --panel-2: #141414;
+  --panel-3: #1a1a1a;
+  --border: #2a2a2a;
+  --border-soft: #1f1f1f;
+  --text: #ffffff;
+  --text-dim: #a0a0a0;
+  --text-faint: #606060;
+  --accent: #00ff88;
+  --accent-dim: #00994d;
+  --long: #00ff88;
+  --short: #ff3366;
+  --vol: #bb88ff;
+  --warn: #ffaa00;
+  --info: #44aaff;
+  --chip-bg: #1a1a1a;
+  --chip-border: #333333;
+  --shadow: 0 2px 8px rgba(0,0,0,0.8);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.9);
+  --radius-card: 4px;
+  --font-mono: 'SF Mono', Consolas, Monaco, monospace;
+  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --blur: none;
+  --bento-market: #00ff88;
+  --bento-picks: #44aaff;
+  --bento-chart: #bb88ff;
+  --bento-chat: #ffaa00;
+  --bento-factors: #ff3366;
+  --bento-nav: #00ff88;
+}
+
+[data-theme="bento"] .ev-module[data-module-type="market-context"] { border-top: 3px solid var(--bento-market); }
+[data-theme="bento"] .ev-module[data-module-type="pick-cards"]      { border-top: 3px solid var(--bento-picks); }
+[data-theme="bento"] .ev-module[data-module-type="price-chart"]     { border-top: 3px solid var(--bento-chart); }
+[data-theme="bento"] .ev-module[data-module-type="ai-chat"]         { border-top: 3px solid var(--bento-chat); }
+[data-theme="bento"] .ev-module[data-module-type="factor-strip"]    { border-top: 3px solid var(--bento-factors); }
+[data-theme="bento"] .ev-module[data-module-type="category-nav"]    { border-top: 3px solid var(--bento-nav); }
