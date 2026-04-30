@@ -107,7 +107,7 @@
       document.addEventListener('keydown', this._onEscape);
 
       // ResizeObserver: fire _resizeChart when container gets real dimensions
-      const body = this._qs('#pc-body');
+      const body = this._qs('#pc-chart-body');
       if (body && window.ResizeObserver) {
         this._ro = new ResizeObserver(() => this._resizeChart());
         this._ro.observe(body);
@@ -143,7 +143,7 @@
             </div>
             <button class="pc-maximize-btn" id="pc-max-btn" title="Maximize">⤢</button>
           </div>
-          <div class="pc-body" id="pc-body">
+          <div class="pc-body" id="pc-chart-body">
             <div class="pc-chart-container" id="pc-chart-container"></div>
             <div class="pc-state" id="pc-state" style="display:none;"></div>
           </div>
@@ -226,7 +226,7 @@
       this._buildChart(data);
 
       // pattern badge overlay
-      const body = this._qs('#pc-body');
+      const body = this._qs('#pc-chart-body');
       if (body && data.pattern) {
         const badgeHtml = patternBadgeHtml(data.pattern);
         if (badgeHtml) {
@@ -367,7 +367,7 @@
       if (!this._chart) return;
       const container = this._qs('#pc-chart-container');
       if (!container) return;
-      const body = this._qs('#pc-body');
+      const body = this._qs('#pc-chart-body');
       const w = body ? body.clientWidth : container.clientWidth;
       const h = body ? body.clientHeight : container.clientHeight;
       if (w > 0 && h > 0) {

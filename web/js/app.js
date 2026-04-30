@@ -79,7 +79,7 @@
       }
       if (e.key === '/' && !inInput) {
         e.preventDefault();
-        document.querySelector('.chat-input')?.focus();
+        document.querySelector('.ev-chat-textarea')?.focus();
         return;
       }
       if (e.key === 'Escape') {
