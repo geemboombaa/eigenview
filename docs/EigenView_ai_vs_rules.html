@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — AI vs Rules Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #000308;
+  --c1: #0a0f1a;
+  --c2: #0f1825;
+  --border: #162030;
+  --G: #00ff88;
+  --R: #ff3355;
+  --B: #00aaff;
+  --Y: #ffcc00;
+  --P: #cc66ff;
+  --O: #ff7700;
+  --W: #ffffff;
+  --W2: #e0eaff;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--W);font-family:'Space Grotesk',sans-serif;line-height:1.5;padding:48px 60px;}
+
+h1{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:2px;line-height:1;margin-bottom:6px;}
+h1 span{color:var(--G);}
+.sub{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--W2);margin-bottom:48px;}
+
+.sec-label{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:12px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.sl-g{color:var(--G);}
+.sl-b{color:var(--B);}
+.sl-y{color:var(--Y);}
+.sl-r{color:var(--R);}
+
+/* VERDICT STRIP */
+.verdict-strip{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:48px;
+}
+.vs-card{
+  border-radius:12px;padding:24px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.vs-card.no-ai{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);}
+.vs-card.optional-ai{background:rgba(255,204,0,0.06);border:1px solid rgba(255,204,0,0.25);}
+.vs-card.real-ai{background:rgba(0,170,255,0.06);border:1px solid rgba(0,170,255,0.25);}
+
+.vs-num{font-family:'Bebas Neue',sans-serif;font-size:56px;line-height:1;}
+.vs-card.no-ai .vs-num{color:var(--G);}
+.vs-card.optional-ai .vs-num{color:var(--Y);}
+.vs-card.real-ai .vs-num{color:var(--B);}
+
+.vs-label{font-size:15px;font-weight:700;color:var(--W);}
+.vs-desc{font-size:12px;color:var(--W2);line-height:1.6;}
+
+/* MAIN TABLE */
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:48px;}
+table{width:100%;border-collapse:collapse;}
+
+th{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--G);padding:13px 16px;text-align:left;
+  background:var(--c2);border-bottom:1px solid var(--border);white-space:nowrap;
+}
+
+td{
+  padding:13px 16px;border-bottom:1px solid rgba(255,255,255,0.04);
+  font-size:13px;color:var(--W);vertical-align:top;line-height:1.55;
+}
+
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+
+td:first-child{font-weight:600;white-space:nowrap;}
+
+/* CATEGORY ROWS */
+.cat-row td{
+  background:var(--c2);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  padding:8px 16px;border-bottom:1px solid var(--border);
+}
+
+/* BADGES */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:100px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;
+  letter-spacing:0.5px;white-space:nowrap;
+}
+.b-rules{background:rgba(0,255,136,0.12);color:var(--G);border:1px solid rgba(0,255,136,0.3);}
+.b-optional{background:rgba(255,204,0,0.12);color:var(--Y);border:1px solid rgba(255,204,0,0.3);}
+.b-ai{background:rgba(0,170,255,0.12);color:var(--B);border:1px solid rgba(0,170,255,0.3);}
+.b-hybrid{background:rgba(204,102,255,0.12);color:var(--P);border:1px solid rgba(204,102,255,0.3);}
+
+td.g{color:var(--W2);}
+strong.w{color:var(--W);}
+strong.g{color:var(--G);}
+strong.b{color:var(--B);}
+strong.y{color:var(--Y);}
+strong.r{color:var(--R);}
+strong.p{color:var(--P);}
+
+/* BOTTOM SECTION */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:48px;}
+
+.bg-card{
+  background:var(--c1);border:1px solid var(--border);
+  border-radius:12px;padding:24px;
+}
+
+.bg-title{font-size:16px;font-weight:700;color:var(--W);margin-bottom:14px;}
+
+.bg-row{
+  font-size:13px;color:var(--W2);padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  display:flex;gap:10px;line-height:1.5;
+}
+.bg-row:last-child{border-bottom:none;}
+.bg-icon{flex-shrink:0;width:16px;}
+
+/* CONCLUSION */
+.conclusion{
+  background:var(--c2);border:1px solid rgba(0,255,136,0.25);
+  border-radius:12px;padding:28px 32px;
+}
+.conclusion-title{
+  font-family:'Bebas Neue',sans-serif;font-size:32px;
+  letter-spacing:2px;color:var(--G);margin-bottom:12px;
+}
+.conclusion-body{font-size:15px;color:var(--W2);line-height:1.8;max-width:900px;}
+.conclusion-body strong{color:var(--W);}
+
+@media(max-width:900px){
+  body{padding:24px 16px;}
+  .verdict-strip{grid-template-columns:1fr;}
+  .bottom-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--G);text-transform:uppercase;margin-bottom:8px;">EigenView · Internal Analysis</div>
+<h1>AI vs <span>Rules</span></h1>
+<div class="sub">What is actually AI · What is deterministic · Where AI earns its keep</div>
+
+<!-- VERDICT STRIP -->
+<div class="verdict-strip">
+  <div class="vs-card no-ai">
+    <div class="vs-num">70%</div>
+    <div class="vs-label">Pure Rules-Based</div>
+    <div class="vs-desc">Signal calculation, regime scoring, instrument filtering, entry/stop zone math. Deterministic. No AI needed. Same output every time for same inputs. Auditable, explainable, defensible.</div>
+  </div>
+  <div class="vs-card optional-ai">
+    <div class="vs-num">20%</div>
+    <div class="vs-label">AI Optional — Adds Polish</div>
+    <div class="vs-desc">Natural language conviction summaries, signal anomaly detection, pattern weighting refinement over time. Rules work fine here. AI makes it faster and more readable. Not a quality dependency.</div>
+  </div>
+  <div class="vs-card real-ai">
+    <div class="vs-num">10%</div>
+    <div class="vs-label">AI Actually Earns It</div>
+    <div class="vs-desc">Catalyst detection from unstructured news/SEC filings, adaptive signal weight learning from outcome history, cross-instrument correlation spotting. Rules cannot do this. AI is the only option.</div>
+  </div>
+</div>
+
+<!-- MAIN TABLE -->
+<div class="sec-label sl-g" style="margin-bottom:14px;">Full Component Breakdown</div>
+
+<div class="tbl-wrap">
+<table>
+  <thead>
+    <tr>
+      <th style="width:220px;">Component</th>
+      <th style="width:140px;">Classification</th>
+      <th style="width:280px;">How It Works</th>
+      <th>Without AI</th>
+      <th>With AI</th>
+      <th style="width:100px;">Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- SIGNAL CALCULATION -->
+    <tr class="cat-row"><td colspan="6" style="color:var(--G);">── Layer 1: Signal Calculation ──────────────────────────────────</td></tr>
+
+    <tr>
+      <td>GEX Regime Score</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">SpotGamma/FlashAlpha API → compare SPX spot vs gamma flip price → output positive/negative/magnitude.</td>
+      <td><strong class="g">Identical quality.</strong> This is arithmetic. GEX is a calculated number. No model improves it.</td>
+      <td class="g">No improvement possible. Would add latency and opacity for no gain.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>VIX Term Structure</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Pull VIX M1, M2, M3 futures prices → calculate M1/M2 ratio → flag backwardation if ratio &gt;1.0, steepness of inversion.</td>
+      <td><strong class="g">Identical quality.</strong> Three numbers, one division. Fully deterministic.</td>
+      <td class="g">No improvement possible.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>DIX Dark Pool Index</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">SqueezeMetrics publishes pre-calculated DIX daily. Pull number → compare vs 45% threshold → flag bullish/bearish/neutral.</td>
+      <td><strong class="g">Identical quality.</strong> SqueezeMetrics already did the math. We just consume it.</td>
+      <td class="g">No improvement. Would be adding AI to interpret a single percentage.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>IV Rank (IVR) Calculation</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Pull 52-week IV high/low from Barchart → (current IV − low) / (high − low) × 100 → score 0–100.</td>
+      <td><strong class="g">Identical quality.</strong> Standard formula. No model needed.</td>
+      <td class="g">Nothing to improve. Formula is exact.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Dark Pool Cluster Detection</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Pull FINRA dark pool prints per ticker → group prints within ±0.5% price band → count clusters of 3+ prints → flag price level.</td>
+      <td><strong class="g">Identical quality.</strong> Clustering is a simple grouping algorithm — no ML needed.</td>
+      <td class="g">Could use DBSCAN clustering — but standard bucketing works identically for this use case.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Options Flow Sweep Detection</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Unusual Whales API flags sweeps. Filter: premium &gt;$1M + ask-side + OTM + near-term expiry. Count per ticker per session.</td>
+      <td><strong class="g">Identical quality.</strong> Filtering is rule-based. UW already classifies sweep vs block.</td>
+      <td class="g">Noise reduction — AI could de-duplicate hedge sweeps. Marginal improvement at V1.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>COT Positioning (Futures)</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Pull CFTC weekly COT → calculate managed money net long % → compare vs 52-week range → flag extreme long/short.</td>
+      <td><strong class="g">Identical quality.</strong> Percentile ranking of a weekly number.</td>
+      <td class="g">No improvement. Deterministic percentile math.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>OVX / GVZ Term Structure</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">CBOE publishes OVX (oil VIX) and GVZ (gold VIX). Same M1/M2 ratio logic as VIX. Inversion = risk premium. Normalization direction = exit signal.</td>
+      <td><strong class="g">Identical quality.</strong> Same arithmetic as VIX term structure module.</td>
+      <td class="g">No improvement possible.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <!-- SCORING ENGINE -->
+    <tr class="cat-row"><td colspan="6" style="color:var(--B);">── Layer 2: Scoring Engine ──────────────────────────────────────</td></tr>
+
+    <tr>
+      <td>Macro Regime Gate (0–10)</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">4 signals × fixed weights → sum → threshold. GREEN ≥6, YELLOW 4–5, RED ≤3. Weights set manually from signal research.</td>
+      <td><strong class="g">Identical quality at V1.</strong> Fixed weights validated against historical events (Sep–Apr, Apr 8) before launch.</td>
+      <td class="g">V2: AI learns optimal weights from outcomes. V1 doesn't need this.</td>
+      <td><strong class="g">No AI (V1)</strong></td>
+    </tr>
+
+    <tr>
+      <td>Instrument EigenView Score (0–10)</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">5 signals × fixed weights per instrument type → sum → filter &lt;6 → rank survivors by score descending.</td>
+      <td><strong class="g">Identical quality at V1.</strong> Same logic as regime gate. Weights are research-validated, not learned.</td>
+      <td class="g">V2: ML weight optimization per instrument class. Meaningful improvement but not needed for launch.</td>
+      <td><strong class="g">No AI (V1)</strong></td>
+    </tr>
+
+    <tr>
+      <td>Setup Type Classification</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Decision tree: which signals fired → maps to setup type. GEX flip cross + IVR&gt;70 + dark pool = REVERSAL. Contango restore + breadth healthy = CONTINUATION. Full checklist = POSITION.</td>
+      <td><strong class="g">Identical quality.</strong> A decision tree with 4 output classes. Fully explainable. No ambiguity.</td>
+      <td class="g">ML classification would add opacity for no quality gain. Explainability matters here — traders need to trust the label.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Entry / Stop Zone Calculation</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Entry = dark pool cluster price ± 0.5% OR GEX gamma flip level ± 0.3%. Stop = below nearest dark pool support / below gamma flip. Pure price math.</td>
+      <td><strong class="g">Identical quality.</strong> These are specific price levels derived from the signal data. Arithmetic.</td>
+      <td class="g">No improvement. A model predicting entry zones from patterns would be less reliable than the mechanical levels.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Timeframe Assignment</td>
+      <td><span class="badge b-rules">Pure Rules</span></td>
+      <td class="g">Lookup table: setup type × signal combination → timeframe label. REVERSAL + GEX flip = Swing 3–10d. Full capitulation score = Position 2–6w. Static mapping.</td>
+      <td><strong class="g">Identical quality.</strong> These ranges are derived from documented signal research, not learned.</td>
+      <td class="g">No value-add for a lookup table.</td>
+      <td><strong class="g">No AI</strong></td>
+    </tr>
+
+    <!-- OUTPUT LAYER -->
+    <tr class="cat-row"><td colspan="6" style="color:var(--Y);">── Layer 3: Output Layer ────────────────────────────────────────</td></tr>
+
+    <tr>
+      <td>Conviction Driver Summary</td>
+      <td><span class="badge b-optional">AI Optional</span></td>
+      <td class="g">Convert fired-signal flags into a readable sentence: "GEX Flip Cross · $2.1M Call Sweep · Dark Pool ×3 cluster $108"</td>
+      <td><strong class="w">Rules: good enough.</strong> Template strings — "Signal A + Signal B + Signal C" — are readable and precise. No ambiguity.</td>
+      <td class="g"><strong class="b">AI adds:</strong> natural language variation, smarter sentence construction, avoids template repetition fatigue. Nice to have at V2.</td>
+      <td><strong class="y">Optional</strong></td>
+    </tr>
+
+    <tr>
+      <td>Morning Brief Email</td>
+      <td><span class="badge b-optional">AI Optional</span></td>
+      <td class="g">Regime status + top 3 instrument cards + one-line market context. Sent pre-market.</td>
+      <td><strong class="w">Rules: identical signal content.</strong> Template email works perfectly. Regime score + 3 cards requires no LLM.</td>
+      <td class="g"><strong class="b">AI adds:</strong> market narrative paragraph — "Here's why regime shifted overnight." Useful framing, not essential accuracy.</td>
+      <td><strong class="y">Optional</strong></td>
+    </tr>
+
+    <tr>
+      <td>Signal Anomaly Flagging</td>
+      <td><span class="badge b-optional">AI Optional</span></td>
+      <td class="g">Detecting when a signal combination is historically rare or when multiple normally-uncorrelated signals fire simultaneously.</td>
+      <td><strong class="w">Rules: works with percentile thresholds.</strong> Flag when score exceeds 8/10 — that's the anomaly. Simple.</td>
+      <td class="g"><strong class="b">AI adds:</strong> multi-dimensional anomaly detection across 120 instruments simultaneously. Meaningful at scale.</td>
+      <td><strong class="y">Optional</strong></td>
+    </tr>
+
+    <!-- TRUE AI VALUE -->
+    <tr class="cat-row"><td colspan="6" style="color:var(--B);">── Layer 4: Where AI Actually Earns It ──────────────────────────</td></tr>
+
+    <tr>
+      <td>Catalyst Detection</td>
+      <td><span class="badge b-ai">Real AI</span></td>
+      <td class="g">Monitor SEC 8-K filings, Fed statements, geopolitical news feeds in real time. Classify: does this event likely resolve the geopolitical risk premium on CL? Is this an unpriced positive catalyst for NVDA?</td>
+      <td><strong class="r">Rules cannot do this.</strong> Unstructured text classification at scale is impossible with if/then logic. This is the April 8 problem — the ceasefire headline. A rules system has no way to parse it.</td>
+      <td class="g"><strong class="b">AI is the only option.</strong> An LLM classifying news against instrument exposure in real time is a genuine moat. Detects catalyst before price moves.</td>
+      <td><strong class="b">Real AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Adaptive Signal Weight Learning</td>
+      <td><span class="badge b-ai">Real AI</span></td>
+      <td class="g">After 6–12 months of signal log + outcomes, learn which signal combinations actually predict +4%+ moves in each instrument class. Adjust weights dynamically.</td>
+      <td><strong class="r">Rules cannot improve themselves.</strong> Fixed weights are calibrated once from research. They don't update from new outcome data.</td>
+      <td class="g"><strong class="b">ML (simple regression or gradient boosting)</strong> on outcome data genuinely improves score accuracy over time. This is the compounding moat — the product gets better the more it runs.</td>
+      <td><strong class="b">Real AI</strong></td>
+    </tr>
+
+    <tr>
+      <td>Cross-Instrument Correlation Alerts</td>
+      <td><span class="badge b-hybrid">Hybrid</span></td>
+      <td class="g">Detect when unusual flow in one instrument historically precedes a move in a correlated instrument. E.g. XLE sweep before CL futures move, or semis ETF dark pool before NVDA print.</td>
+      <td><strong class="w">Rules: can handle known static pairs</strong> (XLE→CL, SOXX→NVDA) with lookup tables. Covers 80% of cases.</td>
+      <td class="g"><strong class="b">AI adds:</strong> dynamic correlation detection that finds non-obvious pairs from live data. Discovers new relationships rules would miss.</td>
+      <td><strong class="p">Hybrid</strong></td>
+    </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- BOTTOM TWO CARDS -->
+<div class="bottom-grid">
+
+  <div class="bg-card" style="border-color:rgba(0,255,136,0.2);">
+    <div class="bg-title" style="color:var(--G);">What to Build at V1 — Zero AI Required</div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Full signal calculation layer</strong> — GEX, VIX term, DIX, IVR, dark pool clusters, options sweeps, COT. All deterministic math from APIs.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Macro regime gate</strong> — fixed-weight scoring, threshold logic. Python dict + arithmetic.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Instrument eigenview scoring</strong> — same pattern. Weighted sum, filter, rank.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Setup type classification</strong> — decision tree. 4 output classes, fully explainable.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Entry/stop zone calculation</strong> — dark pool cluster price math + GEX flip level ± buffer.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Conviction driver string</strong> — template. "Signal A · Signal B · Signal C." Clear, accurate, no LLM tax.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--G);">✓</span><span><strong style="color:var(--W);">Ranked output list + dashboard</strong> — sort by score descending, render top 10. Pure front-end.</span></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--G);letter-spacing:1px;">
+      RESULT: Full V1 product. No AI. No hallucination risk. 100% auditable. Ships faster.
+    </div>
+  </div>
+
+  <div class="bg-card" style="border-color:rgba(0,170,255,0.2);">
+    <div class="bg-title" style="color:var(--B);">Where to Add AI — V2 and Beyond</div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--B);">→</span><span><strong style="color:var(--W);">Catalyst detection (V2 priority).</strong> LLM classifies real-time news/SEC filings against instrument exposure. Detects April 8-type events before price. This is the highest-value AI feature and the hardest to replicate.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--B);">→</span><span><strong style="color:var(--W);">Adaptive weight learning (V2).</strong> After 6 months of signal log + outcomes, gradient boosting on outcome data to improve score weights. Product gets measurably better. Compounding moat.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--B);">→</span><span><strong style="color:var(--W);">Natural language summaries (V2 polish).</strong> LLM writes the morning brief narrative paragraph. "Regime shifted to GREEN overnight as VIX contango restored and CTA flip threshold was crossed." Adds trust and context.</span></div>
+    <div class="bg-row"><span class="bg-icon" style="color:var(--B);">→</span><span><strong style="color:var(--W);">Cross-instrument correlation discovery (V3).</strong> ML finds non-obvious lead/lag relationships between instruments from live data. Rules cover the obvious pairs. AI finds the rest.</span></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--B);letter-spacing:1px;">
+      AI ADDS REAL VALUE HERE — NOT AS A BUZZWORD, AS GENUINE CAPABILITY
+    </div>
+  </div>
+
+</div>
+
+<!-- CONCLUSION -->
+<div class="conclusion">
+  <div class="conclusion-title">The Honest Answer</div>
+  <div class="conclusion-body">
+    <strong>EigenView at V1 is a rules-based signal aggregation and scoring engine.</strong> Roughly 70% of the product — signal calculation, scoring, ranking, entry/stop math, setup classification — is deterministic arithmetic that produces identical output for identical inputs every time. No AI, no hallucination risk, fully auditable.<br><br>
+    <strong>That is a feature, not a limitation.</strong> Traders need to trust the output. A rules engine with a public signal log and verifiable win rate builds more trust than a black-box AI score. TradeAlgo uses AI scoring and explicitly cannot explain why it called something. EigenView can explain every score component because every component is a number derived from a published calculation.<br><br>
+    <strong>AI earns its place at V2 in exactly two places:</strong> catalyst detection from unstructured news (the only way to catch April 8-type events in advance), and adaptive weight learning from outcome history (the compounding moat that makes the product better over time). Both require real outcome data to train on — which means V1 has to ship and run first anyway.<br><br>
+    <strong>The correct build sequence: ship V1 as a pure rules engine. Collect 6 months of signal logs + outcomes. Then train the adaptive layer on real data. AI built on top of a validated rules foundation is far more accurate than AI built from scratch on raw market data.</strong>
+  </div>
+</div>
+
+<div style="margin-top:32px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--W2);letter-spacing:2px;">
+  EigenView INTERNAL ANALYSIS · EDUCATIONAL PURPOSE ONLY · NOT INVESTMENT ADVICE
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Signal Framework</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --border: #1e2230;
+    --accent: #00e5a0;
+    --accent2: #ff4b6e;
+    --accent3: #f5a623;
+    --accent4: #4b8fff;
+    --text: #e8eaf2;
+    --muted: #5a6080;
+    --dim: #2a2e40;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* SCAN LINE EFFECT */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .header-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .container {
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .tab {
+    padding: 12px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* SIGNAL CARDS */
+  .signal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .signal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+
+  .signal-card:hover {
+    border-color: var(--dim);
+    transform: translateY(-1px);
+  }
+
+  .signal-card.expanded { border-color: var(--accent4); }
+
+  .signal-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .signal-card.reversal::before { background: var(--accent2); }
+  .signal-card.continuation::before { background: var(--accent4); }
+  .signal-card.regime::before { background: var(--accent); }
+  .signal-card.oil::before { background: var(--accent3); }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .card-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .reversal .card-label { color: var(--accent2); background: rgba(255,75,110,0.1); border: 1px solid rgba(255,75,110,0.2); }
+  .continuation .card-label { color: var(--accent4); background: rgba(75,143,255,0.1); border: 1px solid rgba(75,143,255,0.2); }
+  .regime .card-label { color: var(--accent); background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.2); }
+  .oil .card-label { color: var(--accent3); background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.2); }
+
+  .card-freq {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .card-detail {
+    display: none;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .signal-card.expanded .card-detail { display: block; }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+  }
+
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .detail-val { color: var(--text); font-weight: 500; text-align: right; }
+  .val-green { color: var(--accent); }
+  .val-red { color: var(--accent2); }
+  .val-orange { color: var(--accent3); }
+  .val-blue { color: var(--accent4); }
+
+  /* REGIME METER */
+  .regime-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .regime-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .regime-bars {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .regime-bar-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+  .regime-bar-label {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .regime-bar-bg {
+    height: 6px;
+    background: var(--dim);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .regime-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* CHECKLIST */
+  .checklist {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .check-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    user-select: none;
+  }
+
+  .check-item:hover { border-color: var(--dim); }
+  .check-item.checked { border-color: rgba(0,229,160,0.3); }
+  .check-item.checked-warn { border-color: rgba(245,166,35,0.3); }
+  .check-item.checked-danger { border-color: rgba(255,75,110,0.3); }
+
+  .check-box {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--muted);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    transition: all 0.2s;
+    margin-top: 1px;
+  }
+
+  .check-item.checked .check-box { border-color: var(--accent); background: rgba(0,229,160,0.15); color: var(--accent); }
+  .check-item.checked-warn .check-box { border-color: var(--accent3); background: rgba(245,166,35,0.15); color: var(--accent3); }
+  .check-item.checked-danger .check-box { border-color: var(--accent2); background: rgba(255,75,110,0.15); color: var(--accent2); }
+
+  .check-text { flex: 1; }
+  .check-name { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .check-sub { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* SCORE DISPLAY */
+  .score-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .score-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 52px;
+    font-weight: 600;
+    line-height: 1;
+    transition: color 0.5s;
+  }
+
+  .score-label { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; margin-top: 4px; }
+
+  .score-verdict {
+    flex: 1;
+    padding: 16px 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+
+  .verdict-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .verdict-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .score-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.primary { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
+
+  /* TIMEFRAME MATRIX */
+  .matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+
+  .matrix-table th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .matrix-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .matrix-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .tf-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .tf-swing { background: rgba(75,143,255,0.15); color: var(--accent4); border: 1px solid rgba(75,143,255,0.2); }
+  .tf-position { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
+  .tf-intraday { background: rgba(245,166,35,0.12); color: var(--accent3); border: 1px solid rgba(245,166,35,0.2); }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin: 1px;
+  }
+
+  .pill-green { background: rgba(0,229,160,0.1); color: var(--accent); }
+  .pill-red { background: rgba(255,75,110,0.1); color: var(--accent2); }
+  .pill-orange { background: rgba(245,166,35,0.1); color: var(--accent3); }
+  .pill-blue { background: rgba(75,143,255,0.1); color: var(--accent4); }
+
+  /* OIL SECTION */
+  .oil-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .oil-card {
+    background: var(--surface);
+    border: 1px solid rgba(245,166,35,0.2);
+    border-radius: 6px;
+    padding: 20px;
+  }
+
+  .oil-card-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 14px;
+  }
+
+  .oil-rule {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .oil-rule:last-child { border-bottom: none; }
+
+  .rule-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent3);
+    font-weight: 600;
+    width: 18px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+
+  .rule-text { color: var(--muted); }
+  .rule-text strong { color: var(--text); }
+
+  /* VISUAL SEPARATOR */
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* FLOW CHART */
+  .flow-chart {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .flow-steps {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .flow-step {
+    flex: 1;
+    min-width: 120px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    margin: 4px;
+    position: relative;
+  }
+
+  .flow-step-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--dim);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .flow-step-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+  .flow-step-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .flow-step.step-1 .flow-step-num { color: var(--accent2); }
+  .flow-step.step-2 .flow-step-num { color: var(--accent3); }
+  .flow-step.step-3 .flow-step-num { color: var(--accent4); }
+  .flow-step.step-4 .flow-step-num { color: var(--accent); }
+  .flow-step.step-5 .flow-step-num { color: var(--accent); }
+
+  /* SPARKLINE */
+  .sparkline-wrap {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 40px;
+    margin-top: 10px;
+  }
+
+  .spark-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    transition: height 0.5s;
+  }
+
+  /* INDIVIDUAL STOCKS SECTION */
+  .stock-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 16px;
+  }
+
+  .stock-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .stock-subtitle { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+
+  .stock-metric {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .stock-metric-key { color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .stock-metric-val { color: var(--text); }
+
+  .applies-badge {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  .applies-yes { background: rgba(0,229,160,0.1); color: var(--accent); }
+  .applies-partial { background: rgba(245,166,35,0.1); color: var(--accent3); }
+  .applies-no { background: rgba(255,75,110,0.1); color: var(--accent2); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    .oil-grid { grid-template-columns: 1fr; }
+    .stock-grid { grid-template-columns: 1fr; }
+    .regime-bars { grid-template-columns: 1fr; }
+    .score-display { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-dot"></div>
+  <div>
+    <div class="header-title">Signal Framework v1.0</div>
+    <h1>Market Regime + Turning Point Playbook</h1>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('reversal')">Reversal Signals</div>
+    <div class="tab" onclick="showTab('continuation')">Continuation / Re-entry</div>
+    <div class="tab" onclick="showTab('checklist')">Live Checklist</div>
+    <div class="tab" onclick="showTab('timeframes')">Timeframes</div>
+    <div class="tab" onclick="showTab('oil')">Oil / Commodity Shocks</div>
+    <div class="tab" onclick="showTab('stocks')">Individual Stocks</div>
+  </div>
+
+  <!-- TAB 1: REVERSAL SIGNALS -->
+  <div id="tab-reversal" class="tab-content active">
+    <div class="section-label">Primary Reversal Signals — Bottom Identification</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      These are the signals that were <strong style="color:var(--text)">all firing before April 8, 2026</strong>. Each one alone is insufficient. EigenView of 3+ = high-confidence structural bottom. Click any card to expand.
+    </p>
+    <div class="signal-grid">
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal</span>
+          <span class="card-freq">Fires ~8-12x/year</span>
+        </div>
+        <div class="card-title">GEX Gamma Flip Exhaustion</div>
+        <div class="card-desc">When SPX is maximally below the gamma flip, dealers are forced sellers. When that exhausts — reversal ramp begins mechanically.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">SpotGamma, QuantData, FlashAlpha</span></div>
+          <div class="detail-row"><span class="detail-key">What to watch</span><span class="detail-val val-blue">Gamma Flip price vs SPX spot</span></div>
+          <div class="detail-row"><span class="detail-key">Entry trigger</span><span class="detail-val val-green">SPX crosses back above Gamma Flip on volume</span></div>
+          <div class="detail-row"><span class="detail-key">Reliability (index)</span><span class="detail-val val-green">High — mechanical, not sentiment</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-orange">Only high-OI names (NVDA, AAPL, TSLA)</span></div>
+          <div class="detail-row"><span class="detail-key">Timeframe best fit</span><span class="detail-val">Swing 3–10 days, Position 2–6 weeks</span></div>
+          <div class="detail-row"><span class="detail-key">Key failure mode</span><span class="detail-val val-red">New catalyst can push GEX deeper negative</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal</span>
+          <span class="card-freq">Fires ~18x since 2020</span>
+        </div>
+        <div class="card-title">Retail Capitulation (Citadel GMI)</div>
+        <div class="card-desc">When retail turns net seller AND put premium hits record 5-day levels simultaneously. Historically 82% probability of SPX +4% in 60 days after.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">citadelsecurities.com/news-and-insights — FREE</span></div>
+          <div class="detail-row"><span class="detail-key">Signal conditions</span><span class="detail-val val-blue">Retail net seller + Index/single ratio >1.5x</span></div>
+          <div class="detail-row"><span class="detail-key">Historical win rate</span><span class="detail-val val-green">82% T+60, avg +4.1%</span></div>
+          <div class="detail-row"><span class="detail-key">Frequency</span><span class="detail-val">~18 times since Jan 2020 — RARE</span></div>
+          <div class="detail-row"><span class="detail-key">Lag</span><span class="detail-val val-orange">Setup precedes move by 3–7 days typically</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-red">No — index/macro signal only</span></div>
+          <div class="detail-row"><span class="detail-key">Limitation</span><span class="detail-val val-red">Not a timing signal alone. Needs catalyst.</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal</span>
+          <span class="card-freq">Fires ~15-20x/year</span>
+        </div>
+        <div class="card-title">VIX Backwardation Extreme</div>
+        <div class="card-desc">VIX spot > M1 futures = panic is priced into NOW not forward. When backwardation peaks and starts narrowing, vol-targeting funds mechanically re-lever.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">VIXCentral.com (free), CBOE</span></div>
+          <div class="detail-row"><span class="detail-key">What to watch</span><span class="detail-val val-blue">M1:M2 spread going negative (backwardation)</span></div>
+          <div class="detail-row"><span class="detail-key">Entry trigger</span><span class="detail-val val-green">Backwardation starts NARROWING back toward flat</span></div>
+          <div class="detail-row"><span class="detail-key">Research finding</span><span class="detail-val val-green">Backwardation → subsequent SPX returns positive in studies</span></div>
+          <div class="detail-row"><span class="detail-key">Frequency (backwardation)</span><span class="detail-val">&lt;20% of time since 2010 — uncommon</span></div>
+          <div class="detail-row"><span class="detail-key">Key nuance</span><span class="detail-val val-orange">Signal is NARROWING of backwardation, not existence of it</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-orange">Partial — use individual IV percentile instead</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal</span>
+          <span class="card-freq">CTA flip: 4-8x/year</span>
+        </div>
+        <div class="card-title">CTA Short Squeeze Threshold</div>
+        <div class="card-desc">Trend-following funds go max short mechanically. When SPX crosses their flip level upward, they are FORCED to cover and go long. No discretion.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Citadel GMI, Goldman GIR, MS FICC Alpha</span></div>
+          <div class="detail-row"><span class="detail-key">Key signal</span><span class="detail-val val-blue">Price crossing above CTA medium-term flip level</span></div>
+          <div class="detail-row"><span class="detail-key">What happens</span><span class="detail-val val-green">CTAs forced buy = mechanical acceleration of rally</span></div>
+          <div class="detail-row"><span class="detail-key">April 2026 context</span><span class="detail-val">"One of the largest short positions ever seen" — Citadel</span></div>
+          <div class="detail-row"><span class="detail-key">Why moves are violent</span><span class="detail-val val-orange">Thin order book + forced covering = gap moves</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-red">No — CTAs trade index futures only</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal</span>
+          <span class="card-freq">Book depth: real-time</span>
+        </div>
+        <div class="card-title">Market Depth / Liquidity Thin (3rd %ile)</div>
+        <div class="card-desc">When top-of-book SPX liquidity hits multi-year lows, any institutional buy order gaps price. April 8 was 3rd percentile depth = guaranteed violent gap on catalyst.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Citadel GMI, Bloomberg market depth</span></div>
+          <div class="detail-row"><span class="detail-key">Signal</span><span class="detail-val val-blue">Top-of-book &lt;$3M vs $12M YTD avg = dangerous thin</span></div>
+          <div class="detail-row"><span class="detail-key">Interpretation</span><span class="detail-val val-orange">Both-ways knife — moves up AND down are magnified</span></div>
+          <div class="detail-row"><span class="detail-key">Position sizing rule</span><span class="detail-val val-green">Thin depth = smaller size, wider stops</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-orange">Partially — bid/ask spread widening is proxy</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card reversal" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Reversal / Regime</span>
+          <span class="card-freq">Breadth: daily</span>
+        </div>
+        <div class="card-title">Breadth Stress at 95th+ %ile</div>
+        <div class="card-desc">When the number of stocks making -3σ daily moves over 5 days hits 95th+ percentile historically — forced deleveraging peak. Prior episodes: stronger T+30 returns.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Citadel GMI, Finviz, Index breadth data</span></div>
+          <div class="detail-row"><span class="detail-key">Metric</span><span class="detail-val val-blue">% SPX constituents down -3σ in 5 sessions</span></div>
+          <div class="detail-row"><span class="detail-key">Signal threshold</span><span class="detail-val val-green">Top 5% historically = exhaustion signal</span></div>
+          <div class="detail-row"><span class="detail-key">April 2026</span><span class="detail-val">97th percentile breadth stress confirmed pre-rally</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-green">Yes — same logic at single-stock level: IV spike + −3σ move</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 2: CONTINUATION -->
+  <div id="tab-continuation" class="tab-content">
+    <div class="section-label">Continuation + Re-Entry Signals</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      Once the reversal fires and you've missed the initial move — these confirm the trend has legs and where to re-enter without chasing. These are also early warning that continuation is <strong style="color:var(--accent2)">failing</strong>.
+    </p>
+    <div class="signal-grid">
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Continuation</span>
+          <span class="card-freq">Weekly cadence</span>
+        </div>
+        <div class="card-title">Market Breadth Participation</div>
+        <div class="card-desc">Healthy rallies have 400+ SPX stocks rising per week. Narrow rallies (≤200) signal distribution — smart money exiting while indexes hold highs.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">April 8 week</span><span class="detail-val val-green">406 stocks rising — broad, healthy confirmation</span></div>
+          <div class="detail-row"><span class="detail-key">April 21 week</span><span class="detail-val val-red">188 stocks rising — narrowing, warning signal</span></div>
+          <div class="detail-row"><span class="detail-key">Entry rule</span><span class="detail-val">Re-enter on dips IF breadth remains >300</span></div>
+          <div class="detail-row"><span class="detail-key">Exit warning</span><span class="detail-val val-red">2 consecutive weeks below 250 = reduce</span></div>
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Schwab Market Update (free), Bloomberg</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Continuation</span>
+          <span class="card-freq">Daily signal</span>
+        </div>
+        <div class="card-title">VIX Contango Restoration</div>
+        <div class="card-desc">When VIX M1:M2 returns to contango (M1 < M2) after backwardation — vol-targeting, risk-parity, CTA strategies all systematically RE-LEVER equities. This IS the ramp fuel.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Signal</span><span class="detail-val val-blue">M1/M2 < 1.0 and falling = contango restoring</span></div>
+          <div class="detail-row"><span class="detail-key">What happens</span><span class="detail-val val-green">Systematic funds add $B in equity exposure mechanically</span></div>
+          <div class="detail-row"><span class="detail-key">Duration of ramp</span><span class="detail-val">Typically 2–4 weeks as vol normalizes</span></div>
+          <div class="detail-row"><span class="detail-key">Re-entry window</span><span class="detail-val val-green">First 3–5 days of contango restoration = best entry</span></div>
+          <div class="detail-row"><span class="detail-key">Monitor</span><span class="detail-val">VIXCentral.com — daily, free</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Continuation</span>
+          <span class="card-freq">Daily/Weekly</span>
+        </div>
+        <div class="card-title">Options Market Tide (Net Premium)</div>
+        <div class="card-desc">Net premium flow shifting from bearish to bullish across the index. This leads price — institutions hedge/position before price moves. Sustained bullish premium = institutional accumulation.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Pineify, QuantData, Unusual Whales</span></div>
+          <div class="detail-row"><span class="detail-key">Bullish signal</span><span class="detail-val val-green">Net premium positive AND rising over 3+ days</span></div>
+          <div class="detail-row"><span class="detail-key">Warning signal</span><span class="detail-val val-red">Price new high but net premium declining = distribution</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-green">Yes — single stock net premium divergence is powerful</span></div>
+          <div class="detail-row"><span class="detail-key">Re-entry rule</span><span class="detail-val">Enter on first bullish net premium day after pullback</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Continuation</span>
+          <span class="card-freq">Post-OpEx: monthly</span>
+        </div>
+        <div class="card-title">OpEx Gamma Clearing</div>
+        <div class="card-desc">~35% of open options interest expires on monthly OpEx. This clearing removes the mechanical weight on price — post-OpEx, the market has "more degrees of freedom" to trend.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Pattern</span><span class="detail-val val-blue">Markets often accelerate directionally in week after OpEx</span></div>
+          <div class="detail-row"><span class="detail-key">April 2026 context</span><span class="detail-val">March OpEx cleared ~35% of US options exposure — enabling April ramp</span></div>
+          <div class="detail-row"><span class="detail-key">Re-entry window</span><span class="detail-val val-green">3–5 days post major OpEx = lowest gamma drag</span></div>
+          <div class="detail-row"><span class="detail-key">Timing</span><span class="detail-val">3rd Friday each month — mark your calendar</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Continuation / Failure</span>
+          <span class="card-freq">Real-time</span>
+        </div>
+        <div class="card-title">Dark Pool Accumulation at Price Levels</div>
+        <div class="card-desc">Large dark pool prints create "defended levels" — institutions won't let their positions go underwater. If a pullback holds a dark pool cluster, it's institutional support. If it breaks — rapid flush.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Bullish</span><span class="detail-val val-green">Price pulls back to dark pool cluster and holds = re-entry</span></div>
+          <div class="detail-row"><span class="detail-key">Bearish</span><span class="detail-val val-red">Price breaks THROUGH dark pool cluster on volume = exit</span></div>
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">FlowAlgo, WhaleStream, InsiderFinance</span></div>
+          <div class="detail-row"><span class="detail-key">Works for stocks?</span><span class="detail-val val-green">Very well — especially large-cap liquid names</span></div>
+          <div class="detail-row"><span class="detail-key">Key rule</span><span class="detail-val">Only trust clusters of 3+ prints near same price level</span></div>
+        </div>
+      </div>
+
+      <div class="signal-card continuation" onclick="toggleCard(this)">
+        <div class="card-header">
+          <span class="card-label">Re-Entry</span>
+          <span class="card-freq">Event-driven</span>
+        </div>
+        <div class="card-title">Retail Re-Engagement (Single Stock Rotation)</div>
+        <div class="card-desc">After a macro bottom, retail shifts back from index hedging to single-stock calls. Ratio dropping from >1.5x toward 1.0x = risk appetite returning. Highest beta names benefit first.</div>
+        <div class="card-detail">
+          <div class="detail-row"><span class="detail-key">Signal</span><span class="detail-val val-blue">Index/single ratio dropping below 1.3x and falling</span></div>
+          <div class="detail-row"><span class="detail-key">What to buy</span><span class="detail-val val-green">High-beta, prior-leadership names: semis, AI, software</span></div>
+          <div class="detail-row"><span class="detail-key">April 2026 confirmation</span><span class="detail-val">Ratio normalizing to ~1.3x = confirmation signal fired</span></div>
+          <div class="detail-row"><span class="detail-key">Source</span><span class="detail-val">Citadel GMI monthly note</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 3: CHECKLIST -->
+  <div id="tab-checklist" class="tab-content">
+    <div class="section-label">Interactive Signal Checklist — Bottom Setup Score</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      Check each signal as you observe it in real time. Score updates automatically. <strong style="color:var(--text)">7+ = high-conviction reversal setup. Wait for catalyst.</strong>
+    </p>
+
+    <div class="score-display" id="scoreDisplay">
+      <div>
+        <div class="score-number" id="scoreNum" style="color:var(--muted)">0</div>
+        <div class="score-label">/ 10 SIGNALS</div>
+      </div>
+      <div class="score-verdict" id="scoreVerdict">
+        <div class="verdict-title" id="verdictTitle">No Signal</div>
+        <div class="verdict-text" id="verdictText">Check signals as you observe them. Score reflects current setup conviction level.</div>
+      </div>
+      <div class="score-actions">
+        <button class="action-btn" onclick="resetChecklist()">Reset All</button>
+        <button class="action-btn" onclick="simulateApril8()">Simulate Apr 8 Setup</button>
+      </div>
+    </div>
+
+    <div class="checklist" id="checklistItems">
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked')" data-points="2">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">GEX in Max Negative Gamma</div>
+          <div class="check-sub">SPX significantly below gamma flip level. SpotGamma/QuantData confirms negative regime. Dealers forced sellers mechanically.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked')" data-points="2">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">VIX Backwardation Active</div>
+          <div class="check-sub">M1 VIX futures > M2. VIXCentral shows inverted curve. Spot/M1 ratio > 1.0. The more extreme, the more oversold.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked-warn')" data-points="2">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Retail Capitulation Signal</div>
+          <div class="check-sub">Citadel GMI: retail net sellers + index/single ratio >1.4x + 5-day put premium at historic highs.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked-warn')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">CTA Max Short Positioning</div>
+          <div class="check-sub">Citadel GMI confirms CTAs at or near max short in equity futures. Flip level above current price.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Market Depth Sub-5th Percentile</div>
+          <div class="check-sub">Top-of-book SPX liquidity &lt;$4M vs historical avg. Thin book = amplified move on any catalyst.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Breadth Stress 95th+ Percentile</div>
+          <div class="check-sub">5-day count of stocks making -3σ moves is in top 5% historically. Forced deleveraging peak indicator.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked-warn')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Post-OpEx Gamma Clearing</div>
+          <div class="check-sub">Within 5 trading days after major monthly OpEx. Large options expiry has cleared mechanical selling weight.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Net Options Premium Turning Positive</div>
+          <div class="check-sub">After extended negative period, net premium for SPX/SPY options shifts to bullish side for 2+ consecutive days.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked-warn')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Valuation Reset Below 5-Year Avg P/E</div>
+          <div class="check-sub">SPX forward P/E has reset below 20x (5-year avg). As of selloff: 19.5x. Fundamental support for institutional re-entry.</div>
+        </div>
+      </div>
+
+      <div class="check-item" onclick="toggleCheck(this, 'checked-danger')" data-points="1">
+        <div class="check-box">✓</div>
+        <div class="check-text">
+          <div class="check-name">Catalyst Identified (Unpriced Positive)</div>
+          <div class="check-sub">A known potential catalyst exists that is NOT yet priced in. Ceasefire, Fed pivot, earnings surprise, policy change. Without this, setup may coil longer.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 4: TIMEFRAMES -->
+  <div id="tab-timeframes" class="tab-content">
+    <div class="section-label">Signal × Timeframe Matrix</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      Same signals, different time horizons. The reversal signals are NOT daytrade signals. Here's the correct timeframe mapping.
+    </p>
+
+    <div class="flow-chart">
+      <div class="section-label" style="margin-bottom:16px;">Decision Flow — What Timeframe Am I Trading?</div>
+      <div class="flow-steps">
+        <div class="flow-step step-1">
+          <div class="flow-step-num">01</div>
+          <div class="flow-step-title">Regime First</div>
+          <div class="flow-step-desc">Is GEX negative or positive? Negative = only trade long from reversal signals. Positive = trade pullbacks.</div>
+        </div>
+        <div class="flow-step step-2">
+          <div class="flow-step-num">02</div>
+          <div class="flow-step-title">Score Checklist</div>
+          <div class="flow-step-desc">3–4 signals = swing candidate. 6–7 = position trade. 8–10 = max size with catalyst watch.</div>
+        </div>
+        <div class="flow-step step-3">
+          <div class="flow-step-num">03</div>
+          <div class="flow-step-title">Catalyst Watch</div>
+          <div class="flow-step-desc">Identify known upcoming events. OpEx, FOMC, earnings. Position ahead — don't chase the print.</div>
+        </div>
+        <div class="flow-step step-4">
+          <div class="flow-step-num">04</div>
+          <div class="flow-step-title">Enter on Confirmation</div>
+          <div class="flow-step-desc">GEX flip cross + VIX narrowing + net premium turning. Not all three = wait. All three = execute.</div>
+        </div>
+        <div class="flow-step step-5">
+          <div class="flow-step-num">05</div>
+          <div class="flow-step-title">Exit on Breadth Narrowing</div>
+          <div class="flow-step-desc">&lt;200 stocks rising/week + premium declining. Don't wait for the rollover. Distribution is early warning.</div>
+        </div>
+      </div>
+    </div>
+
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th>Signal</th>
+          <th>Timeframe</th>
+          <th>Typical Duration</th>
+          <th>Best Instrument</th>
+          <th>Works for Reversal</th>
+          <th>Works for Continuation</th>
+          <th>Frequency</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>GEX Gamma Flip</strong></td>
+          <td><span class="tf-badge tf-swing">Swing</span> <span class="tf-badge tf-position">Position</span></td>
+          <td>3–15 days</td>
+          <td>SPX/SPY options, ES futures</td>
+          <td><span class="pill pill-green">Strong</span></td>
+          <td><span class="pill pill-blue">Monitor daily</span></td>
+          <td>8–12 regime changes/yr</td>
+        </tr>
+        <tr>
+          <td><strong>VIX Backwardation</strong></td>
+          <td><span class="tf-badge tf-swing">Swing</span></td>
+          <td>7–21 days resolution</td>
+          <td>VXX short, SVXY long, SPX calls</td>
+          <td><span class="pill pill-green">Strong</span></td>
+          <td><span class="pill pill-orange">When normalizing</span></td>
+          <td>&lt;20% of time, ~15 events/yr</td>
+        </tr>
+        <tr>
+          <td><strong>Retail Capitulation</strong></td>
+          <td><span class="tf-badge tf-position">Position</span></td>
+          <td>30–60 day horizon</td>
+          <td>SPY/QQQ long, LEAPS calls</td>
+          <td><span class="pill pill-green">82% win rate T+60</span></td>
+          <td><span class="pill pill-red">Not applicable</span></td>
+          <td>~18 events since 2020</td>
+        </tr>
+        <tr>
+          <td><strong>CTA Flip Level</strong></td>
+          <td><span class="tf-badge tf-swing">Swing</span></td>
+          <td>3–10 days squeeze</td>
+          <td>ES futures, SPY calls</td>
+          <td><span class="pill pill-green">Mechanical</span></td>
+          <td><span class="pill pill-red">Exit after squeeze</span></td>
+          <td>4–8 major flips/yr</td>
+        </tr>
+        <tr>
+          <td><strong>Dark Pool Clusters</strong></td>
+          <td><span class="tf-badge tf-swing">Swing</span> <span class="tf-badge tf-intraday">Intraday</span></td>
+          <td>Days to weeks</td>
+          <td>Individual stocks, ETFs</td>
+          <td><span class="pill pill-orange">Partial</span></td>
+          <td><span class="pill pill-green">Strong support/resistance</span></td>
+          <td>Continuous, filtered for size</td>
+        </tr>
+        <tr>
+          <td><strong>Net Premium Flow</strong></td>
+          <td><span class="tf-badge tf-intraday">Intraday</span> <span class="tf-badge tf-swing">Swing</span></td>
+          <td>1–5 days lead time</td>
+          <td>Options, individual stocks</td>
+          <td><span class="pill pill-blue">Confirmation</span></td>
+          <td><span class="pill pill-green">Strong</span></td>
+          <td>Daily signal</td>
+        </tr>
+        <tr>
+          <td><strong>Breadth Participation</strong></td>
+          <td><span class="tf-badge tf-position">Position</span></td>
+          <td>Weekly measure</td>
+          <td>Rotation: sector ETFs</td>
+          <td><span class="pill pill-red">Not reversal</span></td>
+          <td><span class="pill pill-green">Distribution warning</span></td>
+          <td>Weekly reading</td>
+        </tr>
+        <tr>
+          <td><strong>OpEx Gamma Clear</strong></td>
+          <td><span class="tf-badge tf-swing">Swing</span></td>
+          <td>5–10 day window</td>
+          <td>SPX/SPY, individual stocks</td>
+          <td><span class="pill pill-orange">Setup enabler</span></td>
+          <td><span class="pill pill-green">Re-entry timing</span></td>
+          <td>Monthly (3rd Friday)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TAB 5: OIL -->
+  <div id="tab-oil" class="tab-content">
+    <div class="section-label">Commodity / Oil Shock — Never Get Caught Again</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      You got hurt on the oil drop. That's fixable with a systematic rules set. Oil ($57 → $90+ from Iran) and the sudden reversal ($97 → collapse on ceasefire) are both predictable IF you watch the right signals. No news required.
+    </p>
+
+    <div class="oil-grid">
+      <div class="oil-card">
+        <div class="oil-card-title">Oil Long Setup — Geopolitical Premium Signals</div>
+        <div class="oil-rule">
+          <div class="rule-num">01</div>
+          <div class="rule-text"><strong>OVX (Oil VIX) term structure</strong> — when OVX spikes and goes backwardated, oil is pricing in a fear premium. That premium EXISTS until the fear event resolves. Hold long until resolution.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">02</div>
+          <div class="rule-text"><strong>Speculative positioning (COT report)</strong> — CFTC Commitments of Traders, published every Friday. When managed money is at multi-year max long: don't add. When near max short: setup brewing.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">03</div>
+          <div class="rule-text"><strong>Physical supply signal</strong> — Strait of Hormuz transits (tracked by Kpler, Vortexa). Transit volume near ZERO = premium holds. ANY reopening = sell trigger immediately.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">04</div>
+          <div class="rule-text"><strong>Crude oil futures curve (contango vs backwardation)</strong> — Backwardation in WTI = physical tightness = hold longs. Curve flips to contango = physical pressure easing = reduce.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">05</div>
+          <div class="rule-text"><strong>Energy sector dark pool</strong> — Watch for institutional dark pool exits in XLE, XOM, CVX. Large block sells at bid = smart money distributing into geopolitical fear. That is your exit signal.</div>
+        </div>
+      </div>
+
+      <div class="oil-card">
+        <div class="oil-card-title">Rules to Never Get Wrecked on Oil Reversal</div>
+        <div class="oil-rule">
+          <div class="rule-num">R1</div>
+          <div class="rule-text"><strong>Geopolitical premium has a binary unwind risk.</strong> Set a hard rule: any ceasefire/resolution headline = <strong>reduce 50% immediately</strong> at market. Then reassess. Never argue with the binary event.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">R2</div>
+          <div class="rule-text"><strong>Price-stop at OVX collapse.</strong> When OVX drops 15%+ intraday, the risk premium is LEAVING. That is a mechanical exit trigger regardless of your fundamental view.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">R3</div>
+          <div class="rule-text"><strong>Never size oil for gap risk without defined exit.</strong> Oil moved -14% in a single session on April 8. Position size such that a full -15% gap overnight doesn't blow your account. Use defined-risk options if sizing large.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">R4</div>
+          <div class="rule-text"><strong>Watch Strait transit data weekly.</strong> Tools: Kpler (paid), Bloomberg shipping. The physical data tells you BEFORE the ceasefire headline what's happening. Transits rising = anticipate headline resolution.</div>
+        </div>
+        <div class="oil-rule">
+          <div class="rule-num">R5</div>
+          <div class="rule-text"><strong>Hedge with equity inverse correlation.</strong> When long oil for geopolitical premium, the hedge is: long equities / SPX calls. The ceasefire that kills your oil position RIPS equities. April 8 proved this perfectly.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="regime-section">
+      <div class="regime-title">Oil Signal Stack — What to Watch Weekly</div>
+      <div class="regime-bars">
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>OVX Term Structure</span><span style="color:var(--accent3)">vixcentral.com/oil</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:100%; background:var(--accent3);"></div></div>
+        </div>
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>COT Managed Money Position</span><span style="color:var(--accent3)">cftc.gov weekly</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:85%; background:var(--accent3);"></div></div>
+        </div>
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>WTI Futures Curve Shape</span><span style="color:var(--accent3)">CME / Barchart</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:90%; background:var(--accent3);"></div></div>
+        </div>
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>Hormuz/Chokepoint Transit Data</span><span style="color:var(--accent3)">Kpler / Bloomberg</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:95%; background:var(--accent2);"></div></div>
+        </div>
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>Energy Dark Pool Flow (XLE)</span><span style="color:var(--accent3)">FlowAlgo / WhaleStream</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:75%; background:var(--accent3);"></div></div>
+        </div>
+        <div class="regime-bar-wrap">
+          <div class="regime-bar-label"><span>Equity/Oil Correlation Watch</span><span style="color:var(--accent3)">SPX inverse trigger</span></div>
+          <div class="regime-bar-bg"><div class="regime-bar-fill" style="width:80%; background:var(--accent4);"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: INDIVIDUAL STOCKS -->
+  <div id="tab-stocks" class="tab-content">
+    <div class="section-label">Do These Signals Work for Individual Stocks?</div>
+    <p style="font-size:12px; color:var(--muted); margin-bottom:20px; line-height:1.7;">
+      Short answer: <strong style="color:var(--accent)">some do, some don't</strong> — and the threshold for reliability is much higher. Here's the full breakdown with what to use instead for single names.
+    </p>
+
+    <div class="stock-grid">
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent)">GEX</div>
+        <div class="stock-subtitle">Gamma Exposure</div>
+        <div class="stock-metric"><span class="stock-metric-key">Works for</span><span class="stock-metric-val">NVDA, AAPL, TSLA, META, AMZN</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Why</span><span class="stock-metric-val">Options OI large enough vs float</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Threshold</span><span class="stock-metric-val">&gt;$500M avg daily options premium</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">SpotGamma Equity Hub, QuantData</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Does NOT work</span><span class="stock-metric-val">Mid/small caps — not enough OI</span></div>
+        <span class="applies-badge applies-yes">✓ APPLIES (large-cap only)</span>
+      </div>
+
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent4)">IV RANK</div>
+        <div class="stock-subtitle">Implied Vol Percentile</div>
+        <div class="stock-metric"><span class="stock-metric-key">What it is</span><span class="stock-metric-val">IV vs own 52-week range (0-100)</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Reversal signal</span><span class="stock-metric-val">IVR &gt; 80 + stock at support = buy</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Why it works</span><span class="stock-metric-val">Fear priced in, mean reversion likely</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">Tastytrade, ThinkorSwim, Barchart</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Best use</span><span class="stock-metric-val">Sell puts / spreads at IVR &gt;80</span></div>
+        <span class="applies-badge applies-yes">✓ APPLIES (all optionable)</span>
+      </div>
+
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent3)">DARK POOL</div>
+        <div class="stock-subtitle">Institutional Block Prints</div>
+        <div class="stock-metric"><span class="stock-metric-key">Reversal use</span><span class="stock-metric-val">Accumulation cluster near 52w low</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Continuation use</span><span class="stock-metric-val">Cluster acts as defended support</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Reliability</span><span class="stock-metric-val">High if 3+ prints same price range</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">FlowAlgo, InsiderFinance, Pineify</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Key caveat</span><span class="stock-metric-val">Single print can be hedge/rebalance</span></div>
+        <span class="applies-badge applies-yes">✓ APPLIES (liquid names)</span>
+      </div>
+
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent3)">UNUSUAL FLOW</div>
+        <div class="stock-subtitle">Large Options Sweeps</div>
+        <div class="stock-metric"><span class="stock-metric-key">Signal</span><span class="stock-metric-val">$1M+ sweep, OTM, ASK-side, near-term</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Best use</span><span class="stock-metric-val">Directional call sweep = insiders/informees</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Reliability</span><span class="stock-metric-val">Moderate — always check if repeat pattern</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">Unusual Whales, QuantData, FlowAlgo</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Caution</span><span class="stock-metric-val">Single sweep can be hedge vs existing position</span></div>
+        <span class="applies-badge applies-partial">~ PARTIAL (confirm with dark pool)</span>
+      </div>
+
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent2)">BREADTH</div>
+        <div class="stock-subtitle">Market-Wide Signal</div>
+        <div class="stock-metric"><span class="stock-metric-key">Applies to stocks?</span><span class="stock-metric-val">Only as market tailwind/headwind</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Use</span><span class="stock-metric-val">Don't enter stocks in weak breadth</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Rule</span><span class="stock-metric-val">Only buy individual names when SPX breadth &gt;60%</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Exception</span><span class="stock-metric-val">Earnings plays — independent of breadth</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">Schwab daily update (free)</span></div>
+        <span class="applies-badge applies-no">✗ INDEX ONLY (use as filter)</span>
+      </div>
+
+      <div class="stock-card">
+        <div class="stock-name" style="color:var(--accent2)">VIX BACK.</div>
+        <div class="stock-subtitle">Vol Term Structure</div>
+        <div class="stock-metric"><span class="stock-metric-key">Applies to stocks?</span><span class="stock-metric-val">Use individual IV percentile instead</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Stock equivalent</span><span class="stock-metric-val">Stock's 30d IV vs 1yr high = IVR</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Best use</span><span class="stock-metric-val">Earnings IV crush trades, reversal timing</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Tool</span><span class="stock-metric-val">Barchart IV percentile, Tastytrade</span></div>
+        <div class="stock-metric"><span class="stock-metric-key">Signal</span><span class="stock-metric-val">IVR &gt;80 AND stock at multi-week low</span></div>
+        <span class="applies-badge applies-partial">~ SUBSTITUTE (use IVR instead)</span>
+      </div>
+    </div>
+
+    <div class="regime-section">
+      <div class="regime-title">Single Stock Signal Priority Stack</div>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Priority</th>
+            <th>Signal</th>
+            <th>When to Use</th>
+            <th>Entry Setup</th>
+            <th>Exit Setup</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--accent); font-family:monospace; font-weight:600;">1 (Index Filter)</td>
+            <td>SPX GEX Regime</td>
+            <td>Always check first</td>
+            <td>Only enter stocks in positive GEX regime</td>
+            <td>GEX flips negative = reduce all stock longs</td>
+          </tr>
+          <tr>
+            <td style="color:var(--accent3); font-family:monospace; font-weight:600;">2 (Primary)</td>
+            <td>Dark Pool Accumulation</td>
+            <td>Stock near support</td>
+            <td>3+ large prints near same level, price holds above</td>
+            <td>Price breaks cluster on high volume</td>
+          </tr>
+          <tr>
+            <td style="color:var(--accent3); font-family:monospace; font-weight:600;">3 (Primary)</td>
+            <td>IV Rank > 80</td>
+            <td>After selloff in strong stock</td>
+            <td>IVR >80, sell OTM put or buy call spread</td>
+            <td>IVR drops below 40 (IV crush = take profits)</td>
+          </tr>
+          <tr>
+            <td style="color:var(--accent4); font-family:monospace; font-weight:600;">4 (Confirm)</td>
+            <td>Unusual Call Flow</td>
+            <td>Potential catalyst brewing</td>
+            <td>$1M+ sweep + dark pool accumulation = high conviction</td>
+            <td>If both expire without move, reassess</td>
+          </tr>
+          <tr>
+            <td style="color:var(--accent4); font-family:monospace; font-weight:600;">5 (Confirm)</td>
+            <td>GEX Stock-Level</td>
+            <td>NVDA, AAPL, TSLA, META only</td>
+            <td>Stock crosses gamma flip to upside on volume</td>
+            <td>Stock drops back below gamma flip</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  function toggleCard(card) {
+    card.classList.toggle('expanded');
+  }
+
+  let score = 0;
+
+  function toggleCheck(item, cls) {
+    const alreadyChecked = item.classList.contains('checked') || item.classList.contains('checked-warn') || item.classList.contains('checked-danger');
+    const points = parseInt(item.dataset.points) || 1;
+
+    if (alreadyChecked) {
+      item.classList.remove('checked', 'checked-warn', 'checked-danger');
+      item.querySelector('.check-box').textContent = '✓';
+      score -= points;
+    } else {
+      item.classList.add(cls);
+      item.querySelector('.check-box').textContent = cls === 'checked' ? '✓' : cls === 'checked-warn' ? '!' : '●';
+      score += points;
+    }
+
+    score = Math.max(0, score);
+    updateScore();
+  }
+
+  function updateScore() {
+    const numEl = document.getElementById('scoreNum');
+    const titleEl = document.getElementById('verdictTitle');
+    const textEl = document.getElementById('verdictText');
+    const verdictEl = document.getElementById('scoreVerdict');
+
+    numEl.textContent = score;
+
+    if (score === 0) {
+      numEl.style.color = 'var(--muted)';
+      titleEl.textContent = 'No Signal Active';
+      titleEl.style.color = 'var(--muted)';
+      textEl.textContent = 'Check signals as you observe them in real markets.';
+      verdictEl.style.borderColor = 'var(--border)';
+    } else if (score <= 2) {
+      numEl.style.color = 'var(--muted)';
+      titleEl.textContent = 'Noise — No Action';
+      titleEl.style.color = 'var(--muted)';
+      textEl.textContent = 'Too few signals. Market could go either way. Stay flat or protect positions.';
+      verdictEl.style.borderColor = 'var(--border)';
+    } else if (score <= 4) {
+      numEl.style.color = 'var(--accent3)';
+      titleEl.textContent = 'Setup Building — Watch Mode';
+      titleEl.style.color = 'var(--accent3)';
+      textEl.textContent = 'Enough signals to be on alert. Identify your catalyst. Prepare position sizing. Do not enter yet.';
+      verdictEl.style.borderColor = 'rgba(245,166,35,0.3)';
+    } else if (score <= 6) {
+      numEl.style.color = 'var(--accent4)';
+      titleEl.textContent = 'Elevated Conviction — Swing Setup';
+      titleEl.style.color = 'var(--accent4)';
+      textEl.textContent = 'Multiple signals confirming. This is a swing trade setup (3–10 days). Use defined risk. Watch for catalyst trigger.';
+      verdictEl.style.borderColor = 'rgba(75,143,255,0.3)';
+    } else if (score <= 8) {
+      numEl.style.color = 'var(--accent)';
+      titleEl.textContent = 'High Conviction — Position Trade';
+      titleEl.style.color = 'var(--accent)';
+      textEl.textContent = 'Strong signal eigenview. Position trade sizing justified (2–6 weeks). April 8 setup was at this level. Wait for GEX flip cross as entry trigger.';
+      verdictEl.style.borderColor = 'rgba(0,229,160,0.3)';
+    } else {
+      numEl.style.color = 'var(--accent)';
+      titleEl.textContent = '🔥 Maximum Setup — Spring Is Coiled';
+      titleEl.style.color = 'var(--accent)';
+      textEl.textContent = 'All signals firing. This is the setup that preceded April 8. Catalytic event will trigger violent squeeze. Max size with defined risk. Catalyst is the only missing piece.';
+      verdictEl.style.borderColor = 'rgba(0,229,160,0.5)';
+    }
+  }
+
+  function resetChecklist() {
+    score = 0;
+    document.querySelectorAll('.check-item').forEach(item => {
+      item.classList.remove('checked', 'checked-warn', 'checked-danger');
+      item.querySelector('.check-box').textContent = '✓';
+    });
+    updateScore();
+  }
+
+  function simulateApril8() {
+    resetChecklist();
+    const items = document.querySelectorAll('.check-item');
+    const fires = [0, 1, 2, 3, 4, 5, 6, 7, 8]; // all but last (catalyst)
+    const classes = ['checked', 'checked', 'checked-warn', 'checked-warn', 'checked', 'checked', 'checked-warn', 'checked', 'checked-warn'];
+    fires.forEach((idx, i) => {
+      setTimeout(() => {
+        const item = items[idx];
+        const cls = classes[i];
+        const pts = parseInt(item.dataset.points) || 1;
+        item.classList.add(cls);
+        item.querySelector('.check-box').textContent = cls === 'checked' ? '✓' : '!';
+        score += pts;
+        updateScore();
+        item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, i * 300);
+    });
+  }
+</script>
+
+</body>
+</html>

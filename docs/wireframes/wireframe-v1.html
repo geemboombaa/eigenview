@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EigenView — Daily Trade Feed (Wireframe v0.1)</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #12151d;
+    --panel-2: #171b26;
+    --border: #232836;
+    --text: #e7ebf3;
+    --text-dim: #8a92a6;
+    --text-faint: #5b6377;
+    --accent: #5ee3a1;
+    --accent-dim: #2f8c63;
+    --long: #5ee3a1;
+    --short: #ff6b6b;
+    --vol: #d2a6ff;
+    --warn: #ffc857;
+    --chip-bg: #1d2231;
+    --chip-border: #2b3245;
+    --gate-fire: #5ee3a1;
+    --gate-miss: #3a4055;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.5; }
+
+  .app { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+  /* Header */
+  header.top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .brand .mark {
+    font-family: 'Georgia', serif;
+    font-size: 22px; font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .brand .mark .dot { color: var(--accent); }
+  .brand .tag { color: var(--text-faint); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .header-right { color: var(--text-dim); font-size: 12px; }
+  .header-right .date { color: var(--text); }
+
+  /* Market context strip */
+  .context {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+  .ctx-cell {
+    background: var(--panel);
+    padding: 10px 14px;
+  }
+  .ctx-label { color: var(--text-faint); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .ctx-value { color: var(--text); font-size: 13px; }
+  .ctx-value .green { color: var(--accent); }
+  .ctx-value .red { color: var(--short); }
+  .ctx-value .amber { color: var(--warn); }
+
+  /* Section headers */
+  .section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-head h2 {
+    font-family: 'Georgia', serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+  .section-head .meta { color: var(--text-faint); font-size: 11px; }
+
+  /* Picks grid */
+  .picks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .pick {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    position: relative;
+  }
+  .pick:hover { border-color: var(--accent-dim); transform: translateY(-1px); }
+  .pick.active { border-color: var(--accent); }
+
+  .pick-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .ticker {
+    font-size: 20px; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .dir {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .dir.long { background: rgba(94,227,161,0.12); color: var(--long); border: 1px solid rgba(94,227,161,0.3); }
+  .dir.short { background: rgba(255,107,107,0.12); color: var(--short); border: 1px solid rgba(255,107,107,0.3); }
+  .dir.vol { background: rgba(210,166,255,0.12); color: var(--vol); border: 1px solid rgba(210,166,255,0.3); }
+
+  .conviction {
+    display: flex; gap: 3px; margin-bottom: 10px;
+  }
+  .conv-dot {
+    width: 18px; height: 4px; border-radius: 2px;
+    background: var(--chip-border);
+  }
+  .conv-dot.filled { background: var(--accent); }
+  .conv-label { color: var(--text-faint); font-size: 10px; margin-left: 6px; align-self: center; letter-spacing: 1px; }
+
+  .thesis {
+    color: var(--text-dim); font-size: 12.5px;
+    margin-bottom: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.55;
+  }
+  .thesis .ai-mark {
+    color: var(--text-faint); font-size: 10px; letter-spacing: 1px;
+    display: block; margin-bottom: 4px;
+  }
+
+  .gates {
+    display: flex; gap: 8px; margin-bottom: 10px;
+    padding-top: 10px; border-top: 1px dashed var(--border);
+  }
+  .gate {
+    flex: 1; text-align: center;
+    padding: 4px 0;
+    border-radius: 3px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    background: rgba(255,255,255,0.02);
+  }
+  .gate.fire { color: var(--gate-fire); background: rgba(94,227,161,0.08); }
+
+  .chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .chip {
+    font-size: 10px;
+    padding: 3px 7px;
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-border);
+    border-radius: 3px;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+  .chip.dormant { color: var(--warn); border-color: rgba(255,200,87,0.3); background: rgba(255,200,87,0.06); }
+  .chip.novelty { color: var(--vol); border-color: rgba(210,166,255,0.3); background: rgba(210,166,255,0.06); }
+
+  /* Detail panel */
+  .detail {
+    display: none;
+    background: var(--panel);
+    border: 1px solid var(--accent-dim);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .detail.open { display: block; }
+
+  .detail-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-head .left { display: flex; align-items: center; gap: 14px; }
+  .detail-head .ticker { font-size: 28px; }
+  .detail-close { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; letter-spacing: 1px; }
+  .detail-close:hover { border-color: var(--text); color: var(--text); }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 20px;
+  }
+
+  /* Chart placeholder */
+  .chart {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    position: relative;
+  }
+  .chart-head { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .chart-title { font-size: 12px; color: var(--text-dim); letter-spacing: 0.5px; }
+  .chart-legend { display: flex; gap: 12px; font-size: 10px; color: var(--text-faint); }
+  .chart-legend span { display: flex; align-items: center; gap: 4px; }
+  .chart-legend .swatch { width: 10px; height: 2px; display: inline-block; }
+  svg.chart-svg { width: 100%; height: 260px; display: block; }
+
+  .chart-foot {
+    display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap;
+    font-size: 11px;
+  }
+  .level-item { color: var(--text-dim); }
+  .level-item b { color: var(--text); margin-left: 4px; font-weight: normal; }
+  .level-item.wall-c b { color: var(--accent); }
+  .level-item.wall-p b { color: var(--short); }
+
+  /* Right column */
+  .panel-block {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .panel-block h4 {
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .factor-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 12px;
+  }
+  .factor-row:last-child { border-bottom: none; }
+  .factor-row .name { color: var(--text-dim); }
+  .factor-row .val { color: var(--text); }
+  .factor-row .val.green { color: var(--accent); }
+  .factor-row .val.red { color: var(--short); }
+  .factor-row .val.amber { color: var(--warn); }
+
+  .dormant-card {
+    border-left: 2px solid var(--warn);
+    padding: 10px 12px;
+    background: rgba(255,200,87,0.04);
+    border-radius: 3px;
+    margin-top: 8px;
+  }
+  .dormant-card .d-row { display: flex; justify-content: space-between; font-size: 11px; margin: 3px 0; }
+  .dormant-card .d-row .k { color: var(--text-faint); }
+  .dormant-card .d-row .v { color: var(--text); }
+
+  .news-item {
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 12px;
+  }
+  .news-item:last-child { border-bottom: none; }
+  .news-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .news-source { color: var(--text-faint); font-size: 10px; }
+  .news-novelty { font-size: 10px; color: var(--vol); }
+  .news-title { color: var(--text-dim); font-family: -apple-system, sans-serif; line-height: 1.4; }
+
+  .structure {
+    background: rgba(94,227,161,0.04);
+    border-left: 2px solid var(--accent);
+    padding: 10px 12px;
+    margin-top: 8px;
+    border-radius: 3px;
+  }
+  .structure .s-title { color: var(--accent); font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+  .structure .s-body { color: var(--text); font-size: 12px; font-family: -apple-system, sans-serif; line-height: 1.5; }
+  .structure .s-lines { display: flex; gap: 18px; margin-top: 8px; font-size: 11px; }
+  .structure .s-lines span { color: var(--text-dim); }
+  .structure .s-lines b { color: var(--text); font-weight: normal; }
+  .structure .s-lines .trigger b { color: var(--accent); }
+  .structure .s-lines .invalid b { color: var(--short); }
+
+  /* Watchlist */
+  .watchlist {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+  }
+  .watch-row {
+    display: grid;
+    grid-template-columns: 80px 100px 1fr 120px;
+    gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    align-items: center;
+    font-size: 12px;
+  }
+  .watch-row:last-child { border-bottom: none; }
+  .watch-row .wt { font-weight: 600; }
+  .watch-row .wd { color: var(--text-dim); }
+  .watch-row .wr { color: var(--text-dim); font-family: -apple-system, sans-serif; }
+  .watch-row .wg { color: var(--text-faint); font-size: 10px; text-align: right; letter-spacing: 1px; }
+
+  /* Footer note */
+  footer.note {
+    margin-top: 30px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  /* AI badge */
+  .ai-badge {
+    display: inline-block;
+    font-size: 9px;
+    color: var(--vol);
+    border: 1px solid rgba(210,166,255,0.35);
+    padding: 1px 5px;
+    border-radius: 2px;
+    letter-spacing: 1.5px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="top">
+    <div class="brand">
+      <div class="mark">Conflu<span class="dot">·</span>ence</div>
+      <div class="tag">daily curated options feed</div>
+    </div>
+    <div class="header-right">
+      <div class="date">Monday · Apr 20, 2026 · 09:15 ET</div>
+    </div>
+  </header>
+
+  <!-- Market Context -->
+  <div class="context">
+    <div class="ctx-cell">
+      <div class="ctx-label">SPY GEX Regime</div>
+      <div class="ctx-value"><span class="red">NEGATIVE</span> · flip @ 572.40</div>
+    </div>
+    <div class="ctx-cell">
+      <div class="ctx-label">VIX Term Structure</div>
+      <div class="ctx-value"><span class="amber">BACKWARDATION</span> · 18.2 → 16.8</div>
+    </div>
+    <div class="ctx-cell">
+      <div class="ctx-label">Short-Gamma Sectors</div>
+      <div class="ctx-value">Semis, Financials, Biotech</div>
+    </div>
+    <div class="ctx-cell">
+      <div class="ctx-label">Macro Flags</div>
+      <div class="ctx-value"><span class="amber">CPI Wed 8:30</span> · Earnings wk</div>
+    </div>
+  </div>
+
+  <!-- Today's Picks -->
+  <div class="section-head">
+    <h2>Today's picks</h2>
+    <div class="meta">4 qualified · ranked by conviction · <span class="ai-badge">AI-SYNTHESIZED</span></div>
+  </div>
+
+  <div class="picks">
+
+    <!-- Pick 1: NVDA -->
+    <div class="pick" data-pick="nvda" onclick="openDetail('nvda')">
+      <div class="pick-top">
+        <div class="ticker">NVDA</div>
+        <div class="dir vol">Long Vol</div>
+      </div>
+      <div class="conviction">
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <span class="conv-label">5/5</span>
+      </div>
+      <div class="thesis">
+        <span class="ai-mark">◆ AI THESIS</span>
+        Dormant Jan-27 $180 calls (opened Dec '25, $4.2M premium) never played out — now 8 days pre-earnings with fresh weekly flow aligning. Dealers short gamma, IV rank 34 (cheap). Setup is classic delayed-activation.
+      </div>
+      <div class="gates">
+        <div class="gate fire">TA ✓</div>
+        <div class="gate fire">GEX ✓</div>
+        <div class="gate fire">+3 FACTORS</div>
+      </div>
+      <div class="chips">
+        <span class="chip dormant">◈ DORMANT BET FIRING</span>
+        <span class="chip">COMPRESSION BREAK</span>
+        <span class="chip">SHORT GAMMA</span>
+        <span class="chip novelty">NOVEL NARRATIVE</span>
+      </div>
+    </div>
+
+    <!-- Pick 2: TSLA -->
+    <div class="pick" data-pick="tsla" onclick="openDetail('tsla')">
+      <div class="pick-top">
+        <div class="ticker">TSLA</div>
+        <div class="dir long">Long Calls</div>
+      </div>
+      <div class="conviction">
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot"></div>
+        <span class="conv-label">4/5</span>
+      </div>
+      <div class="thesis">
+        <span class="ai-mark">◆ AI THESIS</span>
+        TA breakout above 268 resistance eigenview with put-wall flip (now support). Dealers short gamma above 275 — fuel for continuation. Fresh call sweeps next-week expiry, aggressive side, 4.2× OI.
+      </div>
+      <div class="gates">
+        <div class="gate fire">TA ✓</div>
+        <div class="gate fire">GEX ✓</div>
+        <div class="gate fire">+2 FACTORS</div>
+      </div>
+      <div class="chips">
+        <span class="chip">BREAKOUT</span>
+        <span class="chip">SHORT GAMMA</span>
+        <span class="chip">FRESH FLOW 4.2×</span>
+      </div>
+    </div>
+
+    <!-- Pick 3: BAC -->
+    <div class="pick" data-pick="bac" onclick="openDetail('bac')">
+      <div class="pick-top">
+        <div class="ticker">BAC</div>
+        <div class="dir long">Long Calls</div>
+      </div>
+      <div class="conviction">
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot"></div>
+        <div class="conv-dot"></div>
+        <span class="conv-label">3/5</span>
+      </div>
+      <div class="thesis">
+        <span class="ai-mark">◆ AI THESIS</span>
+        Pullback-in-uptrend to 50 MA + rate-narrative shift (Fed hawkish-hold, 2Y up 12bp). Dormant Jun '26 $48 calls (Nov '25, $1.8M) aligning with fresh flow. Financials in short-gamma regime.
+      </div>
+      <div class="gates">
+        <div class="gate fire">TA ✓</div>
+        <div class="gate fire">GEX ✓</div>
+        <div class="gate fire">+2 FACTORS</div>
+      </div>
+      <div class="chips">
+        <span class="chip dormant">◈ DORMANT BET FIRING</span>
+        <span class="chip">PULLBACK/TREND</span>
+        <span class="chip novelty">RATE NARRATIVE</span>
+      </div>
+    </div>
+
+    <!-- Pick 4: CRWD -->
+    <div class="pick" data-pick="crwd" onclick="openDetail('crwd')">
+      <div class="pick-top">
+        <div class="ticker">CRWD</div>
+        <div class="dir short">Short Vol</div>
+      </div>
+      <div class="conviction">
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot filled"></div>
+        <div class="conv-dot"></div>
+        <div class="conv-dot"></div>
+        <span class="conv-label">3/5</span>
+      </div>
+      <div class="thesis">
+        <span class="ai-mark">◆ AI THESIS</span>
+        IV rank 78, pinned between call wall 385 and put wall 370. Positive GEX regime → mean reversion. No catalyst for 3 weeks. Sell iron condor 365/370/385/390 for premium decay.
+      </div>
+      <div class="gates">
+        <div class="gate fire">TA ✓</div>
+        <div class="gate fire">GEX ✓</div>
+        <div class="gate fire">+2 FACTORS</div>
+      </div>
+      <div class="chips">
+        <span class="chip">RANGE-BOUND</span>
+        <span class="chip">POSITIVE GAMMA PIN</span>
+        <span class="chip">IV RANK 78</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Detail Panel (NVDA example) -->
+  <div class="detail" id="detail-nvda">
+    <div class="detail-head">
+      <div class="left">
+        <div class="ticker">NVDA</div>
+        <div class="dir vol">Long Vol · Calendar</div>
+        <div style="color: var(--text-dim); font-size: 12px;">$142.80 · +1.2% pre-mkt</div>
+      </div>
+      <button class="detail-close" onclick="closeDetail()">CLOSE ✕</button>
+    </div>
+
+    <div class="detail-grid">
+      <!-- Left: chart + levels -->
+      <div>
+        <div class="chart">
+          <div class="chart-head">
+            <div class="chart-title">NVDA · Daily · TA + GEX walls</div>
+            <div class="chart-legend">
+              <span><span class="swatch" style="background:#e7ebf3;"></span>Price</span>
+              <span><span class="swatch" style="background:#5ee3a1;"></span>Call Wall</span>
+              <span><span class="swatch" style="background:#ff6b6b;"></span>Put Wall</span>
+              <span><span class="swatch" style="background:#8a92a6;"></span>50/200 MA</span>
+            </div>
+          </div>
+          <!-- Mock SVG chart -->
+          <svg class="chart-svg" viewBox="0 0 600 260" preserveAspectRatio="none">
+            <!-- Grid -->
+            <line x1="0" y1="65" x2="600" y2="65" stroke="#232836" stroke-dasharray="2,4"/>
+            <line x1="0" y1="130" x2="600" y2="130" stroke="#232836" stroke-dasharray="2,4"/>
+            <line x1="0" y1="195" x2="600" y2="195" stroke="#232836" stroke-dasharray="2,4"/>
+
+            <!-- Call wall -->
+            <line x1="0" y1="45" x2="600" y2="45" stroke="#5ee3a1" stroke-width="1.5" stroke-dasharray="6,3"/>
+            <text x="8" y="40" fill="#5ee3a1" font-size="10">CALL WALL 150</text>
+
+            <!-- Put wall -->
+            <line x1="0" y1="215" x2="600" y2="215" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,3"/>
+            <text x="8" y="229" fill="#ff6b6b" font-size="10">PUT WALL 132</text>
+
+            <!-- Gamma flip -->
+            <line x1="0" y1="175" x2="600" y2="175" stroke="#ffc857" stroke-width="1" stroke-dasharray="3,3"/>
+            <text x="8" y="171" fill="#ffc857" font-size="10">γ FLIP 138</text>
+
+            <!-- 50 MA -->
+            <polyline points="0,200 60,195 120,190 180,180 240,170 300,165 360,160 420,155 480,148 540,142 600,138"
+              fill="none" stroke="#8a92a6" stroke-width="1" opacity="0.7"/>
+
+            <!-- Price action mock -->
+            <polyline points="0,180 40,175 80,182 120,172 160,165 200,172 240,160 280,168 320,150 360,155 400,140 440,135 480,128 520,122 560,118 600,112"
+              fill="none" stroke="#e7ebf3" stroke-width="2"/>
+
+            <!-- Current price marker -->
+            <circle cx="600" cy="112" r="4" fill="#5ee3a1"/>
+            <text x="555" y="105" fill="#5ee3a1" font-size="10">142.80</text>
+
+            <!-- Compression zone -->
+            <rect x="200" y="160" width="200" height="24" fill="#5ee3a1" opacity="0.08"/>
+            <text x="210" y="155" fill="#5ee3a1" font-size="9" opacity="0.7">COMPRESSION ZONE</text>
+
+            <!-- Breakout arrow -->
+            <path d="M 460 135 L 490 120 L 485 124 M 490 120 L 486 117" stroke="#5ee3a1" stroke-width="1.5" fill="none"/>
+          </svg>
+
+          <div class="chart-foot">
+            <div class="level-item wall-c">Call wall: <b>150</b></div>
+            <div class="level-item wall-p">Put wall: <b>132</b></div>
+            <div class="level-item">γ flip: <b>138</b></div>
+            <div class="level-item">50 MA: <b>138.40</b></div>
+            <div class="level-item">ATR(14): <b>3.8</b></div>
+            <div class="level-item">IV rank: <b>34</b></div>
+          </div>
+        </div>
+
+        <!-- Factors firing -->
+        <div class="panel-block" style="margin-top: 14px;">
+          <h4>Factors firing · AI-ranked</h4>
+          <div class="factor-row">
+            <span class="name">TA — Compression break out of 6-week range</span>
+            <span class="val green">STRONG</span>
+          </div>
+          <div class="factor-row">
+            <span class="name">GEX — Negative regime above 138 flip</span>
+            <span class="val green">STRONG</span>
+          </div>
+          <div class="factor-row">
+            <span class="name">Dormant bet — Jan '27 $180C activating</span>
+            <span class="val amber">FIRING</span>
+          </div>
+          <div class="factor-row">
+            <span class="name">Catalyst — Earnings in 8 days</span>
+            <span class="val green">PROXIMATE</span>
+          </div>
+          <div class="factor-row">
+            <span class="name">Novelty — "Blackwell supply tightness" new narrative (z=2.8)</span>
+            <span class="val green">HIGH</span>
+          </div>
+          <div class="factor-row">
+            <span class="name">Flow — Weekly $145C $1.1M prem, 5.2× OI, ask-side</span>
+            <span class="val green">STRONG</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: dormant bet, news, structure -->
+      <div>
+        <div class="panel-block">
+          <h4>Dormant bet radar <span class="ai-badge">ML</span></h4>
+          <div style="color: var(--text-dim); font-size: 12px; font-family: -apple-system, sans-serif; margin-bottom: 8px;">
+            Large long-dated position opened 137 days ago, stock has moved only +3% vs. bet thesis of +30%. Activation classifier: <b style="color: var(--warn);">0.82 probability firing</b>.
+          </div>
+          <div class="dormant-card">
+            <div class="d-row"><span class="k">Opened</span><span class="v">Dec 4, 2025</span></div>
+            <div class="d-row"><span class="k">Contract</span><span class="v">Jan 15, 2027 $180 Call</span></div>
+            <div class="d-row"><span class="k">Premium paid</span><span class="v">$4.24M</span></div>
+            <div class="d-row"><span class="k">OI remaining</span><span class="v">94% (held)</span></div>
+            <div class="d-row"><span class="k">Stock since</span><span class="v">+3.1% (dormant)</span></div>
+            <div class="d-row"><span class="k">Days to catalyst</span><span class="v">8 (earnings)</span></div>
+            <div class="d-row"><span class="k">Today's flow</span><span class="v" style="color: var(--accent);">Aligned (call-biased)</span></div>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <h4>News that matters <span class="ai-badge">LLM FILTERED</span></h4>
+          <div class="news-item">
+            <div class="news-head">
+              <span class="news-source">Reuters · 4h ago</span>
+              <span class="news-novelty">NOVELTY z=2.8</span>
+            </div>
+            <div class="news-title">Hyperscaler orders reportedly pushed out 2027 on Blackwell supply — new angle not in analyst baseline</div>
+          </div>
+          <div class="news-item">
+            <div class="news-head">
+              <span class="news-source">Bloomberg · 11h ago</span>
+              <span class="news-novelty">NOVELTY z=1.9</span>
+            </div>
+            <div class="news-title">TSMC capex guidance hints at 2H '26 capacity expansion favoring NVDA allocations</div>
+          </div>
+          <div class="news-item">
+            <div class="news-head">
+              <span class="news-source">FT · 1d ago</span>
+              <span class="news-novelty">NOVELTY z=1.4</span>
+            </div>
+            <div class="news-title">China export-license carve-out rumors (H20 variant) resurfacing — not yet priced</div>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <h4>Suggested structure <span class="ai-badge">AI</span></h4>
+          <div class="structure">
+            <div class="s-title">LONG CALENDAR · $145 / May 10 – May 17</div>
+            <div class="s-body">
+              IV term inverted (front week 62%, back week 48%). Calendar captures earnings vol crush while maintaining long upside. Debit ~$2.80.
+            </div>
+            <div class="s-lines">
+              <span class="trigger">Trigger <b>break 145 on vol</b></span>
+              <span class="invalid">Invalid <b>close &lt; 138</b></span>
+              <span>Size <b>1R</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Watchlist -->
+  <div class="section-head">
+    <h2>Watchlist</h2>
+    <div class="meta">partial fires · not yet qualified</div>
+  </div>
+  <div class="watchlist">
+    <div class="watch-row">
+      <div class="wt">META</div>
+      <div class="wd">Long</div>
+      <div class="wr">TA breakout + flow, but GEX neutral — wait for negative-gamma flip</div>
+      <div class="wg">2/3 FACTORS</div>
+    </div>
+    <div class="watch-row">
+      <div class="wt">SMCI</div>
+      <div class="wd">Long Vol</div>
+      <div class="wr">Dormant Aug '26 calls + novelty news, but TA still in range</div>
+      <div class="wg">2/3 FACTORS</div>
+    </div>
+    <div class="watch-row">
+      <div class="wt">XOM</div>
+      <div class="wd">Short</div>
+      <div class="wr">TA exhaustion + put wall above, missing fresh flow confirmation</div>
+      <div class="wg">2/3 FACTORS</div>
+    </div>
+    <div class="watch-row">
+      <div class="wt">PLTR</div>
+      <div class="wd">Long</div>
+      <div class="wr">Flow + novelty high, TA pattern ambiguous (not clean breakout)</div>
+      <div class="wg">2/3 FACTORS</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="note">
+    EigenView v0.1 · wireframe · free-data end-of-day mode · data gates: vol ≥ 1M · OI ≥ 500<br>
+    Synthesis: TA + GEX required, ≥2 of {flow, dormant, catalyst+novelty} required.
+  </footer>
+
+</div>
+
+<script>
+  function openDetail(id) {
+    document.querySelectorAll('.detail').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.pick').forEach(p => p.classList.remove('active'));
+    const el = document.getElementById('detail-' + id);
+    if (el) {
+      el.classList.add('open');
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    const pick = document.querySelector('[data-pick="' + id + '"]');
+    if (pick) pick.classList.add('active');
+  }
+  function closeDetail() {
+    document.querySelectorAll('.detail').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.pick').forEach(p => p.classList.remove('active'));
+  }
+  // Auto-open NVDA on first load so the detail view is visible immediately
+  window.addEventListener('DOMContentLoaded', () => openDetail('nvda'));
+</script>
+</body>
+</html>

@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Research: Signal Screener Landscape</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #07090f;
+    --s1: #0f1219;
+    --s2: #161b27;
+    --border: #1f2535;
+    --accent: #00d4aa;
+    --red: #ff4d6d;
+    --orange: #ff9f1c;
+    --blue: #4d9fff;
+    --purple: #a78bfa;
+    --text: #e2e8f4;
+    --muted: #5a6480;
+    --dim: #252d42;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  .page-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+
+  .subtitle strong { color: var(--accent); }
+
+  /* SECTION */
+  .section { margin-bottom: 40px; }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* TABLES */
+  .tbl-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+
+  th {
+    font-family: 'DM Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 16px;
+    text-align: left;
+    background: var(--s1);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.018); }
+
+  /* HIGHLIGHT ROW */
+  .row-gap td {
+    background: rgba(0,212,170,0.05);
+    border-bottom: 1px solid rgba(0,212,170,0.12);
+  }
+
+  .row-gap:hover td { background: rgba(0,212,170,0.08); }
+
+  .row-gap td:first-child {
+    border-left: 3px solid var(--accent);
+  }
+
+  /* PILLS */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    margin: 1px 1px 1px 0;
+  }
+
+  .p-green { background: rgba(0,212,170,0.12); color: var(--accent); border: 1px solid rgba(0,212,170,0.2); }
+  .p-red { background: rgba(255,77,109,0.12); color: var(--red); border: 1px solid rgba(255,77,109,0.2); }
+  .p-orange { background: rgba(255,159,28,0.12); color: var(--orange); border: 1px solid rgba(255,159,28,0.2); }
+  .p-blue { background: rgba(77,159,255,0.12); color: var(--blue); border: 1px solid rgba(77,159,255,0.2); }
+  .p-purple { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+  .p-gray { background: rgba(90,100,128,0.15); color: var(--muted); border: 1px solid rgba(90,100,128,0.2); }
+
+  /* CHECK / X */
+  .yes { color: var(--accent); font-weight: 700; }
+  .no { color: var(--red); }
+  .partial { color: var(--orange); }
+
+  /* COST BREAKDOWN */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .cost-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 16px;
+  }
+
+  .cost-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .cost-amount {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .cost-detail {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .cost-detail li { margin-left: 14px; margin-top: 3px; }
+
+  /* VERDICT BOX */
+  .verdict {
+    background: var(--s2);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+
+  .verdict-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .verdict-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .verdict-text strong { color: var(--accent); }
+
+  /* BUILD PHASES */
+  .phases {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+
+  .phase-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phase-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .phase-card.p1::before { background: var(--accent); }
+  .phase-card.p2::before { background: var(--blue); }
+  .phase-card.p3::before { background: var(--purple); }
+
+  .phase-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: 8px;
+    opacity: 0.15;
+  }
+
+  .p1 .phase-num { color: var(--accent); opacity: 1; }
+  .p2 .phase-num { color: var(--blue); opacity: 1; }
+  .p3 .phase-num { color: var(--purple); opacity: 1; }
+
+  .phase-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+
+  .phase-item {
+    font-size: 11.5px;
+    color: var(--muted);
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    line-height: 1.5;
+  }
+
+  .phase-item:last-child { border-bottom: none; }
+  .phase-item strong { color: var(--text); }
+
+  .phase-cost {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+
+  .p1 .phase-cost { color: var(--accent); }
+  .p2 .phase-cost { color: var(--blue); }
+  .p3 .phase-cost { color: var(--purple); }
+
+  /* WHAT WE BUILT */
+  .built-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .built-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 16px;
+  }
+
+  .built-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .built-item {
+    font-size: 11.5px;
+    color: var(--muted);
+    padding: 4px 0;
+    display: flex;
+    gap: 8px;
+    line-height: 1.5;
+  }
+
+  .built-item-icon { flex-shrink: 0; }
+
+  @media (max-width: 900px) {
+    body { padding: 16px; }
+    .phases { grid-template-columns: 1fr; }
+    .cost-grid { grid-template-columns: 1fr; }
+    .built-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">Market Research · Signal Screener Landscape · April 2026</div>
+<h1>What Exists, What's Missing, What to Build</h1>
+<p class="subtitle">You asked the right question. The contradiction resolved: <strong>$50K is the cost to license institutional data to build a commercial product for others.</strong> Building a personal tool costs $200–500/month in APIs and weeks of dev time. Here's the full picture.</p>
+
+<!-- TABLE 1: WHAT EXISTS -->
+<div class="section">
+  <div class="section-title">What Exists Today — Competitive Landscape</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Price/mo</th>
+          <th>GEX</th>
+          <th>Dark Pool</th>
+          <th>Options Flow</th>
+          <th>VIX Term</th>
+          <th>Macro Regime</th>
+          <th>Futures</th>
+          <th>Curated List</th>
+          <th>Stocks + Futures</th>
+          <th>Output</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>SpotGamma</strong></td>
+          <td><span class="pill p-orange">$70–120</span></td>
+          <td><span class="yes">✓ Best</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">ES/NQ only</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td>GEX charts + levels</td>
+        </tr>
+        <tr>
+          <td><strong>InsiderFinance</strong></td>
+          <td><span class="pill p-green">$55</span></td>
+          <td><span class="partial">Partial</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>Flow feed + GEX tool</td>
+        </tr>
+        <tr>
+          <td><strong>Unusual Whales</strong></td>
+          <td><span class="pill p-green">$30–60</span></td>
+          <td><span class="partial">Basic</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓ Best</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>Flow alerts raw</td>
+        </tr>
+        <tr>
+          <td><strong>QuantData</strong></td>
+          <td><span class="pill p-orange">$62–150</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>Multi-signal dashboard</td>
+        </tr>
+        <tr>
+          <td><strong>Pineify</strong></td>
+          <td><span class="pill p-green">$49</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>4-stream dashboard</td>
+        </tr>
+        <tr>
+          <td><strong>Geeks of Finance</strong></td>
+          <td><span class="pill p-red">$99–199</span></td>
+          <td><span class="yes">✓ Good</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">Signals + alerts</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>GEX alerts + Discord</td>
+        </tr>
+        <tr>
+          <td><strong>HedgePulse</strong></td>
+          <td><span class="pill p-orange">$79</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">1D/9D vol</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="yes">✓ ES/NQ</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">Stocks + ES/NQ</span></td>
+          <td>Excel/ToS plugin</td>
+        </tr>
+        <tr>
+          <td><strong>SqueezeMetrics</strong></td>
+          <td><span class="pill p-green">Free</span></td>
+          <td><span class="yes">✓ Index</span></td>
+          <td><span class="yes">✓ Index DIX</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">DIX+GEX combo</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">SPX only</span></td>
+          <td>2 raw numbers, daily</td>
+        </tr>
+        <tr>
+          <td><strong>GEXScreener</strong></td>
+          <td><span class="pill p-green">Free/paid</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">Stocks only</span></td>
+          <td>GEX stock filter only</td>
+        </tr>
+        <tr>
+          <td><strong>VIXCentral</strong></td>
+          <td><span class="pill p-green">Free</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="yes">✓ Best</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">VIX only</span></td>
+          <td>One chart</td>
+        </tr>
+        <tr>
+          <td><strong>Citadel GMI</strong></td>
+          <td><span class="pill p-green">Free (monthly)</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="partial">Macro only</span></td>
+          <td><span class="partial">Macro only</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="yes">✓ Best</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">✗</span></td>
+          <td><span class="no">SPX macro only</span></td>
+          <td>PDF report, monthly lag</td>
+        </tr>
+        <!-- GAP ROW -->
+        <tr class="row-gap">
+          <td><strong>⬛ THE GAP<br><small style="color:var(--accent);font-size:10px;font-family:monospace">What Doesn't Exist</small></strong></td>
+          <td><span class="pill p-green">$0 (build)</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓</span></td>
+          <td><span class="yes">✓ Scored</span></td>
+          <td><span class="yes">✓ CL/ES/GC</span></td>
+          <td><span class="yes">✓ Ranked list</span></td>
+          <td><span class="yes">✓ Both</span></td>
+          <td><strong style="color:var(--accent)">Pre-filtered curated instrument list with scores</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- THE GAP EXPLAINED -->
+<div class="verdict">
+  <div class="verdict-title">The Actual Gap — One Sentence</div>
+  <div class="verdict-text">
+    Every tool gives you <strong>data to interpret</strong>. Nobody gives you a <strong>ranked list of 5–10 specific instruments — stocks AND futures — that have multi-signal eigenview RIGHT NOW, with setup type, timeframe, conviction score, and entry/exit logic pre-attached.</strong> That is the product. Not another dashboard. Not another flow feed. A curated, opinionated, pre-filtered output that tells you exactly what to look at and why — before the move.
+  </div>
+</div>
+
+<!-- WHAT WE BUILT vs WHAT'S MISSING -->
+<div class="section">
+  <div class="section-title">What The Dashboard We Built Does vs What's Still Missing</div>
+  <div class="built-grid">
+    <div class="built-card">
+      <div class="built-card-title"><span style="color:var(--accent)">✓</span> What It Does (built)</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Classifies all signals by type (reversal / continuation / regime)</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Interactive checklist that scores current market setup 0–10</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Maps each signal to correct timeframe, instrument, frequency</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Oil/commodity signal stack with specific exit rules</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Individual stock vs index applicability guide</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> April 8 setup simulation — see the pre-trade signal stack</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--accent)">✓</span> Decision flow: what order to check signals before trading</div>
+    </div>
+    <div class="built-card">
+      <div class="built-card-title"><span style="color:var(--red)">✗</span> What It Doesn't Do (the real product)</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT pull live data — checklist is manual, not automated</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT score individual stocks/futures automatically</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT output a ranked list of instruments to trade today</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT connect to Unusual Whales, SpotGamma, or VIXCentral APIs</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT cover futures (ES, NQ, CL, GC) with live signal data</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT alert you when a new setup fires — passive only</div>
+      <div class="built-item"><span class="built-item-icon" style="color:var(--red)">✗</span> Does NOT rank "best trade right now" across all instruments</div>
+    </div>
+  </div>
+</div>
+
+<!-- DATA COST BREAKDOWN -->
+<div class="section">
+  <div class="section-title">The $50K Confusion — Resolved</div>
+  <div class="cost-grid">
+    <div class="cost-card">
+      <div class="cost-label">Personal Tool (you only)</div>
+      <div class="cost-amount" style="color:var(--accent)">$200–500<span style="font-size:14px;opacity:0.6">/mo</span></div>
+      <div class="cost-detail">
+        <ul>
+          <li>Unusual Whales API: $250/mo (full market)</li>
+          <li>FlashAlpha API: $50–100/mo (GEX)</li>
+          <li>VIXCentral: free scrape</li>
+          <li>SqueezeMetrics DIX: free</li>
+          <li>CBOE VIX futures: free</li>
+          <li style="margin-top:6px;color:#e2e8f4">Total: ~$300–400/mo + dev time</li>
+        </ul>
+      </div>
+    </div>
+    <div class="cost-card">
+      <div class="cost-label">Commercial Product (sell to others)</div>
+      <div class="cost-amount" style="color:var(--orange)">$10K–50K<span style="font-size:14px;opacity:0.6">/yr</span></div>
+      <div class="cost-detail">
+        <ul>
+          <li>Redistribution license: Unusual Whales enterprise</li>
+          <li>SpotGamma institutional API</li>
+          <li>Real-time options data (Polygon/ThetaData)</li>
+          <li>FINRA dark pool data feed</li>
+          <li style="margin-top:6px;color:#e2e8f4">This is what the $50K refers to — selling to others</li>
+        </ul>
+      </div>
+    </div>
+    <div class="cost-card">
+      <div class="cost-label">Free / Near-Free MVP</div>
+      <div class="cost-amount" style="color:var(--blue)">$0–50<span style="font-size:14px;opacity:0.6">/mo</span></div>
+      <div class="cost-detail">
+        <ul>
+          <li>SqueezeMetrics DIX+GEX: free (daily, SPX)</li>
+          <li>VIXCentral: free (scrape)</li>
+          <li>FlashAlpha free tier: GEX per ticker</li>
+          <li>Unusual Whales free tier: 15 trades delayed</li>
+          <li style="margin-top:6px;color:#e2e8f4">Covers macro regime gate + partial stock scoring</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BUILD PHASES -->
+<div class="section">
+  <div class="section-title">Three Stages: What to Build and In What Order</div>
+  <div class="phases">
+    <div class="phase-card p1">
+      <div class="phase-num">01</div>
+      <div class="phase-title">Macro Regime Bot</div>
+      <div class="phase-item"><strong>What:</strong> Python script runs every morning pre-market. Pulls DIX, GEX (index), VIX M1/M2, SPX breadth. Outputs a single traffic light: GREEN / YELLOW / RED with score.</div>
+      <div class="phase-item"><strong>Data:</strong> SqueezeMetrics (free), VIXCentral (scrape), FlashAlpha free tier</div>
+      <div class="phase-item"><strong>Output:</strong> Slack/email: "Market regime: GREEN 7/10 — screener running" or "RED — no longs today"</div>
+      <div class="phase-item"><strong>What this solves:</strong> You never buy a stock in a negative-GEX meltdown again. Prevents the Sep–Apr trap.</div>
+      <div class="phase-item"><strong>Futures:</strong> ES/NQ regime based on SPX GEX. CL regime from OVX + COT (free CFTC data).</div>
+      <div class="phase-cost">Cost: $0/mo · Build: 1–2 weeks</div>
+    </div>
+    <div class="phase-card p2">
+      <div class="phase-num">02</div>
+      <div class="phase-title">Instrument Screener</div>
+      <div class="phase-item"><strong>What:</strong> When macro regime is GREEN, score a curated universe of 50–100 stocks + 5 futures contracts across 5 signals. Output top 5–10 ranked by eigenview score.</div>
+      <div class="phase-item"><strong>Data:</strong> Unusual Whales API ($250/mo) for flow + dark pool. FlashAlpha API for per-stock GEX. Barchart for IVR (free scrape).</div>
+      <div class="phase-item"><strong>Output:</strong> A daily card per instrument: ticker, score, setup type, entry zone, conviction drivers, stop logic.</div>
+      <div class="phase-item"><strong>Futures included:</strong> ES (GEX + CTA flip), NQ (GEX), CL (OVX + COT), GC (GVZ + COT), NQ as AI proxy</div>
+      <div class="phase-item"><strong>What this solves:</strong> Never manually scroll 5 tools. Pre-filtered output, not a watchlist.</div>
+      <div class="phase-cost">Cost: ~$300–400/mo · Build: 3–6 weeks</div>
+    </div>
+    <div class="phase-card p3">
+      <div class="phase-num">03</div>
+      <div class="phase-title">Alert + Trade Idea Engine</div>
+      <div class="phase-item"><strong>What:</strong> Real-time monitoring. When a new signal fires intraday (GEX flip, unusual sweep $1M+, dark pool cluster forming), push immediate alert with context: instrument, setup, entry, stop, timeframe.</div>
+      <div class="phase-item"><strong>Data:</strong> Unusual Whales WebSocket feed (real-time). SpotGamma intraday GEX updates.</div>
+      <div class="phase-item"><strong>Output:</strong> Push notification: "NVDA — GEX flip cross + $2.1M call sweep + dark pool cluster $108. Regime: GREEN. Swing setup. Entry $108–111, stop $104."</div>
+      <div class="phase-item"><strong>What this solves:</strong> You don't need to watch screens. The system tells you when to look.</div>
+      <div class="phase-cost">Cost: ~$400–600/mo · Build: 6–10 weeks total</div>
+    </div>
+  </div>
+</div>
+
+<!-- DIFFERENTIATION TABLE -->
+<div class="section">
+  <div class="section-title">How This Is Different from Everything Else — Feature Matrix</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Any Existing Tool</th>
+          <th style="color:var(--accent)">This Build</th>
+          <th>Why It Matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Multi-signal scoring</td>
+          <td><span class="no">Each tool = 1 signal type</span></td>
+          <td><span class="yes">✓ 5 signals scored per instrument</span></td>
+          <td>EigenView = conviction. Single signals fail alone.</td>
+        </tr>
+        <tr>
+          <td>Macro regime gate</td>
+          <td><span class="no">No tool has this</span></td>
+          <td><span class="yes">✓ GREEN/RED filter before screener runs</span></td>
+          <td>Prevents buying stocks in a GEX meltdown</td>
+        </tr>
+        <tr>
+          <td>Futures included</td>
+          <td><span class="no">Stock-only (except HedgePulse ES/NQ)</span></td>
+          <td><span class="yes">✓ ES, NQ, CL, GC with own signal stack</span></td>
+          <td>Futures move 3–10x stocks. Oil/gold signals distinct.</td>
+        </tr>
+        <tr>
+          <td>Pre-filtered output</td>
+          <td><span class="no">Raw feed / chart to interpret</span></td>
+          <td><span class="yes">✓ Ranked list: ticker, score, entry, stop</span></td>
+          <td>Removes the interpretation step. Directly actionable.</td>
+        </tr>
+        <tr>
+          <td>Setup + timeframe labeled</td>
+          <td><span class="no">You figure it out</span></td>
+          <td><span class="yes">✓ Reversal / Continuation / Re-entry</span></td>
+          <td>Same instrument needs different trade for swing vs position</td>
+        </tr>
+        <tr>
+          <td>Oil / commodity shock framework</td>
+          <td><span class="no">Nobody has this</span></td>
+          <td><span class="yes">✓ OVX + COT + Strait transit data</span></td>
+          <td>Prevents getting caught in geopolitical whipsaw (Apr 8)</td>
+        </tr>
+        <tr>
+          <td>Capitulation checklist</td>
+          <td><span class="no">Citadel GMI = monthly PDF only</span></td>
+          <td><span class="yes">✓ Automated scoring of Citadel's criteria</span></td>
+          <td>82% T+60 win rate setup — currently manual to track</td>
+        </tr>
+        <tr>
+          <td>Cost (personal use)</td>
+          <td><span class="pill p-orange">$55–200+/mo</span> and still fragmented</td>
+          <td><span class="pill p-green">$300–400/mo all-in</span> unified output</td>
+          <td>Replaces 4–5 subscriptions with one ranked list</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding: 20px 0; font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1.5px;">
+  EDUCATIONAL PURPOSE ONLY · NOT INVESTMENT ADVICE · ALL SIGNALS REQUIRE INDEPENDENT VERIFICATION
+</div>
+
+</body>
+</html>

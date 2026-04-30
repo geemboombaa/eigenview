@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — Product Proposal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #000308;
+  --c1: #0a0f1a;
+  --c2: #0f1825;
+  --border: #162030;
+  --G: #00ff88;
+  --R: #ff3355;
+  --B: #00aaff;
+  --Y: #ffcc00;
+  --P: #cc66ff;
+  --O: #ff7700;
+  --W: #ffffff;
+  --W2: #e0eaff;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+
+body{
+  background:var(--bg);
+  color:var(--W);
+  font-family:'Space Grotesk',sans-serif;
+  line-height:1.5;
+}
+
+/* ─── HERO ─── */
+.hero{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:80px 60px;
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 50%, rgba(0,255,136,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 10% 80%, rgba(0,170,255,0.05) 0%, transparent 60%),
+    var(--bg);
+}
+
+.hero-tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:4px;
+  color:var(--G);
+  text-transform:uppercase;
+  margin-bottom:24px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.hero-tag::before{content:'';width:32px;height:1px;background:var(--G);}
+
+.hero-name{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(72px,10vw,140px);
+  line-height:0.9;
+  letter-spacing:2px;
+  color:var(--W);
+  margin-bottom:8px;
+}
+
+.hero-name span{color:var(--G);}
+
+.hero-sub{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(18px,3vw,32px);
+  letter-spacing:4px;
+  color:var(--W2);
+  margin-bottom:40px;
+}
+
+.hero-desc{
+  max-width:680px;
+  font-size:18px;
+  color:var(--W2);
+  line-height:1.7;
+  margin-bottom:48px;
+}
+
+.hero-desc strong{color:var(--G);}
+
+.hero-stats{
+  display:flex;
+  gap:40px;
+  flex-wrap:wrap;
+}
+
+.hstat{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.hstat-n{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:44px;
+  line-height:1;
+  color:var(--W);
+}
+
+.hstat-n.g{color:var(--G);}
+.hstat-n.b{color:var(--B);}
+.hstat-n.y{color:var(--Y);}
+
+.hstat-l{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--W2);
+}
+
+/* ─── SECTION ─── */
+.section{padding:80px 60px;}
+.section.dark{background:var(--c1);}
+.section.darker{background:var(--c2);}
+
+.sec-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--G);
+  margin-bottom:12px;
+}
+
+.sec-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(36px,5vw,64px);
+  letter-spacing:2px;
+  color:var(--W);
+  line-height:1;
+  margin-bottom:16px;
+}
+
+.sec-title span{color:var(--G);}
+.sec-title .rb{color:var(--R);}
+.sec-title .bb{color:var(--B);}
+.sec-title .yb{color:var(--Y);}
+
+.sec-body{
+  font-size:16px;
+  color:var(--W2);
+  max-width:720px;
+  line-height:1.7;
+  margin-bottom:48px;
+}
+
+/* ─── BENTO GRID ─── */
+.bento{
+  display:grid;
+  gap:12px;
+}
+
+.bento-2{grid-template-columns:1fr 1fr;}
+.bento-3{grid-template-columns:1fr 1fr 1fr;}
+.bento-4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.bento-21{grid-template-columns:2fr 1fr;}
+.bento-12{grid-template-columns:1fr 2fr;}
+
+.tile{
+  background:var(--c1);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:24px;
+  position:relative;
+  overflow:hidden;
+}
+
+.tile.dark{background:var(--bg);}
+.tile.g{border-color:rgba(0,255,136,0.3);}
+.tile.r{border-color:rgba(255,51,85,0.3);}
+.tile.b{border-color:rgba(0,170,255,0.3);}
+.tile.y{border-color:rgba(255,204,0,0.3);}
+.tile.p{border-color:rgba(204,102,255,0.3);}
+
+.tile-accent{
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+}
+.ta-g{background:var(--G);}
+.ta-r{background:var(--R);}
+.ta-b{background:var(--B);}
+.ta-y{background:var(--Y);}
+.ta-p{background:var(--P);}
+.ta-o{background:var(--O);}
+
+.tile-tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--W2);
+  margin-bottom:10px;
+}
+
+.tile-tag.g{color:var(--G);}
+.tile-tag.b{color:var(--B);}
+.tile-tag.r{color:var(--R);}
+.tile-tag.y{color:var(--Y);}
+.tile-tag.p{color:var(--P);}
+
+.tile-title{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:20px;
+  font-weight:700;
+  color:var(--W);
+  margin-bottom:8px;
+  line-height:1.2;
+}
+
+.tile-body{
+  font-size:13px;
+  color:var(--W2);
+  line-height:1.65;
+}
+
+.tile-body strong{color:var(--W);}
+
+.big-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:56px;
+  line-height:1;
+  margin-bottom:6px;
+}
+
+.big-num.g{color:var(--G);}
+.big-num.b{color:var(--B);}
+.big-num.r{color:var(--R);}
+.big-num.y{color:var(--Y);}
+.big-num.p{color:var(--P);}
+.big-num.w{color:var(--W);}
+
+/* ─── PROBLEM TABLE ─── */
+.prob-table{width:100%;border-collapse:collapse;}
+
+.prob-table th{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--G);
+  padding:12px 16px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+}
+
+.prob-table td{
+  padding:14px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  font-size:14px;
+  color:var(--W);
+  vertical-align:top;
+}
+
+.prob-table tr:last-child td{border-bottom:none;}
+.prob-table tr:hover td{background:rgba(255,255,255,0.025);}
+
+.prob-table td:first-child{
+  font-weight:600;
+  color:var(--W);
+  width:220px;
+}
+
+.tag-pill{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:100px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:0.5px;
+}
+
+.tp-g{background:rgba(0,255,136,0.15);color:var(--G);border:1px solid rgba(0,255,136,0.3);}
+.tp-r{background:rgba(255,51,85,0.15);color:var(--R);border:1px solid rgba(255,51,85,0.3);}
+.tp-b{background:rgba(0,170,255,0.15);color:var(--B);border:1px solid rgba(0,170,255,0.3);}
+.tp-y{background:rgba(255,204,0,0.15);color:var(--Y);border:1px solid rgba(255,204,0,0.3);}
+.tp-p{background:rgba(204,102,255,0.15);color:var(--P);border:1px solid rgba(204,102,255,0.3);}
+.tp-o{background:rgba(255,119,0,0.15);color:var(--O);border:1px solid rgba(255,119,0,0.3);}
+
+/* ─── INSTRUMENT CARD ─── */
+.inst-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:12px;
+}
+
+.inst-card{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+}
+
+.inst-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+}
+
+.ic-g::before{background:var(--G);}
+.ic-b::before{background:var(--B);}
+.ic-y::before{background:var(--Y);}
+.ic-p::before{background:var(--P);}
+.ic-o::before{background:var(--O);}
+.ic-r::before{background:var(--R);}
+
+.ic-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin-bottom:14px;
+}
+
+.ic-ticker{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:32px;
+  line-height:1;
+  color:var(--W);
+}
+
+.ic-score{
+  font-family:'JetBrains Mono',monospace;
+  font-size:22px;
+  font-weight:600;
+  line-height:1;
+}
+
+.ic-score.g{color:var(--G);}
+.ic-score.b{color:var(--B);}
+.ic-score.y{color:var(--Y);}
+
+.ic-type{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:12px;
+}
+
+.ic-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  font-size:12px;
+}
+
+.ic-row:last-child{border-bottom:none;}
+.ic-key{color:var(--W2);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;}
+.ic-val{color:var(--W);font-weight:600;}
+.ic-val.g{color:var(--G);}
+.ic-val.r{color:var(--R);}
+.ic-val.y{color:var(--Y);}
+.ic-val.b{color:var(--B);}
+
+.ic-drivers{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+
+/* ─── PRICING TIERS ─── */
+.pricing-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:16px;
+}
+
+.price-card{
+  background:var(--c1);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:32px 28px;
+  position:relative;
+  overflow:hidden;
+}
+
+.price-card.featured{
+  border-color:var(--G);
+  background:linear-gradient(160deg, rgba(0,255,136,0.05) 0%, var(--c1) 60%);
+}
+
+.price-card.featured::after{
+  content:'LAUNCH TIER';
+  position:absolute;
+  top:16px;right:-28px;
+  background:var(--G);
+  color:var(--bg);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:1.5px;
+  padding:4px 36px;
+  transform:rotate(45deg);
+  transform-origin:center;
+}
+
+.price-tier{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--W2);
+  margin-bottom:16px;
+}
+
+.price-tier.g{color:var(--G);}
+.price-tier.b{color:var(--B);}
+.price-tier.p{color:var(--P);}
+
+.price-amount{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:64px;
+  line-height:1;
+  color:var(--W);
+  margin-bottom:4px;
+}
+
+.price-period{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  color:var(--W2);
+  margin-bottom:24px;
+}
+
+.price-feature{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  padding:8px 0;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  font-size:13px;
+  color:var(--W);
+}
+
+.price-feature:last-child{border-bottom:none;}
+
+.pf-icon{
+  width:16px;
+  flex-shrink:0;
+  font-size:12px;
+  margin-top:1px;
+}
+
+.pf-icon.g{color:var(--G);}
+.pf-icon.r{color:var(--R);}
+
+.price-btn{
+  display:block;
+  width:100%;
+  margin-top:24px;
+  padding:14px;
+  border-radius:8px;
+  text-align:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  cursor:pointer;
+  border:none;
+  transition:all 0.2s;
+}
+
+.pb-outline{background:transparent;border:1.5px solid var(--border);color:var(--W2);}
+.pb-green{background:var(--G);color:var(--bg);}
+.pb-blue{background:var(--B);color:var(--bg);}
+
+/* ─── GTM TABLE ─── */
+.gtm-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.gtm-tile{
+  background:var(--c1);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:22px;
+}
+
+.gtm-phase{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:48px;
+  line-height:1;
+  color:var(--border);
+  margin-bottom:8px;
+}
+
+.gtm-title{
+  font-size:16px;
+  font-weight:700;
+  color:var(--W);
+  margin-bottom:10px;
+}
+
+.gtm-row{
+  font-size:13px;
+  color:var(--W2);
+  padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  display:flex;
+  gap:10px;
+}
+
+.gtm-row:last-child{border-bottom:none;}
+.gtm-row strong{color:var(--W);}
+.gtm-arrow{color:var(--G);flex-shrink:0;}
+
+/* ─── DIVIDER ─── */
+.div-line{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--border),transparent);
+  margin:0 60px;
+}
+
+/* ─── MOCKUP SCREEN ─── */
+.mockup{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  margin-bottom:12px;
+}
+
+.mock-bar{
+  background:var(--c2);
+  border-bottom:1px solid var(--border);
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.mock-logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:18px;
+  letter-spacing:3px;
+  color:var(--G);
+}
+
+.mock-regime{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:1.5px;
+}
+
+.mock-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--G);
+  animation:blink 1.5s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.mock-inner{padding:16px;display:flex;flex-direction:column;gap:10px;}
+
+.mock-regime-row{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:8px;
+}
+
+.mrr-tile{
+  background:var(--c2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:10px 12px;
+}
+
+.mrr-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:8px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--W2);
+  margin-bottom:4px;
+}
+
+.mrr-val{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:20px;
+  line-height:1;
+}
+
+.mrr-val.g{color:var(--G);}
+.mrr-val.r{color:var(--R);}
+.mrr-val.y{color:var(--Y);}
+.mrr-val.b{color:var(--B);}
+
+.mock-list-header{
+  display:grid;
+  grid-template-columns:80px 60px 80px 1fr 100px 100px 80px;
+  gap:8px;
+  padding:6px 12px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--G);
+  border-bottom:1px solid var(--border);
+}
+
+.mock-row{
+  display:grid;
+  grid-template-columns:80px 60px 80px 1fr 100px 100px 80px;
+  gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  align-items:center;
+  cursor:pointer;
+  transition:background 0.15s;
+  border-radius:6px;
+}
+
+.mock-row:hover{background:rgba(255,255,255,0.03);}
+
+.mr-ticker{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:20px;
+  color:var(--W);
+  line-height:1;
+}
+
+.mr-score{
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;
+  font-weight:600;
+}
+
+.mr-score.g{color:var(--G);}
+.mr-score.y{color:var(--Y);}
+.mr-score.b{color:var(--B);}
+
+.mr-setup{font-size:11px;}
+.mr-drivers{font-size:11px;color:var(--W2);}
+.mr-entry{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--W);}
+.mr-tf{font-size:11px;}
+
+.setup-rv{color:var(--G);font-weight:600;font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+.setup-ct{color:var(--B);font-weight:600;font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+.setup-re{color:var(--Y);font-weight:600;font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+
+.tf-sw{color:var(--B);}
+.tf-po{color:var(--G);}
+.tf-id{color:var(--Y);}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:900px){
+  .section{padding:60px 24px;}
+  .hero{padding:60px 24px;}
+  .bento-2,.bento-3,.bento-4,.bento-21,.bento-12{grid-template-columns:1fr;}
+  .pricing-grid{grid-template-columns:1fr;}
+  .gtm-grid{grid-template-columns:1fr;}
+  .mock-regime-row{grid-template-columns:repeat(3,1fr);}
+  .mock-list-header,.mock-row{grid-template-columns:70px 50px 80px 1fr;}
+  .mock-row>:nth-child(n+5){display:none;}
+  .mock-list-header>:nth-child(n+5){display:none;}
+  .div-line{margin:0 24px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="hero-tag">Product Proposal · April 2026</div>
+  <div class="hero-name">PUL<span>SE</span></div>
+  <div class="hero-sub">Pre-Filtered Market Intelligence for Active Traders</div>
+  <div class="hero-desc">
+    Not another flow feed. Not another chart tool. <strong>EigenView is the first product that runs multi-signal eigenview scoring across stocks and futures and outputs a ranked, curated, ready-to-act list</strong> — with setup type, timeframe, entry zone, and conviction drivers. Every morning. Before you open your broker.
+  </div>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-n g">11</div><div class="hstat-l">Existing Tools</div></div>
+    <div class="hstat"><div class="hstat-n w">0</div><div class="hstat-l">That Output a Curated List</div></div>
+    <div class="hstat"><div class="hstat-n b">5</div><div class="hstat-l">Signals Fused Per Instrument</div></div>
+    <div class="hstat"><div class="hstat-n y">82%</div><div class="hstat-l">T+60 Win Rate (Citadel Data)</div></div>
+  </div>
+</div>
+
+<div class="div-line"></div>
+
+<!-- ═══ THE PROBLEM ═══ -->
+<div class="section dark">
+  <div class="sec-eyebrow">The Problem</div>
+  <div class="sec-title">Every Tool Gives You <span>Data.</span><br>Nobody Gives You <span class="rb">Decisions.</span></div>
+  <div class="sec-body">Retail traders in 2026 are drowning in signal tools that each cover one piece. You need 4–6 subscriptions, 30+ minutes of manual cross-referencing every morning, and you still miss the April 8-type moves because no single tool had the full picture assembled.</div>
+
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+    <table class="prob-table">
+      <thead>
+        <tr>
+          <th>The Real Pain Point</th>
+          <th>What Traders Do Today</th>
+          <th>What EigenView Does</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Missed major turns (Sep–Apr, Apr 8)</td>
+          <td>Found out after the move. Signals existed but were spread across 5 tools.</td>
+          <td>Regime gate + multi-signal scoring catches eigenview before the move</td>
+          <td><span class="tag-pill tp-g">Core Feature</span></td>
+        </tr>
+        <tr>
+          <td>Got wrecked on oil drop</td>
+          <td>No tool showed OVX + COT + physical supply converging as exit signals</td>
+          <td>Commodity signal stack: OVX term structure + COT + futures curve shape</td>
+          <td><span class="tag-pill tp-y">Futures Module</span></td>
+        </tr>
+        <tr>
+          <td>Watchlist fatigue — 200 tickers, zero conviction</td>
+          <td>Manually screened every morning, still couldn't rank by actual setup quality</td>
+          <td>Pre-filtered output: max 10 instruments, ranked by eigenview score. Not a list — a lineup.</td>
+          <td><span class="tag-pill tp-b">Core Output</span></td>
+        </tr>
+        <tr>
+          <td>Paying $55 + $70 + $69 + $62 = $256/mo for fragmented tools</td>
+          <td>InsiderFinance + SpotGamma + WhaleStream + QuantData — still manually reconciled</td>
+          <td>One product, unified scoring engine, single output</td>
+          <td><span class="tag-pill tp-p">GTM Wedge</span></td>
+        </tr>
+        <tr>
+          <td>No macro regime awareness before buying stocks</td>
+          <td>Bought individual stocks in a negative-GEX meltdown (Sep–Mar)</td>
+          <td>Macro regime gate runs first — GREEN/YELLOW/RED. No stocks shown in RED regime.</td>
+          <td><span class="tag-pill tp-g">Core Feature</span></td>
+        </tr>
+        <tr>
+          <td>Short-term vs long-term signals mixed up</td>
+          <td>Same tool used for day trades and swing trades — no timeframe distinction</td>
+          <td>Every output card labels setup type + timeframe: REVERSAL/SWING/POSITION/INVEST</td>
+          <td><span class="tag-pill tp-o">UX Difference</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ WHAT EigenView IS ═══ -->
+<div class="section">
+  <div class="sec-eyebrow">The Product</div>
+  <div class="sec-title">What <span>EigenView</span> Is</div>
+  <div class="sec-body">A daily intelligence brief delivered as a live dashboard. The engine runs 5 signal layers across a curated universe of instruments. The output is a ranked, scored, labeled list — not data to interpret. You open EigenView, you see what to look at today, why, and how to trade it.</div>
+
+  <div class="bento bento-3" style="margin-bottom:12px;">
+    <div class="tile g">
+      <div class="tile-accent ta-g"></div>
+      <div class="tile-tag g">Layer 1 — Macro Gate</div>
+      <div class="tile-title">Regime Filter</div>
+      <div class="tile-body">Before any instrument is scored, the macro regime is evaluated: SPX GEX (SpotGamma), VIX M1/M2 term structure (VIXCentral), DIX dark pool index (SqueezeMetrics), SPX breadth. Score 0–4. <strong>GREEN = screener runs. RED = only short setups or cash signal shown.</strong> This alone prevents Sep–Mar trap.</div>
+    </div>
+    <div class="tile b">
+      <div class="tile-accent ta-b"></div>
+      <div class="tile-tag b">Layer 2 — Instrument Scoring</div>
+      <div class="tile-title">5-Signal EigenView Engine</div>
+      <div class="tile-body">Each instrument scored 0–10 across: GEX regime (stock-level), dark pool accumulation clusters, IV Rank vs 52-week range, unusual options flow ($1M+ sweeps), post-OpEx gamma clearing window. <strong>Score 6+ = enters the curated list.</strong> Everything below is filtered out.</div>
+    </div>
+    <div class="tile y">
+      <div class="tile-accent ta-y"></div>
+      <div class="tile-tag y">Layer 3 — Output</div>
+      <div class="tile-title">The Curated List</div>
+      <div class="tile-body">Max 10 instruments per day. Each card shows: ticker, score, setup type, timeframe, entry zone, stop logic, conviction drivers. <strong>Not a watchlist. Not a feed. A ranked, opinionated, ready-to-act lineup</strong> — stocks AND futures, every session.</div>
+    </div>
+  </div>
+
+  <div class="bento bento-4">
+    <div class="tile">
+      <div class="tile-accent ta-g"></div>
+      <div class="tile-tag g">Output Type 1</div>
+      <div class="tile-title">REVERSAL</div>
+      <div class="tile-body">GEX flip cross + capitulation signals converging. <strong>Swing 3–10 days.</strong> Entry zone, stop below dark pool cluster. These fire ~8–12x/year at index level.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-accent ta-b"></div>
+      <div class="tile-tag b">Output Type 2</div>
+      <div class="tile-title">CONTINUATION</div>
+      <div class="tile-body">Breadth healthy, VIX contango restoring, net premium bullish. <strong>Re-entry on pullbacks</strong> in confirmed trending instruments. Most common output type.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-accent ta-y"></div>
+      <div class="tile-tag y">Output Type 3</div>
+      <div class="tile-title">POSITION</div>
+      <div class="tile-body">Full capitulation checklist fired (82% T+60 win rate). <strong>2–6 week horizon.</strong> LEAPS or stock. Sized for holds through noise. Rare — maybe 3–4x/year.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-accent ta-p"></div>
+      <div class="tile-tag p">Output Type 4</div>
+      <div class="tile-title">INVEST</div>
+      <div class="tile-body">Valuation reset + capitulation + fundamental support. <strong>3–12 month horizon.</strong> Specifically for non-traders who want structural entry points, not day trades.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MOCKUP ═══ -->
+<div class="section darker">
+  <div class="sec-eyebrow">UI / UX</div>
+  <div class="sec-title">What It <span>Looks Like</span></div>
+  <div class="sec-body">Bento layout. Bright contrast. Every number readable at a glance. Top strip shows the macro regime. Below it: the curated list. Click any row to expand to full trade card. No tabs, no navigation, no interpretation required.</div>
+
+  <div class="mockup">
+    <div class="mock-bar">
+      <div class="mock-logo">EigenView</div>
+      <div class="mock-regime">
+        <div class="mock-dot"></div>
+        <span style="color:var(--G);font-weight:600;">REGIME: GREEN 7/10</span>
+        <span style="color:var(--W2);margin-left:12px;">Delayed 15min · Apr 28 09:47 ET</span>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--W2);">10 instruments · 3 REVERSAL · 5 CONTINUATION · 2 POSITION</div>
+    </div>
+
+    <div class="mock-inner">
+      <!-- REGIME TILES -->
+      <div class="mock-regime-row">
+        <div class="mrr-tile">
+          <div class="mrr-label">SPX GEX</div>
+          <div class="mrr-val g">+POS</div>
+          <div style="font-size:10px;color:var(--W2);margin-top:3px;">Above Flip</div>
+        </div>
+        <div class="mrr-tile">
+          <div class="mrr-label">VIX M1/M2</div>
+          <div class="mrr-val g">0.94</div>
+          <div style="font-size:10px;color:var(--W2);margin-top:3px;">Contango ✓</div>
+        </div>
+        <div class="mrr-tile">
+          <div class="mrr-label">DIX</div>
+          <div class="mrr-val g">46.2%</div>
+          <div style="font-size:10px;color:var(--W2);margin-top:3px;">Bullish &gt;45</div>
+        </div>
+        <div class="mrr-tile">
+          <div class="mrr-label">Breadth</div>
+          <div class="mrr-val y">58%</div>
+          <div style="font-size:10px;color:var(--W2);margin-top:3px;">Above 50dma</div>
+        </div>
+        <div class="mrr-tile">
+          <div class="mrr-label">Regime Score</div>
+          <div class="mrr-val g">7/10</div>
+          <div style="font-size:10px;color:var(--G);margin-top:3px;font-weight:600;">SCREENER ON</div>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div style="background:var(--c2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <div class="mock-list-header">
+          <span>TICKER</span>
+          <span>SCORE</span>
+          <span>SETUP</span>
+          <span>CONVICTION DRIVERS</span>
+          <span>ENTRY ZONE</span>
+          <span>STOP</span>
+          <span>TIMEFRAME</span>
+        </div>
+
+        <div class="mock-row">
+          <div class="mr-ticker">NVDA</div>
+          <div class="mr-score g">9/10</div>
+          <div class="mr-setup"><span class="setup-rv">REVERSAL</span></div>
+          <div class="mr-drivers">GEX Flip Cross · $2.1M Call Sweep · Dark Pool ×3 cluster $108</div>
+          <div class="mr-entry">$108 – $112</div>
+          <div class="mr-entry" style="color:var(--R);">Below $104</div>
+          <div class="mr-tf"><span class="tf-sw">SWING 5–10d</span></div>
+        </div>
+
+        <div class="mock-row">
+          <div class="mr-ticker">ES</div>
+          <div class="mr-score g">8/10</div>
+          <div class="mr-setup"><span class="setup-ct">CONTINUATION</span></div>
+          <div class="mr-drivers">CTA Flip Cross · VIX Contango Restoring · Breadth 406 stocks</div>
+          <div class="mr-entry">5,820 – 5,860</div>
+          <div class="mr-entry" style="color:var(--R);">Below 5,760</div>
+          <div class="mr-tf"><span class="tf-sw">SWING 3–7d</span></div>
+        </div>
+
+        <div class="mock-row">
+          <div class="mr-ticker">META</div>
+          <div class="mr-score g">8/10</div>
+          <div class="mr-setup"><span class="setup-rv">REVERSAL</span></div>
+          <div class="mr-drivers">IVR 81 · Dark Pool Accumulation · GEX Positive Regime</div>
+          <div class="mr-entry">$490 – $502</div>
+          <div class="mr-entry" style="color:var(--R);">Below $481</div>
+          <div class="mr-tf"><span class="tf-po">POSITION 2–4w</span></div>
+        </div>
+
+        <div class="mock-row">
+          <div class="mr-ticker">SPY</div>
+          <div class="mr-score y">7/10</div>
+          <div class="mr-setup"><span class="setup-ct">CONTINUATION</span></div>
+          <div class="mr-drivers">Post-OpEx Clear · Net Premium Bullish 3d · Breadth Holding</div>
+          <div class="mr-entry">$572 – $576</div>
+          <div class="mr-entry" style="color:var(--R);">Below $564</div>
+          <div class="mr-tf"><span class="tf-sw">SWING 3–5d</span></div>
+        </div>
+
+        <div class="mock-row">
+          <div class="mr-ticker">GC</div>
+          <div class="mr-score y">7/10</div>
+          <div class="mr-setup"><span class="setup-re">RE-ENTRY</span></div>
+          <div class="mr-drivers">GVZ Elevated · COT Net Long 68% · Futures Backwardation</div>
+          <div class="mr-entry">$3,280 – $3,320</div>
+          <div class="mr-entry" style="color:var(--R);">Below $3,240</div>
+          <div class="mr-tf"><span class="tf-po">POSITION 3–6w</span></div>
+        </div>
+
+        <div class="mock-row" style="opacity:0.5;">
+          <div class="mr-ticker">TSLA</div>
+          <div class="mr-score y">7/10</div>
+          <div class="mr-setup"><span class="setup-rv">REVERSAL</span></div>
+          <div class="mr-drivers">$1.8M Put Sweep (fade) · IVR 76 · GEX Flip Proximity</div>
+          <div class="mr-entry">$248 – $255</div>
+          <div class="mr-entry" style="color:var(--R);">Below $241</div>
+          <div class="mr-tf"><span class="tf-sw">SWING 3–8d</span></div>
+        </div>
+
+        <div style="padding:10px 16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--W2);letter-spacing:1px;border-top:1px solid var(--border);">
+          + 4 more instruments · Upgrade to PRO for full list + real-time alerts
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--W2);text-align:center;padding:8px;letter-spacing:1px;">
+    ↑ UI MOCKUP — Delayed tier shows 6 instruments. PRO shows all 10 + real-time data + alerts.
+  </div>
+</div>
+
+<!-- ═══ CURATED UNIVERSE ═══ -->
+<div class="section dark">
+  <div class="sec-eyebrow">Instrument Universe</div>
+  <div class="sec-title">The Curated <span>Universe</span> — <span class="bb">What Gets Scored</span></div>
+  <div class="sec-body">Not 500 stocks. Not a raw screener of the whole market. A deliberate, curated universe of instruments chosen because they have sufficient options liquidity for GEX to be meaningful, sufficient dark pool volume to detect institutional intent, and sufficient retail interest to matter. Currently ~120 instruments total.</div>
+
+  <div class="inst-grid">
+    <div class="inst-card ic-g">
+      <div class="ic-top">
+        <div>
+          <div class="ic-ticker">Mega-Cap Tech</div>
+          <div style="font-size:12px;color:var(--W2);margin-top:2px;">Full signal stack applicable</div>
+        </div>
+        <div class="ic-score g">~25</div>
+      </div>
+      <div class="ic-row"><span class="ic-key">Tickers</span><span class="ic-val">NVDA AAPL MSFT META AMZN GOOGL TSLA NFLX AMD AVGO + 15 more</span></div>
+      <div class="ic-row"><span class="ic-key">GEX applicable</span><span class="ic-val g">✓ Full — large OI vs float</span></div>
+      <div class="ic-row"><span class="ic-key">Dark Pool</span><span class="ic-val g">✓ High volume, reliable clusters</span></div>
+      <div class="ic-row"><span class="ic-key">Setup types</span><span class="ic-val">All 4 — Reversal to Invest</span></div>
+      <div class="ic-row"><span class="ic-key">Best for</span><span class="ic-val">Swing + Position trades</span></div>
+    </div>
+
+    <div class="inst-card ic-b">
+      <div class="ic-top">
+        <div>
+          <div class="ic-ticker">Index ETFs</div>
+          <div style="font-size:12px;color:var(--W2);margin-top:2px;">Macro regime + continuation</div>
+        </div>
+        <div class="ic-score b">~8</div>
+      </div>
+      <div class="ic-row"><span class="ic-key">Tickers</span><span class="ic-val">SPY QQQ IWM XLK XLE XLF XBI SOXX + sector ETFs</span></div>
+      <div class="ic-row"><span class="ic-key">Primary use</span><span class="ic-val b">Regime confirmation + rotation</span></div>
+      <div class="ic-row"><span class="ic-key">Setup types</span><span class="ic-val">Continuation + Position</span></div>
+      <div class="ic-row"><span class="ic-key">Signal weight</span><span class="ic-val">Breadth + net premium primary</span></div>
+      <div class="ic-row"><span class="ic-key">Best for</span><span class="ic-val">Directional macro plays</span></div>
+    </div>
+
+    <div class="inst-card ic-y">
+      <div class="ic-top">
+        <div>
+          <div class="ic-ticker">Equity Futures</div>
+          <div style="font-size:12px;color:var(--W2);margin-top:2px;">GEX + CTA flip levels</div>
+        </div>
+        <div class="ic-score y">~4</div>
+      </div>
+      <div class="ic-row"><span class="ic-key">Contracts</span><span class="ic-val">ES NQ RTY YM</span></div>
+      <div class="ic-row"><span class="ic-key">Signals used</span><span class="ic-val y">GEX regime · CTA flip · breadth</span></div>
+      <div class="ic-row"><span class="ic-key">Leverage warning</span><span class="ic-val r">Always shown on card</span></div>
+      <div class="ic-row"><span class="ic-key">Setup types</span><span class="ic-val">Reversal + Continuation</span></div>
+      <div class="ic-row"><span class="ic-key">Best for</span><span class="ic-val">Active futures traders, hedgers</span></div>
+    </div>
+
+    <div class="inst-card ic-o">
+      <div class="ic-top">
+        <div>
+          <div class="ic-ticker">Commodity Futures</div>
+          <div style="font-size:12px;color:var(--W2);margin-top:2px;">OVX / GVZ + COT + curve</div>
+        </div>
+        <div class="ic-score" style="color:var(--O);">~4</div>
+      </div>
+      <div class="ic-row"><span class="ic-key">Contracts</span><span class="ic-val">CL NG GC SI</span></div>
+      <div class="ic-row"><span class="ic-key">Unique signals</span><span class="ic-val" style="color:var(--O);">OVX term structure · COT positioning · futures curve shape</span></div>
+      <div class="ic-row"><span class="ic-key">Oil exit rule</span><span class="ic-val r">OVX −15% intraday = auto alert</span></div>
+      <div class="ic-row"><span class="ic-key">Best for</span><span class="ic-val">Geopolitical premium plays</span></div>
+    </div>
+
+    <div class="inst-card ic-p">
+      <div class="ic-top">
+        <div>
+          <div class="ic-ticker">High-Beta Single Stocks</div>
+          <div style="font-size:12px;color:var(--W2);margin-top:2px;">IVR + dark pool primary</div>
+        </div>
+        <div class="ic-score p">~80</div>
+      </div>
+      <div class="ic-row"><span class="ic-key">Selection criteria</span><span class="ic-val">Avg daily options premium &gt;$50M</span></div>
+      <div class="ic-row"><span class="ic-key">Sectors</span><span class="ic-val p">Semis · AI · Biotech · Financials · Energy</span></div>
+      <div class="ic-row"><span class="ic-key">GEX applicable</span><span class="ic-val y">Partial — top 20 names only</span></div>
+      <div class="ic-row"><span class="ic-key">Primary signals</span><span class="ic-val">IVR + dark pool + sweep flow</span></div>
+      <div class="ic-row"><span class="ic-key">Setup types</span><span class="ic-val">Reversal + Re-entry + Invest</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COMPETITIVE ═══ -->
+<div class="section">
+  <div class="sec-eyebrow">Competitive Landscape</div>
+  <div class="sec-title">What <span>Exists</span> vs What <span class="rb">EigenView</span> Does</div>
+  <div class="sec-body">Eleven tools cover pieces of this problem. None assembles them. The table below shows exactly where each competitor stops — and where EigenView starts.</div>
+
+  <!-- SCROLLABLE COMPARISON TABLE -->
+  <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:24px;">
+    <table style="width:100%;border-collapse:collapse;min-width:1100px;">
+      <thead>
+        <tr style="background:var(--c2);">
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;">Product</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Price/mo</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">GEX</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Dark Pool</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Options Flow</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">VIX Term</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Macro Regime</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Futures</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;">Curated List</th>
+          <th style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--G);padding:14px 12px;text-align:left;border-bottom:1px solid var(--border);">What You Actually Get</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- competitors -->
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">SpotGamma</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$70–120</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓ Best</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">ES/NQ</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">GEX charts + dealer levels. You interpret what to do.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">Unusual Whales</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--G);">$30–60</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">Basic</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓ Best</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">Raw flow feed. Firehose of trades — no scoring, no ranking, no macro context.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">InsiderFinance</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--G);">$55</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">Partial</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">Multi-signal dashboard — good data, no convergence engine, stocks only.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">QuantData</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$62–150</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">Best multi-signal data view. Still requires manual interpretation. No output list.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">Pineify</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--G);">$49</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">4-stream dashboard (flow, dark pool, congress, market tide). No GEX, no macro gate, no ranked output.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">BlackBoxStocks</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$99</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">Live trading room + alerts. Community-driven, not signal-driven. Human callers — variable quality.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">FlowAlgo</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$149</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">15-min delayed flow tape. Good for scalpers. Zero scoring, zero regime awareness, zero ranked output.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">HedgePulse</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$79</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">Partial</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">ES/NQ</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">GEX + breadth in Excel/ToS. Closest to regime awareness but no flow, no dark pool, no output list.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">TradeAlgo</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--Y);">$97–197</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">Basic</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--G);font-weight:700;">✓</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">AI score</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">AI-scored flow + dark pool. No GEX, no regime gate, no futures, no commodity signals. Black-box AI score.</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:12px 16px;font-size:14px;font-weight:700;color:var(--W);white-space:nowrap;">SqueezeMetrics</td>
+          <td style="padding:12px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--G);">Free</span></td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">Index</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">DIX only</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--Y);">DIX+GEX</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 12px;text-align:center;font-size:13px;color:var(--R);">✗</td>
+          <td style="padding:12px 16px;font-size:12px;color:var(--W2);">Two raw numbers, SPX only, daily. Foundational research — not a trading tool.</td>
+        </tr>
+        <!-- EigenView ROW — highlighted -->
+        <tr style="background:rgba(0,255,136,0.06);border-top:2px solid rgba(0,255,136,0.4);border-bottom:2px solid rgba(0,255,136,0.4);">
+          <td style="padding:14px 16px;font-size:15px;font-weight:800;color:var(--G);white-space:nowrap;border-left:3px solid var(--G);">EigenView</td>
+          <td style="padding:14px 12px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--G);font-weight:700;">$29–79</span></td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓ Scored</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓ All</td>
+          <td style="padding:14px 12px;text-align:center;font-size:14px;color:var(--G);font-weight:800;">✓ Ranked</td>
+          <td style="padding:14px 16px;font-size:13px;color:var(--W);font-weight:600;">Pre-filtered ranked list. 10 instruments. Score + setup + entry + stop + timeframe. Ready to act.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 6 DIFFERENTIATION BENTO TILES -->
+  <div style="margin-bottom:12px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--G);margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+      6 Hard Differentiators
+      <span style="flex:1;height:1px;background:var(--border);display:block;"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--G);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--G);line-height:1;margin-bottom:8px;">01</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Macro Regime Gate</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;"><strong style="color:var(--W);">Nobody else has this.</strong> Before any instrument is scored, EigenView runs a 4-factor macro gate (GEX + VIX term structure + DIX + breadth). If the gate is RED, the screener outputs short setups or cash signal only. This single feature prevents buying stocks into a meltdown — the Sep–Apr trap that hurt everyone.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--G);letter-spacing:1px;">UNIQUE — NO COMPETITOR HAS THIS</div>
+      </div>
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--B);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--B);line-height:1;margin-bottom:8px;">02</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Curated Ranked Output — Not a Feed</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;">Every competitor gives you a raw data stream to interpret. <strong style="color:var(--W);">EigenView gives you a ranked list of max 10 instruments with a conviction score, setup type, entry zone, and stop.</strong> The interpretation is done. The decision is yours. This is the core UX difference — output vs data.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--B);letter-spacing:1px;">NO COMPETITOR OUTPUTS A RANKED LIST</div>
+      </div>
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--Y);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--Y);line-height:1;margin-bottom:8px;">03</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Futures + Commodities Native</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;"><strong style="color:var(--W);">Every competitor is stocks-only</strong> (HedgePulse covers ES/NQ only in Excel). EigenView includes ES, NQ, CL, GC, SI with commodity-specific signal stacks — OVX term structure, COT positioning, futures curve shape. Oil shock exit rules are built into the CL card. April 8 oil wipeout becomes a managed exit, not a surprise.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--Y);letter-spacing:1px;">ONLY PRODUCT WITH COMMODITY SIGNAL STACK</div>
+      </div>
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--P);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--P);line-height:1;margin-bottom:8px;">04</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Setup Type + Timeframe Labeling</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;">Every output card declares: <strong style="color:var(--W);">REVERSAL / CONTINUATION / POSITION / INVEST</strong> with an explicit timeframe (Swing 3–10d, Position 2–6w, Invest 3–12mo). No competitor does this. The same ticker can be a swing trade OR a long-term investment — EigenView tells you which, and why, based on which signals fired.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--P);letter-spacing:1px;">ONLY PRODUCT THAT LABELS SETUP + TIMEFRAME</div>
+      </div>
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--O);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--O);line-height:1;margin-bottom:8px;">05</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Transparent Signal Log + Win Rate</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;">Every signal EigenView calls is logged with outcome. <strong style="color:var(--W);">Win rate by setup type is public-facing</strong> — traders can verify performance before paying. TradeAlgo has a black-box AI score. BlackBoxStocks has human callers. EigenView has a verifiable, auditable track record. Transparency IS the moat against signal-service skepticism.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--O);letter-spacing:1px;">PUBLIC TRACK RECORD — COMPETITORS HIDE THIS</div>
+      </div>
+
+      <div style="background:var(--c1);border:1px solid var(--border);border-radius:12px;padding:22px;border-top:3px solid var(--R);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--R);line-height:1;margin-bottom:8px;">06</div>
+        <div style="font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;">Price Anchor Destroys Competition</div>
+        <div style="font-size:13px;color:var(--W2);line-height:1.6;">The comparable stack costs <strong style="color:var(--W);">$256+/mo across 4 tools</strong> (SpotGamma $70 + InsiderFinance $55 + WhaleStream $69 + QuantData $62) — and still requires manual reconciliation. EigenView Delayed is <strong style="color:var(--G);">$29/mo</strong> for a unified, scored, ready-to-act output. PRO is $79. The competitor stack doesn't even output what EigenView outputs at any price point.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--R);letter-spacing:1px;">$29 VS $256 — AND EigenView DOES MORE</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PRICING ═══ -->
+<div class="section">
+  <div class="sec-eyebrow">Pricing</div>
+  <div class="sec-title">Three <span>Tiers</span></div>
+  <div class="sec-body">Start delayed. Build trust. Upgrade to real-time when you're ready to trade on it. The delayed tier is the GTM wedge — it lets traders verify the signals historically before paying for real-time access.</div>
+
+  <div class="pricing-grid">
+
+    <div class="price-card">
+      <div class="price-tier">Free</div>
+      <div class="price-amount">$0</div>
+      <div class="price-period">forever · no card required</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Macro regime score — daily</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Top 3 instruments from curated list</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Score only — no entry/stop/drivers</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> 24-hour delayed data</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No futures instruments</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No full instrument card</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No alerts</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No historical signal log</div>
+      <button class="price-btn pb-outline">Start Free</button>
+    </div>
+
+    <div class="price-card featured">
+      <div class="price-tier g">EigenView Delayed · Launch Tier</div>
+      <div class="price-amount">$29</div>
+      <div class="price-period">per month · cancel anytime</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Full macro regime dashboard</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> All 10 curated instruments daily</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Full trade card: score, setup, entry, stop, drivers</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Setup type labels: Reversal / Continuation / Position / Invest</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Stocks + ETFs + Futures (ES, NQ, CL, GC)</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> 15-minute delayed data</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> 30-day historical signal log</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Morning brief email: regime + top 3</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No real-time alerts</div>
+      <div class="price-feature"><span class="pf-icon r">✗</span> No intraday updates</div>
+      <button class="price-btn pb-green">Start $29/mo</button>
+    </div>
+
+    <div class="price-card">
+      <div class="price-tier b">EigenView PRO · Real-Time</div>
+      <div class="price-amount">$79</div>
+      <div class="price-period">per month · cancel anytime</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Everything in Delayed</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Real-time data (sub-60s refresh)</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Intraday regime changes pushed instantly</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Alert: "New setup fired — NVDA 9/10 REVERSAL"</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Commodity shock alerts (OVX −15% trigger)</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> 90-day historical signal + outcome log</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Signal performance tracking (win rate by type)</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> API access (JSON endpoints)</div>
+      <div class="price-feature"><span class="pf-icon g">✓</span> Priority support + onboarding call</div>
+      <button class="price-btn pb-blue">Start $79/mo</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ GTM ═══ -->
+<div class="section dark">
+  <div class="sec-eyebrow">Go To Market</div>
+  <div class="sec-title"><span>GTM</span> — How We Win</div>
+  <div class="sec-body">The wedge is the $29 delayed tier. Low enough to try without friction, credible enough to convert. The content strategy is the signal log — publishing what EigenView called, and what happened. That's the acquisition engine.</div>
+
+  <div class="gtm-grid">
+    <div class="gtm-tile">
+      <div class="gtm-phase">01</div>
+      <div class="gtm-title">Phase 1 — Build in Public (Month 0–2)</div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Public signal log:</strong> Post what EigenView would have called the day before. April 8 setup would have been flagged. Build the proof before the product ships.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>X/Twitter thread series:</strong> "What signals fired before [event]." Document Sep–Apr, April 8, oil drop. Each thread ends: "EigenView would have shown this."</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Target communities:</strong> r/options, r/Daytrading, X trading community, StockTwits power users. These are people already paying $50–200/mo for fragmented tools.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Waitlist:</strong> Free tier as lead gen. Email list of regime score daily. Convert to $29 when full product ships.</span></div>
+    </div>
+
+    <div class="gtm-tile">
+      <div class="gtm-phase">02</div>
+      <div class="gtm-title">Phase 2 — Launch Delayed Tier (Month 2–4)</div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Price anchor:</strong> "You're paying $256/mo for 4 fragmented tools. EigenView is $29." Every comparison post starts here.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Signal performance dashboard:</strong> Public-facing win rate by setup type. Transparency is the differentiator vs black-box signal services.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Affiliate:</strong> Active traders with audiences (&gt;5K followers) get rev share on referrals. Options flow community has clear influencer nodes.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Target: 500 paying users at $29.</strong> That's $14.5K MRR. Proves the model before PRO tier launch.</span></div>
+    </div>
+
+    <div class="gtm-tile">
+      <div class="gtm-phase">03</div>
+      <div class="gtm-title">Phase 3 — PRO Tier + Real-Time (Month 4–8)</div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Real-time alerts</strong> is the PRO upgrade driver — delayed users who miss a real-time move convert within 1 month.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>API tier</strong> opens builder community — people integrate EigenView signals into their own tools, TradingView scripts, Discord bots.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Target: 200 PRO users at $79 + 800 Delayed at $29.</strong> = $39K MRR. Cash-flow positive on Phase 2 data costs.</span></div>
+    </div>
+
+    <div class="gtm-tile">
+      <div class="gtm-phase">04</div>
+      <div class="gtm-title">Phase 4 — Commercial / Enterprise (Month 8+)</div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>RIA / family office tier:</strong> Regime gate + position scoring for portfolio managers. $500–2K/mo per seat. 10 clients = $60K MRR.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>White-label:</strong> Sell the scoring engine to existing flow tools (Pineify, smaller players) who lack the regime layer and curated output.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>Data redistribution license</strong> unlocked at this stage — reinvest Phase 3 MRR into institutional data feeds for full commercial product.</span></div>
+      <div class="gtm-row"><span class="gtm-arrow">→</span><span><strong>This is when the $50K data cost makes sense</strong> — against $100K+ MRR, it's &lt;50% margin cost, not a barrier.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BUILD COST ═══ -->
+<div class="section">
+  <div class="sec-eyebrow">Build Cost</div>
+  <div class="sec-title">What It Costs to <span>Ship</span></div>
+  <div class="sec-body">Phase 1 (delayed tier) is buildable on public/free data sources. No $50K licensing needed until Phase 4. The signal quality at the delayed tier is still differentiated — nobody else outputs a curated ranked list even with delayed data.</div>
+
+  <div class="bento bento-3">
+    <div class="tile g">
+      <div class="tile-accent ta-g"></div>
+      <div class="big-num g">$0</div>
+      <div class="tile-tag g">Phase 1 Data Cost</div>
+      <div class="tile-title">Free Sources</div>
+      <div class="tile-body">SqueezeMetrics DIX+GEX (free), VIXCentral scrape (free), FlashAlpha free GEX tier, CBOE VIX futures (free), FINRA dark pool reports (free daily, 1-day lag), CFTC COT reports (free weekly).<br><br><strong>Covers: macro regime gate fully. Stock scoring partially.</strong></div>
+    </div>
+    <div class="tile b">
+      <div class="tile-accent ta-b"></div>
+      <div class="big-num b">$300</div>
+      <div class="tile-tag b">Phase 2 Data Cost / Month</div>
+      <div class="tile-title">Delayed Tier Stack</div>
+      <div class="tile-body">Unusual Whales API $250/mo (15min delayed flow + dark pool), FlashAlpha Alpha tier $50/mo (GEX per-stock), Barchart IVR scrape free.<br><br><strong>Covers: full 5-signal scoring on delayed data. Sufficient for $29 tier.</strong></div>
+    </div>
+    <div class="tile y">
+      <div class="tile-accent ta-y"></div>
+      <div class="big-num y">$600</div>
+      <div class="tile-tag y">Phase 3 Data Cost / Month</div>
+      <div class="tile-title">PRO Real-Time Stack</div>
+      <div class="tile-body">Unusual Whales WebSocket real-time $250/mo, SpotGamma TRACE intraday API ~$200/mo, FlashAlpha live ~$100/mo, additional commodity data ~$50/mo.<br><br><strong>PRO tier at $79 × 200 users = $15.8K MRR vs $600 data cost.</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FOOTER ═══ -->
+<div style="padding:48px 60px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
+  <div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--G);">EigenView</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--W2);margin-top:4px;">PRE-FILTERED MARKET INTELLIGENCE</div>
+  </div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--W2);letter-spacing:1px;text-align:right;">
+    PROPOSAL V1.0 · APRIL 2026<br>
+    <span style="color:var(--W2);">EDUCATIONAL PURPOSE ONLY · NOT INVESTMENT ADVICE</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — Build Reality Check</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg:#010408; --c1:#080e18; --c2:#0c1420; --c3:#101928;
+  --bd:#152030;
+  --G:#00ff99; --R:#ff2d55; --B:#00b4ff; --Y:#ffd60a;
+  --P:#bf5fff; --O:#ff6b00; --T:#00e5cc;
+  --W:#ffffff; --W2:#ccd8f0;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--W);font-family:'Archivo',sans-serif;line-height:1.5;padding:48px 60px;}
+
+h1{font-family:'Archivo Black',sans-serif;font-size:clamp(40px,6vw,80px);letter-spacing:-2px;line-height:.95;margin-bottom:8px;}
+h1 .g{color:var(--G);}
+h1 .b{color:var(--B);}
+.sub{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--W2);margin-bottom:48px;}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--G);margin-bottom:12px;margin-top:48px;display:flex;align-items:center;gap:12px;}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--bd);}
+.sec-title{font-family:'Archivo Black',sans-serif;font-size:clamp(22px,3vw,38px);letter-spacing:-1px;color:var(--W);margin-bottom:10px;line-height:1.05;}
+.sec-title .g{color:var(--G);}
+.sec-title .b{color:var(--B);}
+.sec-title .y{color:var(--Y);}
+.sec-body{font-size:14px;color:var(--W2);max-width:820px;line-height:1.75;margin-bottom:28px;}
+.sec-body strong{color:var(--W);}
+
+/* TABLE WRAPPER */
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px;margin-bottom:32px;}
+table{width:100%;border-collapse:collapse;}
+th{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--G);
+  padding:12px 14px;text-align:left;background:var(--c3);
+  border-bottom:1px solid var(--bd);white-space:nowrap;
+}
+td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12.5px;color:var(--W);vertical-align:top;line-height:1.6;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+td.dim{color:var(--W2);}
+.cat-hd td{background:var(--c3);font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:2px;text-transform:uppercase;padding:6px 14px;border-bottom:1px solid var(--bd);color:var(--G);}
+
+/* SCORE CELLS */
+.score{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;}
+.score.hi{color:var(--G);}
+.score.mid{color:var(--Y);}
+.score.lo{color:var(--R);}
+.score.na{color:var(--W2);}
+
+/* PILLS */
+.pill{display:inline-block;padding:2px 8px;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.5px;white-space:nowrap;margin:1px;}
+.p-g{background:rgba(0,255,153,0.12);color:var(--G);border:1px solid rgba(0,255,153,0.3);}
+.p-b{background:rgba(0,180,255,0.12);color:var(--B);border:1px solid rgba(0,180,255,0.3);}
+.p-y{background:rgba(255,214,10,0.12);color:var(--Y);border:1px solid rgba(255,214,10,0.3);}
+.p-p{background:rgba(191,95,255,0.12);color:var(--P);border:1px solid rgba(191,95,255,0.3);}
+.p-r{background:rgba(255,45,85,0.12);color:var(--R);border:1px solid rgba(255,45,85,0.3);}
+.p-dim{background:rgba(255,255,255,0.06);color:var(--W2);border:1px solid rgba(255,255,255,0.1);}
+
+/* BENTO */
+.bento{display:grid;gap:10px;margin-bottom:28px;}
+.b2{grid-template-columns:1fr 1fr;}
+.b3{grid-template-columns:1fr 1fr 1fr;}
+.tile{background:var(--c1);border:1px solid var(--bd);border-radius:10px;padding:20px;position:relative;overflow:hidden;}
+.ta{position:absolute;top:0;left:0;right:0;height:2px;}
+.ta-g{background:var(--G);} .ta-b{background:var(--B);} .ta-y{background:var(--Y);}
+.ta-r{background:var(--R);} .ta-p{background:var(--P);} .ta-t{background:var(--T);}
+.t-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--W2);margin-bottom:7px;}
+.t-tag.g{color:var(--G);} .t-tag.b{color:var(--B);} .t-tag.r{color:var(--R);} .t-tag.y{color:var(--Y);}
+.t-title{font-size:16px;font-weight:700;color:var(--W);margin-bottom:8px;line-height:1.2;}
+.t-body{font-size:12.5px;color:var(--W2);line-height:1.65;}
+.t-body strong{color:var(--W);}
+.big{font-family:'Archivo Black',sans-serif;font-size:48px;line-height:1;margin-bottom:4px;}
+.big.g{color:var(--G);} .big.b{color:var(--B);} .big.y{color:var(--Y);} .big.r{color:var(--R);}
+
+.verdict{background:var(--c2);border:1px solid rgba(0,255,153,0.25);border-radius:10px;padding:24px 28px;margin-top:28px;}
+.verdict-title{font-family:'Archivo Black',sans-serif;font-size:22px;letter-spacing:-0.5px;color:var(--G);margin-bottom:10px;}
+.verdict-body{font-size:14px;color:var(--W2);line-height:1.8;}
+.verdict-body strong{color:var(--W);}
+
+@media(max-width:900px){
+  body{padding:24px 16px;}
+  .b2,.b3{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--G);text-transform:uppercase;margin-bottom:10px;">EigenView · Build Reality Check · April 2026</div>
+<h1>What <span class="g">Claude</span> Can Do<br><span class="b">Natively</span> vs What Needs Building</h1>
+<div class="sub">AI vs Rules · Cost · Convenience · Quality · Accuracy · Phase 1 Scope · Modular Strategy</div>
+
+<!-- ═══ WIREFRAME STATUS ═══ -->
+<div class="sec-label">First: What's Already Built</div>
+<div class="sec-title">The <span class="g">Wireframe v2</span> — What It Is and Isn't</div>
+<div class="sec-body">Before answering anything else — you asked if the UI was already mocked. Yes. <strong>wireframe-v2.html is 1,349 lines of complete, functional HTML/CSS/JS.</strong> It's not a screenshot. It's a working prototype. Here's exactly what it covers and what it doesn't.</div>
+
+<div class="bento b2">
+  <div class="tile">
+    <div class="ta ta-g"></div>
+    <div class="t-tag g">What Wireframe v2 HAS — Ready to Port</div>
+    <div class="t-title">Already Designed, Pixel-Perfect</div>
+    <div class="t-body">
+      <strong>Complete app shell</strong> — 3-column grid (220px nav | 1fr main | 340px chat), 56px header. All CSS tokens match doc 09 exactly.<br><br>
+      <strong>Left nav</strong> — category groups, active states, counts, dot indicators. Fully interactive JS.<br><br>
+      <strong>Market context strip</strong> — 4 cells, hover tooltips with definition/now/so-what. Working CSS hover.<br><br>
+      <strong>Pick cards</strong> — full layout: direction tag, ticker, conviction bar, thesis, factor chips, dormant badge, AI badge.<br><br>
+      <strong>Pick list view + pick table view</strong> — toggle working via JS setView().<br><br>
+      <strong>Detail view</strong> — NVDA fully wired: chart placeholder, factor strip (6 cells), 5 tabs (Dormant Bet, News, Structure, History, Related). All tab switching works.<br><br>
+      <strong>AI chat dock</strong> — full layout, suggested prompt chips, input + send button, conversation bubbles. Static content only — not wired to Claude API.<br><br>
+      <strong>Dark/light theme toggle</strong> — fully working, all tokens switch correctly.<br><br>
+      <strong>Design system</strong> — all CSS variables, typography, spacing, component styles match doc 09 exactly.
+    </div>
+  </div>
+  <div class="tile">
+    <div class="ta ta-r"></div>
+    <div class="t-tag r">What Wireframe v2 DOESN'T Have — Still to Build</div>
+    <div class="t-title">Static Mock Only — No Live Data</div>
+    <div class="t-body">
+      <strong>No real data.</strong> All picks (NVDA, TSLA, AAPL, META, AMD) are hardcoded HTML strings. No API calls. No SQLite reads.<br><br>
+      <strong>No real chart.</strong> The chart area uses a static SVG rectangle as a placeholder. TradingView Lightweight Charts is not integrated.<br><br>
+      <strong>No module framework.</strong> It's one monolithic HTML file. The module architecture (each panel as an independent JS class with mount/unmount/resize) doesn't exist yet.<br><br>
+      <strong>No FastAPI backend.</strong> No endpoints, no daily scan runner, no scheduler.<br><br>
+      <strong>No real AI chat.</strong> The chat shows a canned conversation. No Claude API calls, no SSE streaming, no context passing.<br><br>
+      <strong>Only 1 detail view wired.</strong> Only NVDA's detail is clickable. The other picks don't open detail. The full <code>openDetail(id)</code> function only has one case.<br><br>
+      <strong>No factor computation.</strong> No GEX math, no TA, no dormant-bet scoring, no sentiment embeddings. Zero backend logic.<br><br>
+      <strong>No template switcher.</strong> Standard template only. Minimal/Pro/Research/Focus layouts not implemented.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI vs RULES — THE REAL TABLE ═══ -->
+<div class="sec-label">The Main Question</div>
+<div class="sec-title">What Is <span class="g">Actually AI</span> — Rated on 4 Dimensions</div>
+<div class="sec-body">Every component of EigenView scored across Cost (API $), Convenience (is Claude the easiest path), Quality (AI vs rules output quality), and Accuracy (hallucination / reliability risk). Scale: ★★★ = best.</div>
+
+<div class="tw">
+<table>
+  <thead>
+    <tr>
+      <th style="min-width:190px;">Component</th>
+      <th style="min-width:100px;">Type</th>
+      <th style="min-width:90px;">API Cost</th>
+      <th style="min-width:90px;">Convenience</th>
+      <th style="min-width:90px;">Quality vs Rules</th>
+      <th style="min-width:90px;">Accuracy Risk</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+
+  <tr class="cat-hd"><td colspan="7">── BACKEND: FACTOR CALCULATION ──────────────────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>GEX calculation</strong><br><span style="font-size:11px;color:var(--W2);">gamma, walls, flip level from chain</span></td>
+    <td><span class="pill p-g">Pure Math</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">~50 lines Python</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Deterministic</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Zero hallucination risk</span></td>
+    <td class="dim">Black-Scholes gamma × OI × 100 × spot². <strong style="color:var(--W);">Never use AI for this.</strong> Formula is exact. Claude Code writes this in one session.</td>
+  </tr>
+
+  <tr>
+    <td><strong>VIX term structure</strong><br><span style="font-size:11px;color:var(--W2);">M1/M2 ratio, backwardation flag</span></td>
+    <td><span class="pill p-g">Pure Math</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">~15 lines</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">One division. <strong style="color:var(--W);">No AI.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>Technical Analysis</strong><br><span style="font-size:11px;color:var(--W2);">EMA stack, RSI, ATR, Bollinger</span></td>
+    <td><span class="pill p-g">Pure Math</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">pandas_ta library</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim"><code>pandas_ta</code> computes all standard indicators in 3 lines. <strong style="color:var(--W);">No AI. 100% library.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>TA Pattern Classifier</strong><br><span style="font-size:11px;color:var(--W2);">compression_break, breakout, flag, etc.</span></td>
+    <td><span class="pill p-y">Rules → ML v2</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~200 lines rules</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">Rules = good enough v1</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">V1: rule-based detection per pattern (doc 03 lists all 10). V2: sklearn classifier trained on labeled history. <strong style="color:var(--W);">Don't use an LLM here — it will hallucinate patterns.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>Options Flow Factor</strong><br><span style="font-size:11px;color:var(--W2);">V/OI, premium, aggressive side, sweep</span></td>
+    <td><span class="pill p-g">Pure Math</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">~80 lines</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">Arithmetic on chain data. V/OI ratio, bid/ask side detection, premium multiplication. <strong style="color:var(--W);">No AI.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>Dormant-Bet Scoring (v1)</strong><br><span style="font-size:11px;color:var(--W2);">Rule-based activation probability</span></td>
+    <td><span class="pill p-y">Rules v1 → ML v2</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~100 lines scoring</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~60% recall expected</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">6 weighted rules (doc 11, AI spec). Fully deterministic. V2 upgrades to sklearn GradientBoosting on historical data. <strong style="color:var(--W);">No LLM needed for scoring — LLM only writes the narrative.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>Novelty Embeddings</strong><br><span style="font-size:11px;color:var(--W2);">Cosine distance from 30d baseline</span></td>
+    <td><span class="pill p-b">Local ML</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">sentence-transformers</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">MiniLM runs locally</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim"><code>sentence-transformers all-MiniLM-L6-v2</code> runs fully local, free, ~80MB. No API call. Cosine similarity is pure math. <strong style="color:var(--W);">Zero cost, runs offline.</strong></td>
+  </tr>
+
+  <tr>
+    <td><strong>Synthesis Gate Logic</strong><br><span style="font-size:11px;color:var(--W2);">qualify_pick(), conviction(), ranker</span></td>
+    <td><span class="pill p-g">Pure Rules</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">~30 lines</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">Boolean logic + weighted sum. The qualify_pick() function in doc 03 is literally 8 lines of Python. <strong style="color:var(--W);">No AI. Ever.</strong></td>
+  </tr>
+
+  <tr class="cat-hd"><td colspan="7">── AI LAYER: WHERE CLAUDE API IS CALLED ──────────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>LLM Thesis per Pick</strong><br><span style="font-size:11px;color:var(--W2);">"Why this, why now, what kills it"</span></td>
+    <td><span class="pill p-p">Real AI</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~$0.04/pick · $0.20/day</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Prompt template ready (doc 11)</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">AI >> template strings</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">Must reference actual numbers</span></td>
+    <td class="dim"><strong style="color:var(--W);">This is where Claude earns its API cost.</strong> Template strings produce robotic output. Claude produces the wireframe's "Compression break confirmed Thursday... dormant Jan $180 calls at 0.82 activation" quality. Prompt template + output contract fully defined in doc 11. Test: ≥2 specific numbers, ≤70 words, no hedge language.</td>
+  </tr>
+
+  <tr>
+    <td><strong>News MATERIAL/NOISE Filter</strong><br><span style="font-size:11px;color:var(--W2);">Drop boilerplate before scoring</span></td>
+    <td><span class="pill p-p">Real AI</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">~$0.001/article · negligible</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">1-word reply: MATERIAL/NOISE</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Rules cannot do this reliably</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Binary output = hard to hallucinate</span></td>
+    <td class="dim"><strong style="color:var(--W);">AI earns it here.</strong> Prompt forces 1-word reply (MATERIAL or NOISE). Near-zero cost, near-zero hallucination risk, and rules-based keyword matching performs poorly on nuanced financial news. Clear AI win.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Options Structure Suggestion</strong><br><span style="font-size:11px;color:var(--W2);">Direction, expiry, trigger, R:R</span></td>
+    <td><span class="pill p-p">Real AI</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~$0.03/pick</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Prompt template in doc 11</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Context-aware structure choice</span></td>
+    <td><span class="score lo">★☆☆</span><br><span style="font-size:10px;color:var(--W2);">⚠️ HIGH RISK — see verdict</span></td>
+    <td class="dim"><strong style="color:var(--R);">ACCURACY WARNING.</strong> Claude can and will suggest structures with plausible-sounding but wrong R:R math or incorrect expiry logic. <strong style="color:var(--W);">Never trust AI-generated options math without a validation layer.</strong> Every suggested structure must pass a rules-based sanity check (debit ≤ max loss, R:R recalculated independently) before display.</td>
+  </tr>
+
+  <tr>
+    <td><strong>AI Chat Dock</strong><br><span style="font-size:11px;color:var(--W2);">Context-aware Q&A on picks</span></td>
+    <td><span class="pill p-p">Real AI</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">~$0.01/turn · $0.50/day est.</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">SSE streaming, system prompt ready</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">This is Claude's core strength</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">Must be grounded to factor data</span></td>
+    <td class="dim"><strong style="color:var(--W);">Claude's strongest use case here.</strong> "Why is NVDA 5/5?" with real factor results in context = accurate, useful explanation. Risk: Claude confabulates if given vague context. Fix: pass full structured factor JSON in every chat request (doc 11 system prompt already does this).</td>
+  </tr>
+
+  <tr>
+    <td><strong>Dormant-Bet Narrative</strong><br><span style="font-size:11px;color:var(--W2);">"Jan $180 calls from Dec '25, held 137 days..."</span></td>
+    <td><span class="pill p-p">Real AI</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Bundled with thesis call</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Template strings are poor here</span></td>
+    <td><span class="score mid">★★☆</span></td>
+    <td class="dim">The dormant-bet detail panel needs storytelling — what the bet was, what happened since, why now. Claude does this well when grounded in the structured data (date, strike, premium, stock move). Template string version reads like a spreadsheet row.</td>
+  </tr>
+
+  <tr class="cat-hd"><td colspan="7">── FRONTEND / UI ─────────────────────────────────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>App Shell + Design System</strong><br><span style="font-size:11px;color:var(--W2);">3-col grid, tokens, all component CSS</span></td>
+    <td><span class="pill p-g">Done — wireframe v2</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Port CSS tokens from wireframe</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Already pixel-perfect</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim"><strong style="color:var(--W);">This is done.</strong> Copy CSS variables from wireframe v2 into design-tokens.css. App shell grid is 6 lines of CSS already written. Don't redesign — port it.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Pick Cards / List / Table</strong><br><span style="font-size:11px;color:var(--W2);">All 3 view modes</span></td>
+    <td><span class="pill p-g">Done — wireframe v2</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score hi">★★★</span><br><span style="font-size:10px;color:var(--W2);">Extract from wireframe HTML</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim"><strong style="color:var(--W);">Port HTML + CSS from wireframe, wire to /api/picks.</strong> View toggle JS already written. 90% of module code is copy-paste from the wireframe with the hardcoded data replaced by API calls.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Detail View + Factor Strip + Tabs</strong><br><span style="font-size:11px;color:var(--W2);">Chart, 6 factors, 5 tabs</span></td>
+    <td><span class="pill p-y">Partial — wireframe has 1 instance</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">Port + generalize for any ticker</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">Wireframe has NVDA hardcoded. Need to extract the HTML pattern and make it data-driven (ticker as parameter, all content from API). Tab switching JS is already written. Chart placeholder needs replacing with TradingView Lightweight Charts — that's the main new work here (~3hrs).</td>
+  </tr>
+
+  <tr>
+    <td><strong>AI Chat Dock UI</strong><br><span style="font-size:11px;color:var(--W2);">Layout, chips, SSE streaming</span></td>
+    <td><span class="pill p-y">Partial — layout done, not wired</span></td>
+    <td><span class="score hi">★★★ $0</span><br><span style="font-size:10px;color:var(--W2);">(UI layer only)</span></td>
+    <td><span class="score mid">★★☆</span><br><span style="font-size:10px;color:var(--W2);">SSE streaming is the new work</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim">Chat HTML + CSS is done in wireframe. The input/send button is there. New work: wire send → FastAPI POST /api/chat → SSE stream → render tokens as they arrive. ~4hrs including the FastAPI endpoint.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Module Framework (mount/unmount/resize)</strong><br><span style="font-size:11px;color:var(--W2);">Each panel as independent JS class</span></td>
+    <td><span class="pill p-r">Not Built</span></td>
+    <td><span class="score hi">★★★ $0</span></td>
+    <td><span class="score lo">★☆☆</span><br><span style="font-size:10px;color:var(--W2);">~300 lines framework code</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td><span class="score hi">★★★</span></td>
+    <td class="dim"><strong style="color:var(--W);">This is real new build work.</strong> The module interface (constructor, mount, unmount, resize, onStateChange) plus the canvas renderer and pub-sub store. ~300 lines of JS infrastructure. Required for multi-template support and drag-drop canvas.</td>
+  </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- ═══ DAILY COST TABLE ═══ -->
+<div class="sec-label">Money</div>
+<div class="sec-title"><span class="g">Daily API Cost</span> — What Actually Runs</div>
+<div class="sec-body">Based on doc 11's own cost budget target of &lt;$0.50/day. Here's what actually gets billed to Anthropic API and what runs for free.</div>
+
+<div class="bento b3">
+  <div class="tile">
+    <div class="ta ta-g"></div>
+    <div class="t-tag g">Free Every Day — $0</div>
+    <div class="big g">$0</div>
+    <div class="t-body">
+      GEX calculation, VIX term structure, TA indicators, options flow math, synthesis gate, dormant-bet rule scoring, novelty embeddings (local MiniLM), IVR calculation, all data fetches (yfinance, AV free, Finnhub free, SqueezeMetrics, VIXCentral, CFTC)<br><br>
+      <strong>This is ~70% of the product. Deterministic. Zero cost. Runs every daily scan regardless of AI availability.</strong>
+    </div>
+  </div>
+  <div class="tile">
+    <div class="ta ta-y"></div>
+    <div class="t-tag y">Daily Scan — Fixed Cost</div>
+    <div class="big y">~$0.35</div>
+    <div class="t-body">
+      5 pick theses: 5 × ~$0.04 = <strong>$0.20</strong><br>
+      5 structure suggestions: 5 × ~$0.03 = <strong>$0.15</strong><br>
+      ~20 news MATERIAL/NOISE filters: 20 × ~$0.001 = <strong>$0.02</strong><br><br>
+      Using claude-sonnet-4-6 as specified in doc 11. Cached per-day — regenerated only if factors materially change. <strong>Within doc 11's $0.50 target.</strong>
+    </div>
+  </div>
+  <div class="tile">
+    <div class="ta ta-b"></div>
+    <div class="t-tag b">Chat — Variable, On-Demand</div>
+    <div class="big b">~$0.01</div>
+    <div class="t-body">
+      Per chat turn. Context = selected pick + all factors = ~800 tokens input.<br>
+      100 turns/day cap (doc 11) = ~$1.00 max/day if you chat constantly.<br>
+      Realistic: 10–20 turns/day = <strong>$0.10–0.20/day</strong><br><br>
+      <strong>Total realistic daily cost: $0.45–0.65/day. ~$15–20/month.</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PHASE 1 SCOPE ═══ -->
+<div class="sec-label">Phase 1 Exact Scope</div>
+<div class="sec-title">What <span class="g">Phase 1</span> Actually Is — Every File</div>
+<div class="sec-body">From doc 06. Phase 1 = Data Layer only. No factors, no UI, no AI. Just: can we fetch clean data and write it to SQLite? This is the foundation everything else sits on. Estimated 2 hours.</div>
+
+<div class="tw">
+<table>
+  <thead>
+    <tr>
+      <th>File to Build</th>
+      <th>What It Does</th>
+      <th>Data Source</th>
+      <th>AI Used?</th>
+      <th>Est. Lines</th>
+      <th>Acceptance Criterion</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>data/prices.py</code></td>
+      <td class="dim">yfinance wrapper. Fetch OHLCV for a ticker or list. Cache to SQLite with TTL. Return pandas DataFrame.</td>
+      <td><span class="pill p-g">yfinance (free)</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~60</td>
+      <td class="dim">fetch_prices("NVDA", "1d", 90) returns clean DataFrame, no exceptions, cached on 2nd call</td>
+    </tr>
+    <tr>
+      <td><code>data/chains.py</code></td>
+      <td class="dim">Options chain fetcher. Get all strikes/expiries for a ticker. Parse calls + puts. Compute basic greeks via py_vollib. Return structured dict.</td>
+      <td><span class="pill p-g">yfinance chain (free)</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~80</td>
+      <td class="dim">fetch_chain("NVDA") returns dict with calls/puts DataFrames including gamma. Runs in &lt;5s.</td>
+    </tr>
+    <tr>
+      <td><code>data/news.py</code></td>
+      <td class="dim">Alpha Vantage + Finnhub news fetch. Deduplicate across sources. Return list of {headline, summary, timestamp, source, url}.</td>
+      <td><span class="pill p-y">Alpha Vantage free tier</span><br><span class="pill p-y">Finnhub free tier</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~70</td>
+      <td class="dim">fetch_news("NVDA", lookback_days=3) returns ≥1 article. Rate limit handled gracefully.</td>
+    </tr>
+    <tr>
+      <td><code>data/calendar.py</code></td>
+      <td class="dim">Earnings dates from yfinance. Macro events (Fed, CPI, NFP) from Finnhub calendar. Return events within 30 days for a ticker.</td>
+      <td><span class="pill p-g">yfinance + Finnhub</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~50</td>
+      <td class="dim">get_catalyst("NVDA") returns next earnings date + any macro events within 30 days.</td>
+    </tr>
+    <tr>
+      <td><code>data/storage.py</code></td>
+      <td class="dim">SQLite schema + write/read helpers. Tables: prices, chains, news, picks, dormant_bets, closed_picks. Handles upserts, TTL expiry, schema migration.</td>
+      <td><span class="pill p-g">SQLite local</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~120</td>
+      <td class="dim">Schema creates cleanly. write_prices() / read_prices() round-trip correctly. DB file is &lt;100MB after 90 days of data.</td>
+    </tr>
+    <tr style="background:rgba(0,255,153,0.04);">
+      <td><code>data/macro.py</code></td>
+      <td class="dim"><strong style="color:var(--G);">[EigenView addition]</strong> Fetch SqueezeMetrics DIX+GEX (free scrape), VIXCentral term structure (free scrape), CFTC COT report (free weekly). Write to SQLite. Used by macro_regime factor.</td>
+      <td><span class="pill p-g">SqueezeMetrics (free)</span><br><span class="pill p-g">VIXCentral (free)</span><br><span class="pill p-g">CFTC (free)</span></td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~90</td>
+      <td class="dim">fetch_macro_regime() returns {dix, gex_index, vix_m1, vix_m2, cot_net_long_pct}. Handles source downtime gracefully.</td>
+    </tr>
+    <tr>
+      <td><code>cli.py</code> — fetch command</td>
+      <td class="dim">CLI entry point for Phase 1 test: <code>eigenview fetch NVDA</code> runs all fetchers and writes to SQLite. Prints summary.</td>
+      <td>—</td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~30</td>
+      <td class="dim"><code>uv run python -m eigenview.cli fetch NVDA</code> completes in &lt;10s, writes all tables, no errors.</td>
+    </tr>
+    <tr>
+      <td><code>tests/data/</code></td>
+      <td class="dim">Test file per fetcher. Uses VCR cassettes (recorded HTTP responses) so tests run offline and fast.</td>
+      <td>—</td>
+      <td><span class="pill p-dim">No</span></td>
+      <td>~150 total</td>
+      <td class="dim">pytest passes. All 5 modules have happy path + no-data + stale-data tests. Coverage ≥80%.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ═══ MODULAR STRATEGY ═══ -->
+<div class="sec-label">Your Real Question</div>
+<div class="sec-title">What <span class="g">Claude Can Do Natively</span> vs What Needs a Full Build</div>
+<div class="sec-body">You asked: before putting in too much effort on design and backend, what can Claude already do? Here's the honest answer — sorted by "Claude does this today in a chat" vs "needs Claude Code to build it."</div>
+
+<div class="tw">
+<table>
+  <thead>
+    <tr>
+      <th style="min-width:200px;">Capability</th>
+      <th style="min-width:130px;">Status</th>
+      <th>What You Can Do Right Now</th>
+      <th>What Needs Building</th>
+    </tr>
+  </thead>
+  <tbody>
+
+  <tr class="cat-hd"><td colspan="4">── CLAUDE CAN DO TODAY — NO BUILD REQUIRED ──────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>Pick Thesis Writing</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">Paste factor results as JSON into Claude chat → get a thesis. You can manually test this right now. The prompt template is in doc 11. Try it with made-up data.</td>
+    <td class="dim">Automation: call Claude API from Python with real factor output, cache result to SQLite.</td>
+  </tr>
+
+  <tr>
+    <td><strong>MATERIAL/NOISE Classification</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">Paste any news headline into Claude and ask "MATERIAL or NOISE for swing options trading?" Works instantly. Test your prompt template quality before building.</td>
+    <td class="dim">Batch automation: loop over 20 news items per ticker, call API, store results.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Options Structure Suggestion</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">Give Claude a ticker, IV rank, earnings date, and direction → ask for a structure. Works now. <strong>Validate accuracy before trusting.</strong> Check the R:R math manually.</td>
+    <td class="dim">Structured output parsing + independent R:R validation layer before display.</td>
+  </tr>
+
+  <tr>
+    <td><strong>GEX Explanation</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">"What does short gamma mean for my NVDA long trade?" → Claude answers as shown in wireframe. This is working today. You've been using it this session.</td>
+    <td class="dim">Routing: pick is selected → factor data is injected into system prompt → reply is grounded to real numbers.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Pick Comparison</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">Paste two picks' factor summaries and ask Claude to compare them. Works now.</td>
+    <td class="dim">Context management: ensure both picks' full factor data are in the system prompt simultaneously.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Dormant-Bet Narrative</strong></td>
+    <td><span class="pill p-g">Native Today</span></td>
+    <td class="dim">Give Claude the raw dormant-bet data (original date, strike, premium, stock move since) → ask for a narrative. Works today. Produces the wireframe-quality text.</td>
+    <td class="dim">Integration: pull from dormant_bets SQLite table, pass to Claude, render in panel.</td>
+  </tr>
+
+  <tr class="cat-hd"><td colspan="4">── UI: PARTIALLY DONE — WIREFRAME TO CODE ───────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>Full Dashboard UI</strong></td>
+    <td><span class="pill p-y">Wireframe Done</span></td>
+    <td class="dim">Open wireframe-v2.html in a browser right now. It looks exactly like the final product with hardcoded data. Theme toggle works. Nav works. View toggle works. Tabs work.</td>
+    <td class="dim">Port to module framework. Replace hardcoded data with API calls. Wire TradingView chart. Wire chat to Claude API.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Pick Card Design</strong></td>
+    <td><span class="pill p-y">Wireframe Done</span></td>
+    <td class="dim">All CSS for cards, chips, conviction bar, direction tags, dormant badge, AI badge is written in wireframe. It's production quality.</td>
+    <td class="dim">Extract HTML/CSS into pick-cards module. Replace hardcoded pick data with dynamic rendering from API response.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Chat Dock Layout</strong></td>
+    <td><span class="pill p-y">Wireframe Done</span></td>
+    <td class="dim">The chat dock is fully designed and styled. Prompt chips, bubbles, input — all there.</td>
+    <td class="dim">Wire input → FastAPI → Claude API → SSE stream → token-by-token render. ~4hrs work.</td>
+  </tr>
+
+  <tr class="cat-hd"><td colspan="4">── NEEDS BUILDING — CANNOT DO WITHOUT CODE ──────────────────────────────────────────</td></tr>
+
+  <tr>
+    <td><strong>GEX Calculation</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">Claude cannot calculate GEX on live options data without a backend. The math is simple but the data pipeline (fetch chain → compute greeks → aggregate) requires Python.</td>
+    <td class="dim">factors/gex.py: ~50 lines. Phase 2a. After Phase 1 data layer is done.</td>
+  </tr>
+
+  <tr>
+    <td><strong>TA Indicators + Pattern Detection</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">pandas_ta computes everything but requires the data pipeline from Phase 1 to feed it price history.</td>
+    <td class="dim">factors/technical.py: ~200 lines. Phase 2a.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Dormant-Bet Tracking</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">Requires historical chain snapshots stored in SQLite to compare "what was open 60 days ago" vs "what's still open today." Cannot be done without persistent storage.</td>
+    <td class="dim">factors/dormant.py + daily chain write-to-DB from day 1. Needs 30+ days of data accumulation before it fires meaningfully.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Novelty Embeddings</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">Requires local sentence-transformers model + rolling 30-day embedding centroid per ticker stored in DB. Pure infrastructure work.</td>
+    <td class="dim">factors/sentiment.py: ~100 lines + model download (~80MB). Phase 2b.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Automated Daily Scan</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">Windows Task Scheduler + CLI that fetches data, scores all 400 tickers, picks top 5, generates theses, writes to DB. This is the core automation loop.</td>
+    <td class="dim">scheduler/ + synthesis/ + Phase 3 + Phase 8. The most important piece of infrastructure.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Real Chart (TradingView)</strong></td>
+    <td><span class="pill p-r">Must Build</span></td>
+    <td class="dim">Static SVG in wireframe. TradingView Lightweight Charts requires wiring to the prices API + overlaying GEX levels as custom lines. ~3hrs work, well-documented library.</td>
+    <td class="dim">Phase 5a. Straightforward with the library but requires live price data from Phase 1.</td>
+  </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- ═══ RECOMMENDED BUILD SEQUENCE ═══ -->
+<div class="sec-label">Recommendation</div>
+<div class="sec-title">The <span class="g">Right Sequence</span> — Don't Over-Build Before Validating</div>
+
+<div class="bento b2">
+  <div class="tile">
+    <div class="ta ta-G"></div>
+    <div class="t-tag g">Do This Week — Zero Code</div>
+    <div class="t-title">Validate AI Quality Before Building the Pipe</div>
+    <div class="t-body">
+      <strong>1. Open wireframe-v2.html.</strong> That's your UI. It's done. You're not redesigning it.<br><br>
+      <strong>2. Test the AI layer manually in Claude chat:</strong><br>
+      — Paste a made-up NVDA factor result JSON → ask for a thesis using doc 11's prompt. Is the quality what you expect?<br>
+      — Paste 5 real news headlines → classify MATERIAL/NOISE. Does it get them right?<br>
+      — Give Claude IV rank + earnings date + direction → ask for a structure suggestion. Check the math.<br><br>
+      <strong>3. If the AI output quality is what you want:</strong> start Phase 0 in Claude Code. If not, tune the prompts in doc 11 first.<br><br>
+      <strong>This costs $0 and takes 30 minutes. It's the cheapest validation step possible.</strong>
+    </div>
+  </div>
+  <div class="tile">
+    <div class="ta ta-b"></div>
+    <div class="t-tag b">Then Build — In This Order</div>
+    <div class="t-title">Backend First. UI Wiring Second. AI Last.</div>
+    <div class="t-body">
+      <strong>Phase 0:</strong> Repo setup, CLAUDE.md, pyproject.toml. 30 mins.<br><br>
+      <strong>Phase 1:</strong> Data fetchers only (prices, chains, news, calendar, macro). No factors yet. Just: can you get clean data into SQLite? 2 hours.<br><br>
+      <strong>Phase 2a:</strong> GEX + TA + Flow factors. Pure math modules. No AI. Test each independently. 3 hours.<br><br>
+      <strong>Phase 2b:</strong> Dormant (rule-based v1) + Sentiment. 2 hours.<br><br>
+      <strong>Phase 3:</strong> Synthesis gate + daily-scan CLI. 1 hour. <em>This is the first time you see real picks output.</em><br><br>
+      <strong>Phase 4:</strong> FastAPI + wire wireframe to real data. Module framework. 2 hours.<br><br>
+      <strong>Phase 7 (earlier than planned):</strong> Wire AI chat dock and thesis generation to real picks. This is where the product becomes alive. Do this before building all 21 modules.<br><br>
+      <strong>AI and UI are last — not first.</strong> A bad data pipeline with beautiful UI is useless. A working scoring engine with the wireframe's CSS is already the product.
+    </div>
+  </div>
+</div>
+
+<div class="verdict">
+  <div class="verdict-title">Bottom Line</div>
+  <div class="verdict-body">
+    <strong>~70% of EigenView is pure rules-based Python math.</strong> GEX, TA, flow scoring, dormant-bet rule scoring, synthesis gate — all deterministic, zero API cost, zero hallucination risk. This is the engine. It should be built and tested before a single AI call is wired.<br><br>
+    <strong>~20% is Claude API — and it's worth it for exactly 4 things:</strong> pick thesis generation, news MATERIAL/NOISE classification, dormant-bet narrative, and AI chat. These four are where template strings fail and Claude shines. Combined daily cost: ~$0.45. Monthly: ~$15.<br><br>
+    <strong>~10% is the UI wiring work</strong> — the wireframe v2 is the design, already done, already pixel-perfect. The remaining UI work is extracting it into modules and wiring it to the FastAPI backend. This is not design work. It's plumbing.<br><br>
+    <strong>The single highest-risk AI component is the options structure suggestion.</strong> Claude will confidently suggest structures with wrong R:R math. Never display AI-generated options math without an independent rules-based validation layer recalculating the numbers.<br><br>
+    <strong>Start by testing the AI output quality manually in this chat today.</strong> Paste a factor JSON, use the prompt template from doc 11, see if the thesis quality matches the wireframe's canned example. That answer tells you whether to proceed as-designed or tune the prompts first.
+  </div>
+</div>
+
+<div style="margin-top:32px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--W2);letter-spacing:2px;">
+  CONFLUENCE BUILD REALITY CHECK · ALL 12 DOCS + WIREFRAME V2 (1349 LINES) READ · APRIL 2026<br>
+  EDUCATIONAL PURPOSE ONLY · NOT INVESTMENT ADVICE
+</div>
+
+</body>
+</html>

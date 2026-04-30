@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView × EigenView — Merger Proposal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg:     #010408;
+  --c1:     #080e18;
+  --c2:     #0c1420;
+  --c3:     #101928;
+  --bd:     #152030;
+  --G:      #00ff99;
+  --R:      #ff2d55;
+  --B:      #00b4ff;
+  --Y:      #ffd60a;
+  --P:      #bf5fff;
+  --O:      #ff6b00;
+  --T:      #00e5cc;
+  --W:      #ffffff;
+  --W2:     #ccd8f0;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--W);font-family:'Archivo',sans-serif;line-height:1.5;}
+
+/* ── HERO ── */
+.hero{
+  padding:72px 64px 60px;
+  background:
+    radial-gradient(ellipse 70% 60% at 90% 30%, rgba(0,255,153,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 70% at 5% 90%, rgba(0,180,255,0.04) 0%, transparent 55%),
+    var(--bg);
+  border-bottom:1px solid var(--bd);
+}
+
+.hero-tag{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:4px;text-transform:uppercase;
+  color:var(--G);margin-bottom:20px;
+  display:flex;align-items:center;gap:12px;
+}
+.hero-tag::before{content:'';width:28px;height:1px;background:var(--G);}
+
+.hero-title{
+  font-family:'Archivo Black',sans-serif;
+  font-size:clamp(52px,8vw,108px);
+  line-height:.92;letter-spacing:-2px;
+  margin-bottom:10px;
+}
+.ht-pulse{color:var(--G);}
+.ht-x{color:var(--W2);font-size:.65em;margin:0 8px;}
+.ht-conf{color:var(--B);}
+
+.hero-sub{
+  font-family:'JetBrains Mono',monospace;
+  font-size:13px;letter-spacing:2px;
+  color:var(--W2);margin-bottom:36px;
+}
+
+.hero-desc{
+  max-width:740px;font-size:17px;color:var(--W2);
+  line-height:1.75;margin-bottom:44px;
+}
+.hero-desc strong{color:var(--W);}
+
+.kpi-row{display:flex;gap:40px;flex-wrap:wrap;}
+.kpi{display:flex;flex-direction:column;gap:3px;}
+.kpi-n{
+  font-family:'Archivo Black',sans-serif;
+  font-size:42px;line-height:1;
+}
+.kpi-n.g{color:var(--G);}
+.kpi-n.b{color:var(--B);}
+.kpi-n.y{color:var(--Y);}
+.kpi-n.p{color:var(--P);}
+.kpi-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--W2);}
+
+/* ── SECTION ── */
+.sec{padding:64px;}
+.sec.alt{background:var(--c1);}
+.sec.alt2{background:var(--c2);}
+
+.sec-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--G);margin-bottom:10px;
+}
+.sec-title{
+  font-family:'Archivo Black',sans-serif;
+  font-size:clamp(28px,4vw,52px);
+  letter-spacing:-1px;line-height:1.05;
+  color:var(--W);margin-bottom:14px;
+}
+.sec-title span{color:var(--G);}
+.sec-title .b{color:var(--B);}
+.sec-title .y{color:var(--Y);}
+.sec-body{font-size:15px;color:var(--W2);max-width:780px;line-height:1.7;margin-bottom:40px;}
+
+/* ── DIVIDER ── */
+.hr{height:1px;background:linear-gradient(90deg,transparent,var(--bd),transparent);margin:0 64px;}
+
+/* ── BENTO ── */
+.bento{display:grid;gap:10px;}
+.b2{grid-template-columns:1fr 1fr;}
+.b3{grid-template-columns:1fr 1fr 1fr;}
+.b4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.b21{grid-template-columns:2fr 1fr;}
+.b12{grid-template-columns:1fr 2fr;}
+
+.tile{
+  background:var(--c1);border:1px solid var(--bd);
+  border-radius:10px;padding:22px;position:relative;overflow:hidden;
+}
+.tile.dark{background:var(--bg);}
+.tile.alt2{background:var(--c2);}
+
+.ta{position:absolute;top:0;left:0;right:0;height:2px;}
+.ta-g{background:var(--G);}
+.ta-b{background:var(--B);}
+.ta-y{background:var(--Y);}
+.ta-p{background:var(--P);}
+.ta-r{background:var(--R);}
+.ta-o{background:var(--O);}
+.ta-t{background:var(--T);}
+
+.t-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--W2);margin-bottom:8px;}
+.t-tag.g{color:var(--G);}
+.t-tag.b{color:var(--B);}
+.t-tag.y{color:var(--Y);}
+.t-tag.p{color:var(--P);}
+.t-tag.r{color:var(--R);}
+.t-tag.o{color:var(--O);}
+.t-tag.t{color:var(--T);}
+
+.t-title{font-size:17px;font-weight:700;color:var(--W);margin-bottom:8px;line-height:1.2;}
+.t-body{font-size:12.5px;color:var(--W2);line-height:1.65;}
+.t-body strong{color:var(--W);}
+
+.big{font-family:'Archivo Black',sans-serif;font-size:52px;line-height:1;margin-bottom:6px;}
+.big.g{color:var(--G);}
+.big.b{color:var(--B);}
+.big.y{color:var(--Y);}
+.big.r{color:var(--R);}
+.big.p{color:var(--P);}
+.big.t{color:var(--T);}
+
+/* ── TABLES ── */
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px;}
+table{width:100%;border-collapse:collapse;}
+
+th{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--G);
+  padding:13px 16px;text-align:left;
+  background:var(--c3);border-bottom:1px solid var(--bd);
+  white-space:nowrap;
+}
+
+td{
+  padding:12px 16px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  font-size:13px;color:var(--W);
+  vertical-align:top;line-height:1.55;
+}
+
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+
+td.dim{color:var(--W2);}
+td.g{color:var(--G);}
+td.b{color:var(--B);}
+td.y{color:var(--Y);}
+td.r{color:var(--R);}
+td.p{color:var(--P);}
+td.t{color:var(--T);}
+
+.cat-hd td{
+  background:var(--c3);
+  font-family:'JetBrains Mono',monospace;
+  font-size:8.5px;letter-spacing:2px;text-transform:uppercase;
+  padding:7px 16px;border-bottom:1px solid var(--bd);
+  color:var(--G);
+}
+
+.pulse-row td{
+  background:rgba(0,255,153,0.05);
+  border-bottom:1px solid rgba(0,255,153,0.1);
+}
+.pulse-row td:first-child{border-left:3px solid var(--G);}
+
+/* ── PILLS ── */
+.pill{
+  display:inline-block;padding:2px 9px;border-radius:100px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;
+  letter-spacing:.5px;white-space:nowrap;margin:1px;
+}
+.p-g{background:rgba(0,255,153,0.12);color:var(--G);border:1px solid rgba(0,255,153,0.3);}
+.p-b{background:rgba(0,180,255,0.12);color:var(--B);border:1px solid rgba(0,180,255,0.3);}
+.p-y{background:rgba(255,214,10,0.12);color:var(--Y);border:1px solid rgba(255,214,10,0.3);}
+.p-p{background:rgba(191,95,255,0.12);color:var(--P);border:1px solid rgba(191,95,255,0.3);}
+.p-r{background:rgba(255,45,85,0.12);color:var(--R);border:1px solid rgba(255,45,85,0.3);}
+.p-o{background:rgba(255,107,0,0.12);color:var(--O);border:1px solid rgba(255,107,0,0.3);}
+.p-t{background:rgba(0,229,204,0.12);color:var(--T);border:1px solid rgba(0,229,204,0.3);}
+.p-dim{background:rgba(255,255,255,0.06);color:var(--W2);border:1px solid rgba(255,255,255,0.1);}
+
+/* ── PHASE CARDS ── */
+.phases{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.phase{background:var(--c1);border:1px solid var(--bd);border-radius:10px;padding:20px;}
+.phase-n{font-family:'Archivo Black',sans-serif;font-size:40px;line-height:1;margin-bottom:8px;opacity:.18;}
+.phase.p1 .phase-n{color:var(--G);opacity:1;}
+.phase.p2 .phase-n{color:var(--B);opacity:1;}
+.phase.p3 .phase-n{color:var(--P);opacity:1;}
+.phase.p4 .phase-n{color:var(--Y);opacity:1;}
+.phase-title{font-size:14px;font-weight:700;color:var(--W);margin-bottom:10px;}
+.phase-item{font-size:12px;color:var(--W2);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:8px;line-height:1.5;}
+.phase-item:last-child{border-bottom:none;}
+.phase-item strong{color:var(--W);}
+.phase-cost{margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);font-family:'JetBrains Mono',monospace;font-size:10px;}
+.p1 .phase-cost{color:var(--G);}
+.p2 .phase-cost{color:var(--B);}
+.p3 .phase-cost{color:var(--P);}
+.p4 .phase-cost{color:var(--Y);}
+
+/* ── SIGNAL COMPARE ROW ── */
+.sig-row{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12.5px;}
+.sig-row:last-child{border-bottom:none;}
+.sig-icon{flex-shrink:0;width:20px;margin-top:1px;font-size:13px;}
+.sig-body{flex:1;color:var(--W2);}
+.sig-body strong{color:var(--W);}
+
+/* ── VERDICT ── */
+.verdict{
+  background:var(--c2);border:1px solid rgba(0,255,153,0.25);
+  border-radius:12px;padding:28px 32px;margin-top:32px;
+}
+.verdict-title{font-family:'Archivo Black',sans-serif;font-size:26px;letter-spacing:-0.5px;color:var(--G);margin-bottom:10px;}
+.verdict-body{font-size:15px;color:var(--W2);line-height:1.8;}
+.verdict-body strong{color:var(--W);}
+
+@media(max-width:900px){
+  .hero,.sec{padding:40px 20px;}
+  .hr{margin:0 20px;}
+  .b2,.b3,.b4,.b21,.b12{grid-template-columns:1fr;}
+  .phases{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="hero-tag">Merger Proposal · April 2026</div>
+  <div class="hero-title">
+    <span class="ht-pulse">EigenView</span><span class="ht-x">×</span><span class="ht-conf">CONFLUENCE</span>
+  </div>
+  <div class="hero-sub">Two separate projects · One unified product · All 12 docs read and analyzed</div>
+  <div class="hero-desc">
+    Both projects were independently converging on the same core thesis: <strong>retail traders need a pre-filtered, curated, ready-to-act list — not more data to interpret.</strong> They attack the same gap from different angles with different signal layers and different architecture. Combined, they're a complete product. Separate, each is missing something the other has.
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-n g">9</div><div class="kpi-l">Signal Layers Combined</div></div>
+    <div class="kpi"><div class="kpi-n b">3–10</div><div class="kpi-l">Curated Picks/Day</div></div>
+    <div class="kpi"><div class="kpi-n y">0</div><div class="kpi-l">Products Doing Both</div></div>
+    <div class="kpi"><div class="kpi-n p">1</div><div class="kpi-l">Unified Product to Build</div></div>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ WHAT EACH PROJECT IS ═══ -->
+<div class="sec alt">
+  <div class="sec-eyebrow">Starting Point</div>
+  <div class="sec-title">What Each <span>Project</span> Is</div>
+  <div class="sec-body">Read all 12 EigenView docs plus all EigenView materials from this conversation. Here is the honest summary of what each project has built and where each stops.</div>
+
+  <div class="bento b2" style="margin-bottom:12px;">
+    <div class="tile dark">
+      <div class="ta ta-G"></div>
+      <div class="t-tag g">EigenView — This Conversation</div>
+      <div class="t-title">Macro Regime + Multi-Signal Screener</div>
+      <div class="t-body">
+        A <strong>macro-first intelligence engine</strong> that runs a 4-factor regime gate (GEX, VIX term structure, DIX, breadth) before scoring any instrument. When regime is green, scores stocks AND futures across 5 signals. Output: a ranked curated list of 5–10 instruments with setup type, entry/stop, and conviction drivers.<br><br>
+        <strong>Unique layers EigenView has:</strong><br>
+        • VIX term structure (backwardation / contango regime)<br>
+        • DIX dark pool index (SqueezeMetrics macro signal)<br>
+        • CTA flip level tracking (futures-specific)<br>
+        • Commodity signal stack (OVX, COT, futures curve shape)<br>
+        • Futures coverage — ES, NQ, CL, GC, SI natively<br>
+        • Retail capitulation scoring (Citadel GMI logic)<br>
+        • Macro regime gate that BLOCKS individual stock picks in RED regime<br><br>
+        <strong>What EigenView lacks:</strong> No technical analysis layer. No dormant-bet radar. No LLM-written thesis per pick. No options structure suggestions. No conversation AI. No full app architecture. Exists as a proposal and a dashboard mockup — not code.
+      </div>
+    </div>
+    <div class="tile dark">
+      <div class="ta ta-b"></div>
+      <div class="t-tag b">EigenView — Local Docs (12 files read)</div>
+      <div class="t-title">Multi-Factor Options Pick Engine with Dormant Radar</div>
+      <div class="t-body">
+        A <strong>fully architected local application</strong> (Python/FastAPI/Vanilla JS) that fuses 5 factors into 3–5 curated options trade ideas per day. Has a complete build plan (10 phases), all engineering standards locked, design system defined, wireframes built, and decisions logged.<br><br>
+        <strong>Unique layers EigenView has:</strong><br>
+        • Dormant-bet radar — tracks large long-dated positions opened 30–180 days ago, scores activation probability (THE differentiator, nobody else does this)<br>
+        • Technical analysis factor — trend, momentum, volatility state, ML pattern classifier<br>
+        • LLM-written thesis per pick ("why this, why now, what kills it")<br>
+        • Novelty-weighted sentiment (embedding distance vs baseline — not raw news volume)<br>
+        • Full options structure suggestion per pick (direction, expiry, R:R)<br>
+        • AI chat dock — context-aware, knows selected pick<br>
+        • Complete module framework — 21 UI modules, 5 preset templates<br>
+        • Complete architecture: FastAPI + SQLite + scheduler + notifications<br><br>
+        <strong>What EigenView lacks:</strong> No macro regime gate. No VIX term structure signal. No DIX signal. No CTA flip awareness. No commodity futures (US equities only, by design). No futures instruments at all. No retail capitulation layer. Individual picks can fire in a negative-GEX meltdown.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ THE GAP EACH FILLS ═══ -->
+<div class="sec">
+  <div class="sec-eyebrow">Why Merge</div>
+  <div class="sec-title">Each Fills the <span>Other's</span> Critical Gap</div>
+  <div class="sec-body">This isn't a "nice to have" merger. Each project has a hard structural weakness that the other directly solves. Without the merge, both products have a fatal flaw at launch.</div>
+
+  <div class="bento b2" style="margin-bottom:24px;">
+    <div class="tile">
+      <div class="ta ta-r"></div>
+      <div class="t-tag r">EigenView's Fatal Flaw Without EigenView</div>
+      <div class="t-title">Picks Fire in Meltdowns</div>
+      <div class="t-body">
+        EigenView's gate logic (TA + GEX + 2 of 3 remaining) operates at the <strong>individual stock level only</strong>. The macro regime is not checked before picks are output.<br><br>
+        In September–April 2026, GEX was negative on individual names AND the macro regime was red. EigenView would have output picks. Those picks would have been long options buys. They would have been wrong — not because the stock logic was wrong, but because the macro regime made every long a headwind trade.<br><br>
+        <strong>EigenView's regime gate fixes this completely.</strong> If SPX GEX + VIX term structure + DIX + breadth score RED, no long picks output. Full stop. This one addition prevents the Sep–Apr trap from recurring.
+      </div>
+    </div>
+    <div class="tile">
+      <div class="ta ta-r"></div>
+      <div class="t-tag r">EigenView's Fatal Flaw Without EigenView</div>
+      <div class="t-title">No Technical Analysis. No Thesis. No Structure.</div>
+      <div class="t-body">
+        EigenView scores instruments on options flow signals, GEX, VIX, and dark pool data. There is <strong>no technical analysis factor</strong>. A stock can score 9/10 on EigenView signals with a clean GEX flip cross and three dark pool prints — and be in a multi-month downtrend with every moving average stacked bearishly against it.<br><br>
+        Additionally, EigenView outputs a trade card with entry/stop zones — but no thesis, no options structure suggestion, no "what kills this trade." A trader reading it knows what the signals are but not what to do with them in the options market specifically.<br><br>
+        <strong>EigenView's TA factor and LLM thesis layer fix this completely.</strong> TA becomes a hard gate (just as it is in EigenView). The LLM thesis wraps the combined signal output in plain English with a specific options structure recommendation.
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAP TABLE -->
+  <div class="sec-eyebrow" style="margin-bottom:12px;">Signal Layer Overlap Analysis — Where They Duplicate vs Complement</div>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:200px;">Signal Layer</th>
+          <th>In EigenView</th>
+          <th>In EigenView</th>
+          <th>Overlap?</th>
+          <th>Merged Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="cat-hd"><td colspan="5">── Macro / Regime Layer ──────────────────────────────────────────────</td></tr>
+        <tr>
+          <td><strong>SPX GEX Regime</strong></td>
+          <td><span class="pill p-g">✓ Macro gate</span></td>
+          <td><span class="pill p-b">✓ Per-stock gate</span></td>
+          <td class="y">Partial — different scope</td>
+          <td class="W">Keep both. EigenView runs macro-level gate first. EigenView runs per-stock GEX as a pick gate. Two separate checks, both required.</td>
+        </tr>
+        <tr>
+          <td><strong>VIX Term Structure</strong></td>
+          <td><span class="pill p-g">✓ Macro gate</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds this as a macro regime signal. Feeds into the pre-pick gate only.</td>
+        </tr>
+        <tr>
+          <td><strong>DIX Dark Pool Index</strong></td>
+          <td><span class="pill p-g">✓ Macro gate</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds this. Macro-level signal only, not per-stock.</td>
+        </tr>
+        <tr>
+          <td><strong>Breadth</strong></td>
+          <td><span class="pill p-g">✓ Macro gate</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds this. Clean addition, no conflict.</td>
+        </tr>
+        <tr>
+          <td><strong>CTA Flip Levels</strong></td>
+          <td><span class="pill p-g">✓ Futures scoring</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView unique. Applies to futures instruments only. Not relevant to equity options picks.</td>
+        </tr>
+        <tr>
+          <td><strong>Retail Capitulation</strong></td>
+          <td><span class="pill p-g">✓ Macro scoring</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds as a macro regime bonus signal. Upgrades regime score from YELLOW to GREEN when firing.</td>
+        </tr>
+
+        <tr class="cat-hd"><td colspan="5">── Per-Instrument Signal Layer ───────────────────────────────────────</td></tr>
+        <tr>
+          <td><strong>Technical Analysis</strong></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td><span class="pill p-b">✓ Hard gate</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds TA as a hard gate. EigenView adopts this — no pick qualifies without TA firing. Trend + momentum + vol state + ML pattern classifier.</td>
+        </tr>
+        <tr>
+          <td><strong>Per-Stock GEX / Dealer</strong></td>
+          <td><span class="pill p-g">✓ Per-stock score</span></td>
+          <td><span class="pill p-b">✓ Hard gate</span></td>
+          <td class="r">Full overlap</td>
+          <td class="W">Same signal, same calculation. <strong>Use EigenView's implementation.</strong> EigenView's per-stock GEX scoring is identical — no duplication needed. Merge into one module.</td>
+        </tr>
+        <tr>
+          <td><strong>Options Flow Quality</strong></td>
+          <td><span class="pill p-g">✓ Sweeps + dark pool</span></td>
+          <td><span class="pill p-b">✓ V/OI + premium + aggressive side</span></td>
+          <td class="y">Partial — complementary depth</td>
+          <td class="W">Merge into one richer flow factor. EigenView adds sweep detection + dark pool cluster scoring. EigenView adds V/OI ratio + aggressive side detection. Together: 6-signal flow factor.</td>
+        </tr>
+        <tr>
+          <td><strong>IV Rank (IVR)</strong></td>
+          <td><span class="pill p-g">✓ Per-stock score</span></td>
+          <td><span class="pill p-b">✓ Used in ranker / tiebreaker</span></td>
+          <td class="r">Full overlap</td>
+          <td class="W">Same calculation. Keep one implementation. Used as both a scoring input AND a ranker tiebreaker.</td>
+        </tr>
+        <tr>
+          <td><strong>Dark Pool Clusters (per-stock)</strong></td>
+          <td><span class="pill p-g">✓ Key signal</span></td>
+          <td><span class="pill p-b">✓ Planned (docs say "future")</span></td>
+          <td class="y">Partial — EigenView is ahead here</td>
+          <td class="W">EigenView's dark pool cluster detection is more developed. Adopt EigenView's implementation into EigenView's flow factor module.</td>
+        </tr>
+        <tr>
+          <td><strong>Dormant-Bet Radar</strong></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td><span class="pill p-b">✓ THE differentiator</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's unique moat. Keep exactly as designed. EigenView gains this for free in the merge.</td>
+        </tr>
+        <tr>
+          <td><strong>Catalyst + Novelty Sentiment</strong></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td><span class="pill p-b">✓ Embedding novelty + FinBERT</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's sophisticated sentiment layer. EigenView gains this. Novelty z-score is genuinely differentiated vs raw news volume.</td>
+        </tr>
+
+        <tr class="cat-hd"><td colspan="5">── Futures / Commodity Layer ─────────────────────────────────────────</td></tr>
+        <tr>
+          <td><strong>Equity Futures (ES, NQ, RTY)</strong></td>
+          <td><span class="pill p-g">✓ Full coverage</span></td>
+          <td><span class="pill p-dim">✗ US equities only by design</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds futures as a separate instrument class. Different signal stack (GEX + CTA flip only — no TA, no dormant). Gated by macro regime only. Optional module for users who trade futures.</td>
+        </tr>
+        <tr>
+          <td><strong>Commodity Futures (CL, GC, NG)</strong></td>
+          <td><span class="pill p-g">✓ OVX + COT + curve shape</span></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's commodity signal stack is unique. Adds as optional Commodity module. Includes OVX exit rules (April 8 oil shock protection).</td>
+        </tr>
+
+        <tr class="cat-hd"><td colspan="5">── Output / UX Layer ─────────────────────────────────────────────────</td></tr>
+        <tr>
+          <td><strong>LLM-Written Thesis</strong></td>
+          <td><span class="pill p-dim">✗ Template string only</span></td>
+          <td><span class="pill p-b">✓ Full spec, prompts written</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's thesis generation is production-ready (prompt template, output contract, fail-open logic, cost budget). EigenView adopts wholesale.</td>
+        </tr>
+        <tr>
+          <td><strong>Options Structure Suggestion</strong></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td><span class="pill p-b">✓ AI-generated per pick</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView adds specific options structure (calls / puts / spreads / calendar, trigger, invalidation, R:R). Doesn't apply to futures cards — futures show entry/stop only.</td>
+        </tr>
+        <tr>
+          <td><strong>AI Chat Dock</strong></td>
+          <td><span class="pill p-dim">✗ Not present</span></td>
+          <td><span class="pill p-b">✓ Full spec + prompts</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's chat dock spec is complete (6 capabilities, system prompt, streaming). EigenView adopts wholesale.</td>
+        </tr>
+        <tr>
+          <td><strong>Module Framework + Templates</strong></td>
+          <td><span class="pill p-dim">✗ Mockup only</span></td>
+          <td><span class="pill p-b">✓ 21 modules, 5 templates, wireframe v2</span></td>
+          <td class="g">No overlap</td>
+          <td class="W">EigenView's UI architecture is the foundation. EigenView's dashboard mockup is replaced by EigenView's module framework. EigenView adds: regime strip module, futures card module.</td>
+        </tr>
+        <tr>
+          <td><strong>Signal Performance Log</strong></td>
+          <td><span class="pill p-g">✓ Public win rate (proposed)</span></td>
+          <td><span class="pill p-b">✓ Closed picks archive + hit rate</span></td>
+          <td class="y">Partial overlap</td>
+          <td class="W">Same concept, merge into one. EigenView's `closed-picks` module + EigenView's public signal log = one auditable performance tracker. Public-facing summary + private full history.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ MERGED SIGNAL STACK ═══ -->
+<div class="sec alt2">
+  <div class="sec-eyebrow">The Merged Product</div>
+  <div class="sec-title">Combined <span>Signal Stack</span> — <span class="b">9 Layers</span></div>
+  <div class="sec-body">Every layer from both projects, deduplicated, assigned to the right scope. The gate logic becomes: Macro Gate GREEN → TA fires → Per-stock GEX fires → 2+ of remaining 5 align.</div>
+
+  <div class="bento b2" style="margin-bottom:10px;">
+    <div class="tile dark">
+      <div class="ta ta-G"></div>
+      <div class="t-tag g">Gate 0 — Macro Regime (NEW from EigenView)</div>
+      <div class="t-title">Runs Before Any Pick Is Scored</div>
+      <div class="t-body">
+        <strong>Inputs:</strong> SPX GEX regime (SpotGamma), VIX M1/M2 term structure (VIXCentral), DIX (SqueezeMetrics), SPX breadth (%  above 50dma)<br><br>
+        <strong>Score:</strong> 0–10. GREEN ≥7, YELLOW 5–6, RED ≤4.<br><br>
+        <strong>Gate logic:</strong> RED → output short setups and cash signal only. No long picks regardless of individual stock signals. YELLOW → picks shown with "MACRO CAUTION" flag. GREEN → normal operation.<br><br>
+        <strong>This is new to the merged product.</strong> EigenView had no macro gate. EigenView has it fully defined.
+      </div>
+    </div>
+    <div class="tile dark">
+      <div class="ta ta-b"></div>
+      <div class="t-tag b">Gate 1 — Technical Analysis (from EigenView)</div>
+      <div class="t-title">Hard Gate — No Pick Without TA Firing</div>
+      <div class="t-body">
+        <strong>Signals:</strong> 20/50/200 EMA stack, ADX, RSI + divergence, MACD, ATR, Bollinger bandwidth, compression detection, volume profile POC/HVN/LVN, swing high/low levels<br><br>
+        <strong>Pattern classifier:</strong> compression_break | breakout | pullback_in_trend | flag | double_top | double_bottom | head_shoulders | vcp | exhaustion | range<br><br>
+        <strong>Firing condition:</strong> pattern confidence >0.6 AND weekly trend doesn't contradict daily setup<br><br>
+        <strong>Fully designed in EigenView docs 03.</strong> Unchanged in merge.
+      </div>
+    </div>
+  </div>
+
+  <div class="bento b2" style="margin-bottom:10px;">
+    <div class="tile dark">
+      <div class="ta ta-y"></div>
+      <div class="t-tag y">Gate 2 — Per-Stock GEX / Dealer Positioning (Merged)</div>
+      <div class="t-title">Hard Gate — No Pick Without GEX Firing</div>
+      <div class="t-body">
+        <strong>Identical in both projects.</strong> EigenView and EigenView both score: net dealer gamma, gamma flip level, call wall, put wall, regime flag (short_gamma / long_gamma / flip_zone).<br><br>
+        <strong>Merge decision:</strong> one implementation, used in both EigenView pick scoring AND EigenView futures scoring. Macro-level GEX (Gate 0) is separate from per-stock GEX (Gate 2).<br><br>
+        <strong>Chart overlay:</strong> GEX levels rendered on price chart as in EigenView's price-chart module.
+      </div>
+    </div>
+    <div class="tile dark">
+      <div class="ta ta-p"></div>
+      <div class="t-tag p">Factor 1 — Options Flow (Merged, Enhanced)</div>
+      <div class="t-title">6-Signal Flow Factor (Both Projects Combined)</div>
+      <div class="t-body">
+        <strong>From EigenView:</strong> V/OI ratio (≥3 = new position), premium size (>$500K), aggressive side (ask vs bid), sweep detection<br><br>
+        <strong>From EigenView:</strong> dark pool cluster detection (3+ prints in ±0.5% band at price level), intermarket sweep confirmation<br><br>
+        <strong>Combined firing condition:</strong> ≥1 contract meets premium >$500K + V/OI ≥3 + aggressive side = pick direction. Dark pool cluster at entry zone = bonus conviction point.<br><br>
+        <strong>This is a genuine improvement over either project alone.</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="bento b3" style="margin-bottom:24px;">
+    <div class="tile dark">
+      <div class="ta ta-o"></div>
+      <div class="t-tag o">Factor 2 — Dormant-Bet Radar (EigenView, Unchanged)</div>
+      <div class="t-title">THE Moat</div>
+      <div class="t-body">Large long-dated positions (30–180 days old, ≥$500K premium, ≥90 DTE at opening) scored for activation probability near catalyst. V1 rule-based. V2 ML classifier.<br><br><strong>Nothing changes. This is EigenView's crown jewel and the hardest to replicate.</strong> EigenView gains it for free in the merge.</div>
+    </div>
+    <div class="tile dark">
+      <div class="ta ta-t"></div>
+      <div class="t-tag t">Factor 3 — Catalyst + Novelty Sentiment (EigenView, Unchanged)</div>
+      <div class="t-title">Novelty-Weighted, Not Volume-Weighted</div>
+      <div class="t-body">Embedding distance from 30-day rolling baseline per ticker. Catalyst proximity scoring (earnings, FDA, macro). LLM filter for MATERIAL vs NOISE. FinBERT direction scoring.<br><br><strong>Nothing changes. EigenView's design is production-ready.</strong></div>
+    </div>
+    <div class="tile dark">
+      <div class="ta ta-G"></div>
+      <div class="t-tag g">Factor 4 — Retail Capitulation + VIX Structure (EigenView, New)</div>
+      <div class="t-title">Macro Timing Layer</div>
+      <div class="t-body">VIX M1/M2 backwardation score + DIX trend direction + retail put premium extreme (Citadel GMI logic). These fire at the macro level and upgrade individual pick conviction when the macro environment is favorable for reversals.<br><br><strong>New to EigenView. EigenView contributes this entire layer.</strong></div>
+    </div>
+  </div>
+
+  <!-- NEW GATE LOGIC -->
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th>Gate / Factor</th>
+          <th>Origin</th>
+          <th>Type</th>
+          <th>Failing Condition</th>
+          <th>Effect of Failure</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--G);">0</td>
+          <td><strong>Macro Regime Gate</strong> (GEX + VIX + DIX + Breadth)</td>
+          <td><span class="pill p-g">EigenView</span></td>
+          <td><span class="pill p-r">Hard Gate</span></td>
+          <td class="dim">Score ≤4 (RED regime)</td>
+          <td class="r">No long picks output. Short setups and cash signal only.</td>
+        </tr>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--B);">1</td>
+          <td><strong>Technical Analysis</strong> (trend + momentum + pattern)</td>
+          <td><span class="pill p-b">EigenView</span></td>
+          <td><span class="pill p-r">Hard Gate</span></td>
+          <td class="dim">Pattern confidence &lt;0.6 or weekly/daily contradiction</td>
+          <td class="r">Instrument dropped. Watchlist only.</td>
+        </tr>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--Y);">2</td>
+          <td><strong>Per-Stock GEX</strong> (gamma flip + regime)</td>
+          <td><span class="pill p-y">Both (merged)</span></td>
+          <td><span class="pill p-r">Hard Gate</span></td>
+          <td class="dim">GEX regime not supportive of pick direction</td>
+          <td class="r">Instrument dropped.</td>
+        </tr>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--P);">3</td>
+          <td><strong>Options Flow</strong> (sweeps + dark pool + V/OI)</td>
+          <td><span class="pill p-p">Both (enhanced)</span></td>
+          <td><span class="pill p-y">Soft Factor</span></td>
+          <td class="dim">No qualifying flow detected</td>
+          <td class="dim">Counts toward 2-of-3 requirement</td>
+        </tr>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--O);">4</td>
+          <td><strong>Dormant-Bet Radar</strong></td>
+          <td><span class="pill p-b">EigenView</span></td>
+          <td><span class="pill p-y">Soft Factor</span></td>
+          <td class="dim">Activation probability &lt;0.6</td>
+          <td class="dim">Counts toward 2-of-3 requirement. When firing, conviction bonus.</td>
+        </tr>
+        <tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--T);">5</td>
+          <td><strong>Catalyst + Novelty Sentiment</strong></td>
+          <td><span class="pill p-b">EigenView</span></td>
+          <td><span class="pill p-y">Soft Factor</span></td>
+          <td class="dim">Novelty z &lt;1.5 and catalyst &gt;30 days out</td>
+          <td class="dim">Counts toward 2-of-3 requirement</td>
+        </tr>
+        <tr style="background:rgba(0,255,153,0.05);">
+          <td colspan="2" style="font-weight:700;color:var(--G);">QUALIFY: Gates 0+1+2 pass AND ≥2 of Factors 3+4+5 fire</td>
+          <td><span class="pill p-y">Both (merged)</span></td>
+          <td><span class="pill p-g">Pick Output</span></td>
+          <td class="g">N/A — this is the pass condition</td>
+          <td class="g">Instrument enters ranked curated list with LLM thesis + structure suggestion</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ ARCHITECTURE DECISION ═══ -->
+<div class="sec alt">
+  <div class="sec-eyebrow">Architecture</div>
+  <div class="sec-title">Tech Stack — <span>EigenView Wins</span></div>
+  <div class="sec-body">EigenView has a proposal and a mockup. EigenView has a complete architecture spec, all decisions locked, engineering standards written, and a 10-phase build plan. The merge uses EigenView's architecture as the foundation with EigenView's signal layers added on top.</div>
+
+  <div class="bento b3" style="margin-bottom:24px;">
+    <div class="tile">
+      <div class="ta ta-G"></div>
+      <div class="t-tag g">Unchanged — EigenView's Stack</div>
+      <div class="t-title">Foundation Stays</div>
+      <div class="t-body">Python 3.11+ / uv / FastAPI / Vanilla HTML+JS / SQLite / TradingView Lightweight Charts / Windows Task Scheduler. All 12 docs remain valid. No rewrites. CLAUDE.md stays the source of truth.<br><br><strong>EigenView's build plan (10 phases) is the roadmap. EigenView signals slot into existing phases.</strong></div>
+    </div>
+    <div class="tile">
+      <div class="ta ta-b"></div>
+      <div class="t-tag b">Added — New Data Sources from EigenView</div>
+      <div class="t-title">3 New Free Sources</div>
+      <div class="t-body">
+        • <strong>SqueezeMetrics</strong> — DIX + index-level GEX (free, daily scrape)<br>
+        • <strong>VIXCentral</strong> — VIX futures term structure M1–M6 (free, scrape)<br>
+        • <strong>CFTC COT report</strong> — managed money positioning for futures (free, weekly)<br><br>
+        These feed the new Macro Regime Gate module only. Zero cost. Zero new dependencies on paid data.
+      </div>
+    </div>
+    <div class="tile">
+      <div class="ta ta-y"></div>
+      <div class="t-tag y">Added — New Modules to Build</div>
+      <div class="t-title">2 New Python Modules</div>
+      <div class="t-body">
+        • <strong>factors/macro_regime.py</strong> — 4-signal macro gate scoring (new, ~150 lines)<br>
+        • <strong>factors/futures.py</strong> — ES/NQ/CL/GC signal scoring: GEX + CTA flip + OVX/GVZ (new, ~200 lines)<br><br>
+        Both implement the same FactorResult interface as existing EigenView factor modules. Drop-in compatible.
+      </div>
+    </div>
+  </div>
+
+  <!-- WHAT CHANGES IN BUILD PLAN -->
+  <div class="sec-eyebrow" style="margin-bottom:12px;">What Changes in EigenView's 10-Phase Build Plan</div>
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Original EigenView Scope</th>
+          <th>Change from Merge</th>
+          <th>Delta Effort</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="g">Phase 0</td><td class="dim">Setup, repo scaffold</td><td class="dim">No change</td><td><span class="pill p-g">None</span></td></tr>
+        <tr>
+          <td class="g">Phase 1</td>
+          <td class="dim">Data fetchers (yfinance, AV, Finnhub)</td>
+          <td><strong>Add 3 fetchers:</strong> SqueezeMetrics scrape, VIXCentral scrape, CFTC COT parser</td>
+          <td><span class="pill p-y">+3hrs</span></td>
+        </tr>
+        <tr>
+          <td class="g">Phase 2a</td>
+          <td class="dim">TA + GEX + Flow factors</td>
+          <td><strong>Add macro_regime.py.</strong> Enhance flow.py with dark pool cluster detection from EigenView. GEX unchanged.</td>
+          <td><span class="pill p-y">+2hrs</span></td>
+        </tr>
+        <tr>
+          <td class="g">Phase 2b</td>
+          <td class="dim">Dormant + Sentiment factors</td>
+          <td>No change. Both are EigenView-native.</td>
+          <td><span class="pill p-g">None</span></td>
+        </tr>
+        <tr>
+          <td class="g">Phase 3</td>
+          <td class="dim">Synthesis engine (gate + ranker)</td>
+          <td><strong>Add macro gate as pre-step.</strong> qualify_pick() now checks macro_regime.score >= 7 before running TA + GEX gates. One new function, ~20 lines.</td>
+          <td><span class="pill p-y">+1hr</span></td>
+        </tr>
+        <tr>
+          <td class="g">Phase 4</td>
+          <td class="dim">Dashboard shell + Standard template</td>
+          <td><strong>Add market-context module</strong> (already in EigenView spec!) now includes EigenView macro regime strip. Add regime traffic-light to top bar.</td>
+          <td><span class="pill p-y">+2hrs</span></td>
+        </tr>
+        <tr>
+          <td class="g">Phase 5</td>
+          <td class="dim">All 21 modules</td>
+          <td><strong>Add 2 new modules:</strong> regime-strip (EigenView macro display) + futures-card (futures instrument card with CTA/OVX signals). Both follow existing module interface.</td>
+          <td><span class="pill p-y">+3hrs</span></td>
+        </tr>
+        <tr><td class="g">Phase 6</td><td class="dim">Templates + Customizer</td><td class="dim">No change. EigenView signals appear in existing modules.</td><td><span class="pill p-g">None</span></td></tr>
+        <tr><td class="g">Phase 7</td><td class="dim">AI Chat + Explainability</td><td><strong>Add macro regime context</strong> to chat system prompt. "Why is regime RED today?" must work. ~15 lines of system prompt update.</td><td><span class="pill p-g">Minimal</span></td></tr>
+        <tr><td class="g">Phase 8</td><td class="dim">Scheduler + Alerts</td><td><strong>Add regime change alerts:</strong> notify when regime shifts GREEN→YELLOW or RED. New alert trigger type.</td><td><span class="pill p-y">+1hr</span></td></tr>
+        <tr class="pulse-row">
+          <td class="g">TOTAL DELTA</td>
+          <td class="dim">15–20 hours original estimate</td>
+          <td class="W"><strong>+12 hours to add all EigenView signal layers to EigenView</strong></td>
+          <td><span class="pill p-g">+12hrs total</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ NAMING ═══ -->
+<div class="sec">
+  <div class="sec-eyebrow">Product Identity</div>
+  <div class="sec-title">What to <span>Call It</span></div>
+  <div class="sec-body">Two names on the table. One decision to make before Phase 0.</div>
+
+  <div class="bento b3">
+    <div class="tile g">
+      <div class="ta ta-G"></div>
+      <div class="t-tag g">Option A — Keep "EigenView"</div>
+      <div class="t-title">EigenView (Extended)</div>
+      <div class="t-body">The EigenView brand is more descriptive of what the product does — multiple signals converging into one output. The repo is already named it. All 12 docs reference it. EigenView becomes a module name ("Macro Pulse" or "Regime Gate") inside the product.<br><br><strong>Pros:</strong> zero renaming friction, docs stay valid, name matches the concept.<br><strong>Cons:</strong> conflicts with Atlassian's EigenView wiki product — SEO problem if you ever go commercial.</td>
+    </div>
+    <div class="tile b">
+      <div class="ta ta-b"></div>
+      <div class="t-tag b">Option B — Keep "EigenView"</div>
+      <div class="t-title">EigenView (Extended)</div>
+      <div class="t-body">EigenView is shorter, more brand-able, and has no naming conflicts. The macro regime layer IS the pulse of the market — it's a better metaphor for the macro-first approach.<br><br><strong>Pros:</strong> stronger brand, no Atlassian conflict, works commercially.<br><strong>Cons:</strong> requires renaming all 12 EigenView docs and the repo. One-time effort, ~2 hours.</div>
+    </div>
+    <div class="tile">
+      <div class="ta ta-p"></div>
+      <div class="t-tag p">Option C — New Name</div>
+      <div class="t-title">Something New</div>
+      <div class="t-body">If this becomes a commercial product, neither name may be optimal. Examples: <strong>SIGNAL</strong> (clean, generic), <strong>APEX</strong> (directional), <strong>REGIME</strong> (describes the macro-first approach), <strong>VECTOR</strong> (directional conviction).<br><br><strong>Only worth considering if commercial launch is the plan from Day 1.</strong> For personal use: keep EigenView, add EigenView layers.</div>
+    </div>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<!-- ═══ VERDICT ═══ -->
+<div class="sec alt2">
+  <div class="sec-eyebrow">Recommendation</div>
+  <div class="sec-title">The <span>Verdict</span></div>
+
+  <div class="verdict">
+    <div class="verdict-title">Merge. Use EigenView as the Foundation. Add EigenView on Top.</div>
+    <div class="verdict-body">
+      <strong>EigenView's architecture is production-ready.</strong> 12 docs, complete engineering standards, wireframe v2 locked, 10-phase build plan with acceptance criteria, all decisions logged. This is months of design work. Don't throw it away.<br><br>
+      <strong>EigenView's macro regime gate is the missing layer.</strong> Without it, EigenView can output picks in a red-regime meltdown. That's the Sep–Apr trap. Adding the macro gate (4 free data sources, 1 new Python module, ~20 lines in synthesis) takes 6 hours and closes the most critical product risk.<br><br>
+      <strong>EigenView's commodity + futures layer is optional but valuable.</strong> If you trade CL and ES in addition to equity options, add the futures module (~200 lines). If you trade equity options only, skip it for V1 — it's a clean add-on, not a dependency.<br><br>
+      <strong>The total cost of the merge: +12 hours on top of EigenView's 15–20 hour original estimate.</strong> The result is a product with 9 signal layers, macro-first gating, dormant-bet radar, LLM thesis, AI chat, and commodity coverage — across stocks AND futures. Nothing on the market has all of this.<br><br>
+      <strong>Start Phase 0 of EigenView as planned. Add the two new data fetchers in Phase 1. Add macro_regime.py alongside the existing factor modules in Phase 2a. Everything else follows the existing build plan unchanged.</strong>
+    </div>
+  </div>
+</div>
+
+<div style="padding:40px 64px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+  <div>
+    <div style="font-family:'Archivo Black',sans-serif;font-size:22px;letter-spacing:1px;color:var(--G);">EigenView × CONFLUENCE</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--W2);margin-top:3px;">MERGER PROPOSAL · APRIL 2026</div>
+  </div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--W2);letter-spacing:1px;text-align:right;">
+    12 CONFLUENCE DOCS READ · ALL EigenView SESSIONS ANALYZED<br>
+    <span style="color:var(--W2);">EDUCATIONAL PURPOSE ONLY · NOT INVESTMENT ADVICE</span>
+  </div>
+</div>
+
+</body>
+</html>
