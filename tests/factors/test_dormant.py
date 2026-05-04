@@ -56,16 +56,15 @@ def _make_bet(
 
 @pytest.mark.asyncio
 async def test_accumulating_state(db_session: AsyncSession) -> None:
+    # No bets in DB → ACCUMULATING regardless of days_of_history
     result = await score_dormant(
         ticker="NVDA",
         session=db_session,
         spot_price=660.0,
         current_chains=[],
-        days_of_history=10,
     )
     assert result.firing is False
     assert result.label == "ACCUMULATING"
-    assert "10/30" in result.narrative
 
 
 @pytest.mark.asyncio
@@ -75,10 +74,9 @@ async def test_no_bets_in_db(db_session: AsyncSession) -> None:
         session=db_session,
         spot_price=660.0,
         current_chains=[],
-        days_of_history=45,
     )
     assert result.firing is False
-    assert result.label == "NO DATA"
+    assert result.label == "ACCUMULATING"
 
 
 @pytest.mark.asyncio

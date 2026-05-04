@@ -48,13 +48,16 @@ def test_pullback_fires() -> None:
     flat = 140 + np.array([1, -1, 1, -1, 1, -1, 1, -1, 1, -1,
                             1, -1, 1, -1, 1, -1, 1, -1, 1, -1], dtype=float)
     closes = np.concatenate([base, flat])
+    # Volume: high during uptrend, declining during pullback (last 6 bars)
+    volumes = np.full(n, 1_000_000, dtype=float)
+    volumes[-6:] = np.linspace(900_000, 500_000, 6)  # declining vol = healthy pullback
     df = pd.DataFrame(
         {
             "open": closes * 0.995,
             "high": closes * 1.005,
             "low": closes * 0.995,
             "close": closes,
-            "volume": np.full(n, 1_000_000, dtype=float),
+            "volume": volumes,
         },
         index=pd.DatetimeIndex(dates),
     )

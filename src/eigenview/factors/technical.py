@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -193,7 +193,10 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         rsi_p20  = float(np.percentile(_rsi, 20))
         rsi_p25  = float(np.percentile(_rsi, 25))
         rsi_p40  = float(np.percentile(_rsi, 40))
+        rsi_p43  = float(np.percentile(_rsi, 43))
         rsi_p55  = float(np.percentile(_rsi, 55))
+        rsi_p60  = float(np.percentile(_rsi, 60))
+        rsi_p62  = float(np.percentile(_rsi, 62))
         rsi_p60  = float(np.percentile(_rsi, 60))
         rsi_p65  = float(np.percentile(_rsi, 65))
         rsi_p80  = float(np.percentile(_rsi, 80))
@@ -208,8 +211,10 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         rsi_p20  = 32.0
         rsi_p25  = 38.0
         rsi_p40  = 45.0
+        rsi_p43  = 47.0
         rsi_p55  = 55.0
         rsi_p60  = 57.0
+        rsi_p62  = 58.0
         rsi_p65  = 60.0
         rsi_p80  = 68.0
         rsi_p85  = 72.0
@@ -222,11 +227,13 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         _adx = adx_series.tail(63).values
         # Cap sideways/trend thresholds so strongly-trending regimes don't mis-classify
         adx_p25 = min(20.0, float(np.percentile(_adx, 25)))
+        adx_p30 = min(22.0, float(np.percentile(_adx, 30)))
         adx_p40 = min(25.0, float(np.percentile(_adx, 40)))
         adx_p70 = float(np.percentile(_adx, 70))
         adx_p75 = float(np.percentile(_adx, 75))
     else:
         adx_p25 = 15.0
+        adx_p30 = 17.0
         adx_p40 = 20.0
         adx_p70 = 25.0
         adx_p75 = 30.0
@@ -339,34 +346,47 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
     confidence = 0.0
 
     # --- bullish_reversal ---
-    # Prior downtrend ≥20 bars, RSI bull divergence, vol spike, 2-bar confirm
+    # P6·16: tightened — weekly RSI < 35 REQUIRED, BEARISH_WEAK weekly only, ADX >= adx_p30
     in_downtrend_20 = (ema21f < ema50f) and (adxf > adx_p25)
     prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else close_now
     two_bar_confirm = (prev_close < close_now) and (vol_now > vol_avg * vol_p65)
-    if (in_downtrend_20 and bull_div and vol_now > vol_avg * vol_p80 and two_bar_confirm
-            and rsif is not None and rsif < rsi_p55):
-        # Only fire if weekly RSI not deeply bearish (>p15 required)
-        weekly_rsi_ok = wc.rsi is None or wc.rsi > rsi_p15
-        if weekly_rsi_ok:
-            pattern = "bullish_reversal"
-            confidence = 0.70
-            if vol_now > vol_avg * vol_p92:
-                confidence += 0.10  # exhaustion spike bonus
+    # Simplified RSI divergence: current RSI > RSI 10 bars ago but price lower
+    rsi_10_ago = float(df['RSI_14'].iloc[-11]) if 'RSI_14' in df.columns and len(df) > 11 else rsif
+    price_10_ago = float(df['close'].iloc[-11]) if len(df) > 11 else close_now
+    rsi_diverge_bull = (rsif is not None and rsi_10_ago is not None
+                        and rsif > rsi_10_ago and close_now < price_10_ago)
+    weekly_rsi_ok = wc.rsi is not None and wc.rsi < 35.0
+    weekly_state_ok = weekly_trend_str == 'bearish_weak'
+    if (in_downtrend_20
+            and (bull_div or rsi_diverge_bull)
+            and vol_now > vol_avg * vol_p75
+            and adxf >= adx_p30
+            and two_bar_confirm
+            and rsif is not None and rsif < rsi_p55
+            and weekly_rsi_ok
+            and weekly_state_ok):
+        pattern = "bullish_reversal"
+        confidence = 0.70
+        if vol_now > vol_avg * vol_p92:
+            confidence += 0.10  # exhaustion spike bonus
 
     # --- overbought_reversal (short) ---
-    # Bullish trend + extended RSI + rolling over on volume
+    # P6·19: Bullish trend + extended RSI + down day/candle + vol expanding + weekly RSI>65 + BULLISH
     elif (daily_trend == 'bullish' and adxf > adx_p40
           and rsif is not None and rsif > rsi_p80
           and len(df) >= 2 and float(df['close'].iloc[-2]) > close_now
-          and vol_now > vol_avg * vol_p60):
+          and 'open' in df.columns and close_now < float(df['open'].iloc[-1])
+          and vol_now > vol_avg * vol_p65
+          and wc.rsi is not None and wc.rsi > 65.0
+          and weekly_trend_str == 'bullish'):
         pattern    = "overbought_reversal"
         confidence = 0.60
+        if wc.rsi is not None and wc.rsi > 70.0:
+            confidence += 0.08
         if rsif > rsi_p88:
             confidence += 0.05
         if bear_div:
             confidence += 0.08
-        if weekly_trend_str == 'bearish_strong':
-            confidence += 0.05
         if vol_now > vol_avg * vol_p80:
             confidence += 0.05
 
@@ -453,18 +473,19 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             confidence += 0.04
 
     # --- rally_in_downtrend (short) ---
-    # Bearish EMA stack, RSI bounced to p40-p65, dead-cat bounce entry
-    elif (daily_trend == "bearish"
-          and rsif is not None and rsi_p40 <= rsif <= rsi_p65
-          and close_now < ema21f * 1.01
-          and close_now > ema50f * 0.92
-          and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
+    # P6·22: Weekly BEARISH context REQUIRED, RSI in bounce zone [p43,p62],
+    #         price within 2% BELOW EMA21, EMA21<EMA50, vol declining
+    elif (weekly_trend_str in ('bearish_strong', 'bearish_weak')
+          and rsif is not None and rsi_p43 <= rsif <= rsi_p62
+          and ema21f < ema50f
+          and ema21f * 0.98 <= close_now <= ema21f
+          and vol_now < vol_avg * vol_p55):
         pattern    = "rally_in_downtrend"
         confidence = 0.68
         if vol_char == 'declining':
             confidence += 0.07  # low-vol rally = weak bounce = better short
-        if close_now > ema50f * 0.98:
-            confidence += 0.05  # close to EMA50 resistance
+        if weekly_trend_str == 'bearish_strong':
+            confidence += 0.05  # stronger macro headwind
 
     # --- base_breakout (VCP) ---
     # Tight coil near highs: squeeze_on (active compression) + vol declining + price near 50d high
@@ -493,12 +514,15 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             confidence += 0.08
 
     # --- oversold_bounce ---
-    # RSI deeply oversold (p20), bouncing, not catastrophic breakdown
+    # P6·18: RSI < rsi_p20, up day (close > prev + open < close), above EMA200,
+    #         weekly ADX < 30, not BEARISH_STRONG
     elif (rsif is not None and rsif < rsi_p20
-          and len(df) >= 2 and float(df['close'].iloc[-2]) < close_now  # up day
-          and vol_now > vol_avg * vol_p60
-          and not (wc.adx is not None and wc.adx > adx_p75)
-          and (ema200f is None or close_now > ema200f * 0.82)):
+          and len(df) >= 2 and float(df['close'].iloc[-2]) < close_now
+          and 'open' in df.columns and close_now > float(df['open'].iloc[-1])
+          and (ema200f is None or close_now > ema200f)
+          and not (wc.adx is not None and wc.adx > 30.0)
+          and weekly_trend_str != 'bearish_strong'
+          and vol_now > vol_avg * vol_p60):
         pattern    = "oversold_bounce"
         confidence = 0.62
         if rsif < rsi_p12:
@@ -507,13 +531,15 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             confidence += 0.08
 
     # --- failed_breakdown ---
-    # Intraday broke below EMA21 but closed above it on high volume
-    elif ('low' in df.columns
-          and len(df) >= 2
-          and float(df['low'].iloc[-1]) < ema21f
-          and close_now > ema21f
-          and float(df['close'].iloc[-2]) > ema21f
-          and vol_now > vol_avg * vol_p72):
+    # P6·20: Price dipped below EMA21 in last 5 bars, current bar recovered above,
+    #         vol > vol_p65, weekly not BEARISH_STRONG
+    # NOTE: compute ema21_series first so we can gate the outer elif on recent_dip
+    elif ('low' in df.columns and len(df) >= 6
+          and weekly_trend_str != 'bearish_strong'
+          and close_now <= recent_high  # not a clean breakout above 20d high
+          and close_now > df['close'].ewm(span=21, adjust=False).mean().iloc[-1]
+          and (df['close'].iloc[-5:-1] < df['close'].ewm(span=21, adjust=False).mean().iloc[-5:-1]).any()
+          and vol_now > vol_avg * vol_p65):
         pattern    = "failed_breakdown"
         confidence = 0.68
         if vol_now > vol_avg * vol_p85:
@@ -555,27 +581,36 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             confidence += 0.08
 
     # --- failed_breakout (short) ---
-    # Price broke above resistance yesterday, closed back below today
-    elif (len(df) >= 3
-          and float(df['close'].iloc[-2]) > recent_high
-          and close_now < recent_high
-          and vol_now > vol_avg * vol_p60):
-        pattern    = "failed_breakout"
-        confidence = 0.70
-        if close_now < float(df['close'].iloc[-2]) * 0.97:
-            confidence += 0.05  # hard rejection
-        if vol_now > vol_avg * vol_p80:
-            confidence += 0.05
+    # P6·21: recent scipy swing high exceeded in last 3 bars, closes back below it,
+    #         vol declining (< vol_p55), weekly not BULLISH
+    elif (len(df) >= 64
+          and weekly_trend_str not in ('bullish',)):
+        highs_arr = df['high'].values[-60:].astype(float)
+        swing_high_idx = argrelextrema(highs_arr, np.greater, order=5)[0]
+        # Only consider swing highs established BEFORE the last 4 bars (pos < 56)
+        prior_swing_idx = swing_high_idx[swing_high_idx < 56]
+        if len(prior_swing_idx) > 0:
+            spH = float(highs_arr[prior_swing_idx[-1]])
+            exceeded_recently = (df['high'].iloc[-4:-1] > spH).any()
+            back_below = close_now < spH
+            vol_declining_fb = vol_now < vol_avg * vol_p55
+            if exceeded_recently and back_below and vol_declining_fb:
+                pattern    = "failed_breakout"
+                confidence = 0.70
+                if close_now < float(df['close'].iloc[-2]) * 0.97:
+                    confidence += 0.05  # hard rejection
 
     # --- bearish_reversal (last priority — short setup, macro RED context) ---
-    # Sustained uptrend + bear RSI divergence + elevated RSI + vol spike
+    # P6·17: tightened — weekly RSI > 65 REQUIRED, bullish weekly context (BULLISH_EXTENDED)
     elif (daily_trend == 'bullish' and adxf > adx_p70
           and bear_div
           and vol_now > vol_avg * vol_p75
-          and rsif is not None and rsif > rsi_p85):
+          and rsif is not None and rsif > rsi_p85
+          and wc.rsi is not None and wc.rsi > 65.0
+          and weekly_trend_str == 'bullish'):
         pattern    = "bearish_reversal"
         confidence = 0.65
-        if weekly_trend_str == 'bearish_strong':
+        if wc.rsi is not None and wc.rsi > 70.0:
             confidence += 0.10
         if rsif > rsi_p93:
             confidence += 0.05
@@ -783,7 +818,7 @@ def detect_pattern(
     else:
         adx_p25_dp = 15.0
 
-    # Vol ratio percentile for pullback ceiling
+    # Vol ratio percentile -- used by pullback, breakout, breakdown, VCP, EMA setups
     _dp_vols = ddf['volume'].dropna().tail(64).values
     if len(_dp_vols) >= 21:
         _dp_avgs = np.array([
@@ -791,11 +826,21 @@ def detect_pattern(
             for i in range(len(_dp_vols))
         ])
         _dp_ratios = np.where(_dp_avgs > 0, _dp_vols / _dp_avgs, 1.0)
-        vol_p72_dp = float(np.percentile(_dp_ratios, 72))
         vol_p35_dp = float(np.percentile(_dp_ratios, 35))
+        vol_p40_dp = float(np.percentile(_dp_ratios, 40))
+        vol_p50_dp = float(np.percentile(_dp_ratios, 50))
+        vol_p55_dp = float(np.percentile(_dp_ratios, 55))
+        vol_p60_dp = float(np.percentile(_dp_ratios, 60))
+        vol_p70_dp = float(np.percentile(_dp_ratios, 70))
+        vol_p72_dp = float(np.percentile(_dp_ratios, 72))
     else:
-        vol_p72_dp = 1.5
         vol_p35_dp = 0.9
+        vol_p40_dp = 0.95
+        vol_p50_dp = 1.0
+        vol_p55_dp = 1.1
+        vol_p60_dp = 1.2
+        vol_p70_dp = 1.4
+        vol_p72_dp = 1.5
 
     # Swing levels
     closes_arr = ddf["close"].values.astype(float)
@@ -827,6 +872,68 @@ def detect_pattern(
         "swing_high":   sw_high,
     }
 
+
+    # P6 setup prerequisites: RSI/ADX percentiles + BB + Squeeze (computed once)
+    _rsi_full = ddf["RSI_14"].dropna().tail(63).values
+    if len(_rsi_full) >= 10:
+        rsi_p25_dp = float(np.percentile(_rsi_full, 25))
+        rsi_p30_dp = float(np.percentile(_rsi_full, 30))
+        rsi_p45_dp = float(np.percentile(_rsi_full, 45))
+        rsi_p50_dp = float(np.percentile(_rsi_full, 50))
+        rsi_p55_dp = float(np.percentile(_rsi_full, 55))
+        rsi_p65_dp = float(np.percentile(_rsi_full, 65))
+    else:
+        rsi_p25_dp = 38.0
+        rsi_p30_dp = 40.0
+        rsi_p45_dp = 48.0
+        rsi_p50_dp = 52.0
+        rsi_p55_dp = 56.0
+        rsi_p65_dp = 63.0
+
+    _adx_full = ddf["ADX_14"].dropna().tail(63).values
+    adx_p30_dp = float(np.percentile(_adx_full, 30)) if len(_adx_full) >= 10 else 18.0
+
+    ddf.ta.bbands(length=20, append=True)
+    _bb_last = ddf.iloc[-1]
+    _bbu_key = "BBU_20_2.0_2.0" if "BBU_20_2.0_2.0" in ddf.columns else "BBU_20_2.0"
+    _bbl_key = "BBL_20_2.0_2.0" if "BBL_20_2.0_2.0" in ddf.columns else "BBL_20_2.0"
+    _bbu_raw = _bb_last.get(_bbu_key)
+    _bbl_raw = _bb_last.get(_bbl_key)
+    bbu_dp = float(_bbu_raw) if _bbu_raw is not None and not pd.isna(_bbu_raw) else None
+    bbl_dp = float(_bbl_raw) if _bbl_raw is not None and not pd.isna(_bbl_raw) else None
+
+    try:
+        _sqz_dp = ta.squeeze_pro(ddf["high"], ddf["low"], ddf["close"])
+        _sq_on_dp = bool(
+            _sqz_dp["SQZPRO_ON_NARROW"].iloc[-1]
+            or _sqz_dp["SQZPRO_ON_NORMAL"].iloc[-1]
+            or _sqz_dp["SQZPRO_ON_WIDE"].iloc[-1]
+        )
+        _sq_off_dp = bool(_sqz_dp["SQZPRO_OFF"].iloc[-1])
+        _squeeze_released_dp = _sq_off_dp and not _sq_on_dp
+    except Exception:
+        _sq_on_dp = False
+        _sq_off_dp = False
+        _squeeze_released_dp = False
+
+    # ── P6.1 pullback_deep (before pullback_in_trend — deeper dip to EMA50) ──
+    if (
+        weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+        and daily_trend == "bullish"
+        and rsif is not None
+        and rsi_p25_dp <= rsif <= rsi_p50_dp
+        and -0.05 <= (close_now / ema50f - 1) <= 0.01
+        and vol_ratio < vol_p60_dp
+        and adxf >= adx_p30_dp
+    ):
+        confidence = 0.65
+        if vol_ratio < vol_p40_dp:
+            confidence += 0.05
+        if close_now >= ema50f * 0.98:
+            confidence += 0.05
+        confidence = round(min(1.0, confidence), 3)
+        detail.update({"rsi_p25": round(rsi_p25_dp, 2), "rsi_p50": round(rsi_p50_dp, 2)})
+        return {"pattern": "pullback_deep", "confidence": confidence, "detail": detail}
     # ── pullback_in_trend detection ──────────────────────────────────────────
     # Requirements:
     #   1. Daily trend bullish (EMA21>EMA50, ADX>=adx_p25)
@@ -851,5 +958,208 @@ def detect_pattern(
             confidence += 0.05             # touching EMA21 (ideal entry)
         confidence = round(min(1.0, confidence), 3)
         return {"pattern": "pullback_in_trend", "confidence": confidence, "detail": detail}
+
+    # ── P6.2 pullback_to_structure ───────────────────────────────────────────
+    if (
+        weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+        and daily_trend == "bullish"
+        and rsif is not None
+        and rsi_p30_dp <= rsif <= rsi_p55_dp
+        and vol_ratio < vol_p60_dp
+        and len(ddf) >= 60
+    ):
+        _highs_60 = ddf["high"].values[-60:].astype(float)
+        _hi_idx = argrelextrema(_highs_60, np.greater, order=5)[0]
+        if len(_hi_idx) >= 2:
+            _prior_swing_hi = _highs_60[_hi_idx[-2]]
+            if abs(close_now / _prior_swing_hi - 1) < 0.02:
+                confidence = 0.68
+                if vol_ratio < vol_p40_dp:
+                    confidence += 0.05
+                confidence = round(min(1.0, confidence), 3)
+                detail["prior_swing_high"] = round(_prior_swing_hi, 2)
+                detail.update({"rsi_p30": round(rsi_p30_dp, 2), "rsi_p55": round(rsi_p55_dp, 2)})
+                return {"pattern": "pullback_to_structure", "confidence": confidence, "detail": detail}
+
+    # ── P6.3 flag_continuation ───────────────────────────────────────────────
+    if (
+        weekly_state != "BEARISH_STRONG"
+        and rsif is not None
+        and rsi_p45_dp <= rsif <= rsi_p65_dp
+        and vol_ratio < vol_p50_dp
+        and _sq_on_dp
+        and len(ddf) >= 12
+    ):
+        _impulse = (float(ddf["close"].iloc[-1]) / float(ddf["close"].iloc[-11]) - 1) * 100
+        if _impulse > 5.0:
+            confidence = 0.70
+            if _impulse > 10.0:
+                confidence += 0.05
+            if vol_ratio < vol_p40_dp:
+                confidence += 0.03
+            confidence = round(min(1.0, confidence), 3)
+            detail["impulse_pct"] = round(_impulse, 2)
+            detail.update({"rsi_p45": round(rsi_p45_dp, 2), "rsi_p65": round(rsi_p65_dp, 2)})
+            return {"pattern": "flag_continuation", "confidence": confidence, "detail": detail}
+
+    # ── P6.4 compression_break ───────────────────────────────────────────────
+    if (
+        _squeeze_released_dp
+        and bbu_dp is not None
+        and close_now > bbu_dp
+        and vol_ratio > vol_p70_dp
+        and float(ddf["open"].iloc[-1]) < close_now
+        and (rsif is None or rsif < 90.0)
+    ):
+        confidence = 0.75
+        if vol_ratio > vol_p72_dp:
+            confidence += 0.05
+        if weekly_state in ("BULLISH", "BULLISH_EXTENDED"):
+            confidence += 0.03
+        if weekly_state == "BEARISH_STRONG":
+            confidence -= 0.20
+        confidence = round(min(1.0, max(0.0, confidence)), 3)
+        detail["bbu"] = round(bbu_dp, 2)
+        return {"pattern": "compression_break", "confidence": confidence, "detail": detail}
+
+    # ── P6.5 compression_break_down ──────────────────────────────────────────
+    if (
+        _squeeze_released_dp
+        and bbl_dp is not None
+        and close_now < bbl_dp
+        and vol_ratio > vol_p70_dp
+        and float(ddf["open"].iloc[-1]) > close_now
+        and weekly_state not in ("BULLISH", "BULLISH_EXTENDED")
+    ):
+        confidence = 0.73
+        if vol_ratio > vol_p72_dp:
+            confidence += 0.05
+        if weekly_state == "BEARISH_STRONG":
+            confidence += 0.05
+        confidence = round(min(1.0, confidence), 3)
+        detail["bbl"] = round(bbl_dp, 2)
+        return {"pattern": "compression_break_down", "confidence": confidence, "detail": detail}
+    # P6.6 breakout: close > N-bar swing high (scipy), level tested >=2x, vol surge
+    if weekly_state != "BEARISH_STRONG" and len(ddf) >= 60:
+        highs_60 = ddf["high"].values[-60:].astype(float)
+        _sh_idx = argrelextrema(highs_60, np.greater, order=5)[0]
+        if len(_sh_idx) > 0:
+            _n_bar_high = highs_60[_sh_idx[-1]]
+            _prior_approaches = int(np.sum(
+                np.abs(highs_60[:_sh_idx[-1]] / _n_bar_high - 1) < 0.01
+            ))
+            if (
+                close_now > _n_bar_high
+                and vol_ratio > vol_p70_dp
+                and _prior_approaches >= 1
+            ):
+                confidence = 0.80
+                if vol_ratio > vol_p72_dp:
+                    confidence += 0.05
+                confidence = round(min(1.0, confidence), 3)
+                detail["n_bar_high"] = round(_n_bar_high, 2)
+                detail["prior_approaches"] = _prior_approaches
+                return {"pattern": "breakout", "confidence": confidence, "detail": detail}
+
+    # P6.7 breakdown: close < N-bar swing low (scipy), vol surge, weekly bearish
+    if weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG") and len(ddf) >= 60:
+        lows_60 = ddf["low"].values[-60:].astype(float)
+        _sl_idx = argrelextrema(lows_60, np.less, order=5)[0]
+        if len(_sl_idx) > 0:
+            _n_bar_low = lows_60[_sl_idx[-1]]
+            if (
+                close_now < _n_bar_low
+                and vol_ratio > vol_p70_dp
+            ):
+                confidence = 0.78
+                if weekly_state == "BEARISH_STRONG":
+                    confidence += 0.05
+                if vol_ratio > vol_p72_dp:
+                    confidence += 0.05
+                confidence = round(min(1.0, confidence), 3)
+                detail["n_bar_low"] = round(_n_bar_low, 2)
+                return {"pattern": "breakdown", "confidence": confidence, "detail": detail}
+
+    # P6.8 base_breakout (VCP): tight 20-bar base near 50d high, squeeze_on, vol light, weekly bullish
+    if weekly_state in ("BULLISH", "BULLISH_EXTENDED") and len(ddf) >= 50:
+        _std_series = ddf["close"].rolling(20).std().dropna()
+        if len(_std_series) >= 10:
+            _close_std_20 = float(_std_series.iloc[-1])
+            _std_p25 = float(np.percentile(_std_series.tail(63), 25))
+            _high_50d = float(ddf["close"].tail(50).max())
+            _near_high = (close_now / _high_50d - 1) > -0.03
+            _tight_base = _close_std_20 < _std_p25
+            try:
+                _sqz = ta.squeeze_pro(ddf["high"], ddf["low"], ddf["close"])
+                _sq_on = bool(
+                    _sqz["SQZPRO_ON_NARROW"].iloc[-1]
+                    or _sqz["SQZPRO_ON_NORMAL"].iloc[-1]
+                    or _sqz["SQZPRO_ON_WIDE"].iloc[-1]
+                )
+            except Exception:
+                _sq_on = False
+            if _near_high and _tight_base and _sq_on and vol_ratio < vol_p40_dp:
+                confidence = 0.70
+                if _close_std_20 < _std_p25 * 0.75:
+                    confidence += 0.05
+                confidence = round(min(1.0, confidence), 3)
+                detail["high_50d"] = round(_high_50d, 2)
+                return {"pattern": "base_breakout", "confidence": confidence, "detail": detail}
+
+    # P6.9 base_breakdown (short VCP): tight base near 50d low, squeeze_on, vol light, weekly bearish
+    if weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG") and len(ddf) >= 50:
+        _std_series_b = ddf["close"].rolling(20).std().dropna()
+        if len(_std_series_b) >= 10:
+            _close_std_20b = float(_std_series_b.iloc[-1])
+            _std_p25_b = float(np.percentile(_std_series_b.tail(63), 25))
+            _low_50d = float(ddf["close"].tail(50).min())
+            _near_low = (close_now / _low_50d - 1) < 0.03
+            _tight_base_b = _close_std_20b < _std_p25_b
+            try:
+                _sqz_b = ta.squeeze_pro(ddf["high"], ddf["low"], ddf["close"])
+                _sq_on_b = bool(
+                    _sqz_b["SQZPRO_ON_NARROW"].iloc[-1]
+                    or _sqz_b["SQZPRO_ON_NORMAL"].iloc[-1]
+                    or _sqz_b["SQZPRO_ON_WIDE"].iloc[-1]
+                )
+            except Exception:
+                _sq_on_b = False
+            if _near_low and _tight_base_b and _sq_on_b and vol_ratio < vol_p40_dp:
+                confidence = 0.68
+                if weekly_state == "BEARISH_STRONG":
+                    confidence += 0.05
+                confidence = round(min(1.0, confidence), 3)
+                detail["low_50d"] = round(_low_50d, 2)
+                return {"pattern": "base_breakdown", "confidence": confidence, "detail": detail}
+
+    # P6.10 ema_reclaim: yesterday close < EMA50, today > EMA50, moderate vol
+    if (
+        weekly_state != "BEARISH_STRONG"
+        and len(ddf) >= 2
+        and float(ddf["close"].iloc[-2]) < float(ddf["EMA_50"].iloc[-2])
+        and close_now > ema50f
+        and vol_ratio > vol_p55_dp
+    ):
+        confidence = 0.65
+        if vol_ratio > vol_p70_dp:
+            confidence += 0.05
+        confidence = round(min(1.0, confidence), 3)
+        return {"pattern": "ema_reclaim", "confidence": confidence, "detail": detail}
+
+    # P6.11 ema_rejection: yesterday close > EMA50, today < EMA50, moderate vol
+    if (
+        weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG", "NEUTRAL")
+        and len(ddf) >= 2
+        and float(ddf["close"].iloc[-2]) > float(ddf["EMA_50"].iloc[-2])
+        and close_now < ema50f
+        and vol_ratio > vol_p55_dp
+    ):
+        confidence = 0.63
+        if weekly_state == "BEARISH_STRONG":
+            confidence += 0.07
+        if vol_ratio > vol_p70_dp:
+            confidence += 0.05
+        confidence = round(min(1.0, confidence), 3)
+        return {"pattern": "ema_rejection", "confidence": confidence, "detail": detail}
 
     return {"pattern": "no_pattern", "confidence": 0.0, "detail": detail}

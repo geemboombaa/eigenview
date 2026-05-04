@@ -90,7 +90,7 @@ async def test_bearish_sentiment(db_session: AsyncSession) -> None:
 
     result = await score_sentiment("NVDA", db_session, lookback_days=3)
     assert result.label == "bearish"
-    assert result.detail["bear_hits"] > result.detail["bull_hits"]
+    assert result.detail["bear_score"] > result.detail["bull_score"]
 
 
 @pytest.mark.asyncio
