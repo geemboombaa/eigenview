@@ -197,7 +197,6 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         rsi_p55  = float(np.percentile(_rsi, 55))
         rsi_p60  = float(np.percentile(_rsi, 60))
         rsi_p62  = float(np.percentile(_rsi, 62))
-        rsi_p60  = float(np.percentile(_rsi, 60))
         rsi_p65  = float(np.percentile(_rsi, 65))
         rsi_p80  = float(np.percentile(_rsi, 80))
         rsi_p85  = float(np.percentile(_rsi, 85))
@@ -770,8 +769,14 @@ def detect_pattern(
     as_of_ts = pd.Timestamp(as_of_date) if as_of_date else ddf.index[-1]
     ddf = ddf[ddf.index <= as_of_ts]
 
+    _empty_detail = {
+        "trend": None, "weekly_trend": None, "weekly_state": None,
+        "rsi": None, "rsi_p40": None, "adx": None,
+        "vol_ratio": None, "swing_low": None, "swing_high": None,
+    }
+
     if len(ddf) < 30:
-        return {"pattern": "no_pattern", "confidence": 0.0, "detail": {}}
+        return {"pattern": "no_pattern", "confidence": 0.0, "detail": _empty_detail}
 
     # Daily indicators
     ddf.ta.ema(length=21, append=True)
@@ -787,7 +792,7 @@ def detect_pattern(
     rsi   = last.get("RSI_14")
 
     if any(v is None or (isinstance(v, float) and pd.isna(v)) for v in [ema21, ema50, adx]):
-        return {"pattern": "no_pattern", "confidence": 0.0, "detail": {}}
+        return {"pattern": "no_pattern", "confidence": 0.0, "detail": _empty_detail}
 
     ema21f, ema50f = float(ema21), float(ema50)
     adxf = float(adx)
