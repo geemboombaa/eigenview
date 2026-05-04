@@ -137,13 +137,29 @@ def status() -> None:
     asyncio.run(_run())
 
 
+NDX100 = [
+    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST",
+    "NFLX", "TMUS", "AMD", "ADBE", "QCOM", "AMAT", "INTU", "CSCO", "CMCSA", "BKNG",
+    "VRTX", "REGN", "GILD", "MDLZ", "ADP", "PANW", "ABNB", "LRCX", "MCHP", "CRWD",
+    "MU", "SNPS", "CDNS", "CTAS", "KLAC", "FTNT", "ROP", "ORLY", "PCAR", "PAYX",
+    "CPRT", "EXC", "CHTR", "CEG", "MRVL", "ROST", "BIIB", "KDP", "IDXX", "FAST",
+    "VRSK", "ODFL", "DDOG", "ANSS", "DLTR", "EA", "WDAY", "MRNA", "ZS", "TEAM",
+    "NXPI", "PYPL", "TTWO", "ULTA", "VEEV", "ON", "MNST", "MPWR", "TSCO", "TTD",
+    "CSGP", "DXCM", "ENPH", "ILMN", "MELI", "ASML", "CDW", "PDD", "FANG", "SIRI",
+    "EBAY", "MTCH", "APP", "HOOD", "COIN", "ARM", "SMCI", "MSTR", "PLTR", "RIVN",
+    "LCID", "ZM", "DOCU", "OKTA", "SNOW", "DKNG", "RBLX", "PINS", "SNAP", "UBER",
+]
+TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
+
 @app.command(name="daily-scan")
 def daily_scan(
     universe: str = typer.Option("test5", help="test5 | ndx100"),
 ) -> None:
     """Run full daily scan pipeline and print top picks."""
-    TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
-    tickers = TEST5
+    if universe == "ndx100":
+        tickers = NDX100
+    else:
+        tickers = TEST5
 
     async def _run() -> None:
         async with AsyncSessionLocal() as session:

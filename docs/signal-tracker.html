@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — Signal Tracker</title>
+<style>
+  :root {
+    --bg:#010408; --surface:#080e18; --surface2:#0c1420; --surface3:#101928;
+    --border:#152030; --border2:#1e2d40;
+    --text:#e8f0ff; --text2:#ccd8f0; --text3:#a0b8d8;
+    --G:#00ff99; --R:#ff2d55; --B:#00b4ff; --Y:#ffd60a;
+    --P:#bf5fff; --O:#ff6b00; --T:#00e5cc; --W:#ffffff;
+    --done:#00ff99; --partial:#bf5fff; --missing:#ff2d55;
+    --approved:#00ff99; --rejected:#ff2d55; --question:#ffd60a; --pending:#a0b8d8;
+    --accent:#7c6dfa;
+    --p0:#ff2d55; --p1:#ff6b00; --p2:#ffd60a; --p3:#00b4ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;}
+
+  /* HEADER */
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;position:sticky;top:0;z-index:100;}
+  .header-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  h1{font-size:15px;font-weight:800;letter-spacing:0.5px;flex:0 0 auto;}
+  h1 span{color:var(--accent);}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .stat{display:flex;flex-direction:column;align-items:center;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 12px;min-width:58px;}
+  .stat-val{font-size:17px;font-weight:800;line-height:1.2;}
+  .stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;}
+  .stat-val.done{color:var(--done);}
+  .stat-val.approved{color:var(--approved);}
+  .stat-val.rejected{color:var(--rejected);}
+  .stat-val.question{color:var(--question);}
+  .stat-val.pending{color:var(--pending);}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;gap:8px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;position:sticky;top:59px;z-index:99;}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;flex:1;}
+  select,input[type=text]{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;outline:none;}
+  select:focus,input:focus{border-color:var(--accent);}
+  .toolbar-actions{display:flex;gap:6px;}
+  .btn{padding:5px 14px;border-radius:5px;border:1px solid var(--border2);font-size:12px;cursor:pointer;font-weight:700;transition:all 0.15s;}
+  .btn-save{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn-save:hover{filter:brightness(1.2);}
+  .btn-load{background:var(--surface2);color:var(--text);}
+  .btn-load:hover{border-color:var(--accent);}
+  .btn-clear{background:var(--surface2);color:var(--rejected);border-color:rgba(255,45,85,0.4);}
+  .btn-clear:hover{background:var(--rejected);color:#fff;}
+  .btn-expand{background:var(--surface2);color:var(--text2);}
+  .save-hint{font-size:11px;color:var(--text3);margin-left:4px;align-self:center;}
+
+  /* MAIN */
+  main{padding:16px 24px;}
+
+  /* WORKFLOW HINT */
+  .workflow-hint{background:rgba(124,109,250,0.08);border:1px solid rgba(124,109,250,0.25);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.6;}
+  .workflow-hint strong{color:var(--text);}
+  .workflow-hint code{background:var(--surface2);padding:1px 5px;border-radius:3px;color:var(--accent);font-size:11px;}
+
+  /* AREA GROUP */
+  .area-group{margin-bottom:8px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+  .area-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface2);cursor:pointer;user-select:none;}
+  .area-header:hover{background:var(--surface3);}
+  .area-name{font-weight:800;font-size:13px;flex:1;color:var(--text);}
+  .area-badge{font-size:11px;color:var(--text2);}
+  .chevron{font-size:11px;color:var(--text3);transition:transform 0.2s;}
+  .area-group.collapsed .chevron{transform:rotate(-90deg);}
+  .area-body{display:block;}
+  .area-group.collapsed .area-body{display:none;}
+
+  /* AREA ACCENT COLORS */
+  .area-macro    .area-header{border-left:3px solid var(--P);}
+  .area-ta       .area-header{border-left:3px solid var(--B);}
+  .area-oldta    .area-header{border-left:3px solid var(--text3);opacity:0.75;}
+  .area-gex      .area-header{border-left:3px solid var(--G);}
+  .area-flow     .area-header{border-left:3px solid var(--O);}
+  .area-dormant  .area-header{border-left:3px solid var(--Y);}
+  .area-sentiment .area-header{border-left:3px solid #ff6b9d;}
+  .area-synthesis .area-header{border-left:3px solid var(--R);}
+  .area-heatmap  .area-header{border-left:3px solid var(--T);}
+  .area-infra    .area-header{border-left:3px solid var(--text3);}
+  .area-ui       .area-header{border-left:3px solid var(--accent);}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;}
+  thead{background:var(--surface);}
+  th{padding:7px 10px;text-align:left;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-weight:700;}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr.item-row:hover td{background:rgba(124,109,250,0.05);}
+  tr.hidden-row{display:none;}
+
+  /* PHASE HEADER ROW */
+  tr.phase-hdr td{
+    background:var(--surface3);
+    border-top:2px solid var(--border2);
+    border-bottom:1px solid var(--border2);
+    padding:8px 10px;
+  }
+  .ph-title{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);}
+  .ph-gate{font-size:10px;color:var(--text3);margin-left:10px;font-weight:400;text-transform:none;letter-spacing:0;}
+  .ps-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.5px;margin-left:8px;}
+  .ps-planning{background:rgba(124,109,250,0.2);color:var(--accent);border:1px solid rgba(124,109,250,0.4);}
+  .ps-pending  {background:rgba(160,184,216,0.1);color:var(--text3);border:1px solid rgba(160,184,216,0.25);}
+  .ps-blocked  {background:rgba(255,45,85,0.15);color:var(--R);border:1px solid rgba(255,45,85,0.3);}
+  .ps-progress {background:rgba(255,214,10,0.12);color:var(--Y);border:1px solid rgba(255,214,10,0.3);}
+  .ps-complete {background:rgba(0,255,153,0.12);color:var(--G);border:1px solid rgba(0,255,153,0.25);}
+
+  /* ID */
+  .item-id{color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums;width:38px;min-width:38px;font-family:'Courier New',monospace;}
+
+  /* TITLE + DESC + PROOF */
+  .item-title{font-size:12px;color:var(--text);line-height:1.4;font-weight:600;}
+  .item-desc{font-size:11px;color:var(--text2);margin-top:3px;line-height:1.5;}
+  .item-proof{font-size:11px;color:var(--Y);margin-top:5px;line-height:1.4;border-left:2px solid rgba(255,214,10,0.5);padding-left:6px;}
+  .item-proof strong{font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin-right:4px;}
+
+  /* BADGES */
+  .badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.3px;white-space:nowrap;}
+  .badge-p0{background:rgba(255,45,85,0.15);color:var(--p0);border:1px solid rgba(255,45,85,0.35);}
+  .badge-p1{background:rgba(255,107,0,0.15);color:var(--p1);border:1px solid rgba(255,107,0,0.35);}
+  .badge-p2{background:rgba(255,214,10,0.12);color:var(--p2);border:1px solid rgba(255,214,10,0.3);}
+  .badge-p3{background:rgba(0,180,255,0.12);color:var(--p3);border:1px solid rgba(0,180,255,0.3);}
+  .badge-done2{background:rgba(0,255,153,0.12);color:var(--done);border:1px solid rgba(0,255,153,0.25);}
+  .badge-done{background:rgba(0,255,153,0.10);color:var(--done);}
+  .badge-partial{background:rgba(191,95,255,0.12);color:var(--partial);}
+  .badge-missing{background:rgba(255,45,85,0.12);color:var(--missing);}
+
+  /* APPROVAL BUTTONS */
+  .approval-cell{width:118px;min-width:118px;}
+  .approval-btns{display:flex;gap:4px;}
+  .appr-btn{border:1px solid;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:800;cursor:pointer;transition:all 0.15s;background:transparent;white-space:nowrap;}
+  .appr-btn.approve{color:var(--approved);border-color:rgba(0,255,153,0.4);}
+  .appr-btn.approve:hover,.appr-btn.approve.active{background:var(--approved);color:#000;border-color:var(--approved);}
+  .appr-btn.reject{color:var(--rejected);border-color:rgba(255,45,85,0.4);}
+  .appr-btn.reject:hover,.appr-btn.reject.active{background:var(--rejected);color:#fff;border-color:var(--rejected);}
+  .appr-btn.question{color:var(--question);border-color:rgba(255,214,10,0.4);}
+  .appr-btn.question:hover,.appr-btn.question.active{background:var(--question);color:#000;border-color:var(--question);}
+
+  /* COMMENT */
+  .comment-input{width:100%;min-width:140px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px;font-family:inherit;resize:vertical;min-height:28px;max-height:120px;transition:border-color 0.15s;}
+  .comment-input:focus{outline:none;border-color:var(--accent);min-height:48px;}
+  .comment-input::placeholder{color:var(--text3);}
+
+  /* SAVE INDICATOR */
+  #save-indicator{position:fixed;bottom:20px;right:24px;background:var(--approved);color:#000;font-size:12px;font-weight:800;padding:8px 16px;border-radius:6px;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+  #save-indicator.show{opacity:1;}
+
+  .empty-state{text-align:center;padding:40px;color:var(--text3);}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <h1>Eigen<span>View</span> — Signal Tracker</h1>
+    <div class="stats">
+      <div class="stat"><span class="stat-val" id="stat-total">0</span><span class="stat-lbl">Total</span></div>
+      <div class="stat"><span class="stat-val done" id="stat-done">0</span><span class="stat-lbl">Done</span></div>
+      <div class="stat"><span class="stat-val approved" id="stat-approved">0</span><span class="stat-lbl">Approved</span></div>
+      <div class="stat"><span class="stat-val rejected" id="stat-rejected">0</span><span class="stat-lbl">Rejected</span></div>
+      <div class="stat"><span class="stat-val question" id="stat-question">0</span><span class="stat-lbl">Question</span></div>
+      <div class="stat"><span class="stat-val pending" id="stat-pending">0</span><span class="stat-lbl">Pending</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="filters">
+    <select id="filter-area">
+      <option value="">All Areas</option>
+      <option value="Macro">Macro Regime</option>
+      <option value="TA">Technical Analysis — Plan</option>
+      <option value="OldTA">Technical Analysis — Archived</option>
+      <option value="GEX">GEX / Dealer</option>
+      <option value="Flow">Options Flow</option>
+      <option value="Dormant">Dormant Bets</option>
+      <option value="Sentiment">Sentiment</option>
+      <option value="Synthesis">Synthesis</option>
+      <option value="HeatMap">Heat Map</option>
+      <option value="Infra">Infrastructure</option>
+      <option value="UI">UI / Frontend</option>
+    </select>
+    <select id="filter-priority">
+      <option value="">All Priorities</option>
+      <option value="P0">P0 — Critical</option>
+      <option value="P1">P1 — Core</option>
+      <option value="P2">P2 — Enhancement</option>
+      <option value="P3">P3 — Nice to Have</option>
+      <option value="done">Done</option>
+    </select>
+    <select id="filter-status">
+      <option value="">All Status</option>
+      <option value="done">Done</option>
+      <option value="partial">Partial</option>
+      <option value="missing">Missing</option>
+    </select>
+    <select id="filter-approval">
+      <option value="">All Approvals</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="question">Question</option>
+      <option value="pending">Pending</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="Search items…" style="min-width:160px;">
+  </div>
+  <div class="toolbar-actions">
+    <button class="btn btn-expand" onclick="toggleAll()">Expand All</button>
+    <button class="btn btn-save" onclick="saveToFile()">💾 Save State</button>
+    <button class="btn btn-load" onclick="loadFromFile()">📂 Load State</button>
+    <button class="btn btn-clear" onclick="clearState()">Reset</button>
+  </div>
+  <span class="save-hint" id="last-saved"></span>
+</div>
+
+<main>
+  <div class="workflow-hint">
+    <strong>Workflow:</strong> Approve ✓ / Reject ✗ / Question ? items. Click <strong>💾 Save State</strong> → writes <code>signal-tracker-state.json</code>.
+    Tell Claude <em>"check the tracker"</em> → implements approved items. <strong>Chrome/Edge required</strong> for direct file save.
+    &nbsp;|&nbsp; <strong>TA Plan:</strong> Each phase gates the next. Proof required before approval. Phase 0 = no code.
+  </div>
+  <div id="tracker-body"></div>
+</main>
+
+<div id="save-indicator">✓ State saved</div>
+
+<script>
+// ─── PHASE METADATA (TA only) ────────────────────────────────────────────────
+const PHASE_META = {
+  0:{name:'Phase 0 — Spec Audit',          defaultStatus:'ps-planning',
+     gate:'No code. Deliverables: threshold audit, library audit, setup coverage, sample cases, scope decisions.'},
+  1:{name:'Phase 1 — Foundation Refactor',  defaultStatus:'ps-pending',
+     gate:'Gate: Phase 0 fully approved. Rolling percentiles + new libs + squeeze_pro. All 15 pullback tests pass.'},
+  2:{name:'Phase 2 — API Contract',         defaultStatus:'ps-pending',
+     gate:'Gate: Phase 1 approved. /api/picks serialization — structure.legs, signal_fired_at, all 8 factor fields.'},
+  3:{name:'Phase 3 — UI Card + Checklist',  defaultStatus:'ps-pending',
+     gate:'Gate: Phase 2 approved. Playwright proof required — screenshots committed to repo.'},
+  4:{name:'Phase 4 — SPEC + AUDIT Tabs',    defaultStatus:'ps-pending',
+     gate:'Gate: Phase 3 approved. Help overlay new tabs — screenshot proof required.'},
+  5:{name:'Phase 5 — signal_triggers + Chart', defaultStatus:'ps-pending',
+     gate:'Gate: Phase 4 approved. DB table + stop/target/R:R + chart markers + toggles. Screenshots required.'},
+  6:{name:'Phase 6 — All 21 Setups TDD',   defaultStatus:'ps-pending',
+     gate:'Gate: Phase 5 approved. One fixture+test per setup. 42+ assertions total. All green.'},
+  7:{name:'Phase 7 — Agentic Sign-off',     defaultStatus:'ps-pending',
+     gate:'Gate: Phase 6 approved. 3 independent agents: test run → proof verification → comparison sign-off.'},
+};
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const ITEMS = [
+  // ── MACRO REGIME ──────────────────────────────────────────────────────────
+  {id:1,  area:'Macro', title:'SPX GEX index scoring (+3 pts)',                   status:'done',    priority:'done', desc:'Positive GEX = market in long-gamma regime.'},
+  {id:2,  area:'Macro', title:'VIX M1/M2 contango / backwardation (+2 pts)',      status:'done',    priority:'done', desc:''},
+  {id:3,  area:'Macro', title:'VIX M1 absolute level < 20 (+2 pts)',              status:'done',    priority:'done', desc:''},
+  {id:4,  area:'Macro', title:'DIX dark pool index > 43% (+3 pts)',               status:'done',    priority:'done', desc:''},
+  {id:5,  area:'Macro', title:'SPX breadth — % stocks above 50dma > 50% (+2 pts)',status:'done',   priority:'done', desc:'Source: yfinance ^MMFI or stooq ^SHI.'},
+  {id:6,  area:'Macro', title:'Retail capitulation bonus — Citadel GMI (+1 pt)',  status:'done',    priority:'done', desc:'Page scrape of Citadel GMI page.'},
+  {id:7,  area:'Macro', title:'COT data integration in macro score',              status:'missing', priority:'P2',   desc:'Table exists with weekly COT data. Never read by macro scorer.'},
+  {id:8,  area:'Macro', title:'Fed meeting proximity modifier',                   status:'missing', priority:'P3',   desc:'FOMC dates from Finnhub. Risk-off before Fed = YELLOW modifier.'},
+  {id:9,  area:'Macro', title:'VIX M3/M4/M5/M6 term structure curvature',        status:'missing', priority:'P3',   desc:'Beyond M1/M2 — catch inversions further out the curve.'},
+
+  // ── TA PLAN — NEW PHASE-BASED ITEMS ───────────────────────────────────────
+  // Phase 0 — Spec Audit (no code)
+  {id:200, area:'TA', phase:0, title:'P0·1 — Threshold audit: all literals → rolling percentiles',
+   status:'missing', priority:'P0',
+   desc:'Grep technical.py for every numeric literal in detection logic (~50). Map each to rolling 90d np.percentile() call. Output: table of current literal → replacement.',
+   proof:'Table complete with count. Zero literals skipped. Rendered in tracker comments or linked doc.'},
+
+  {id:201, area:'TA', phase:0, title:'P0·2 — Library audit: swingtrend + smartmoneyconcepts + squeeze_pro',
+   status:'missing', priority:'P0',
+   desc:'Confirm each library installs (pip install test in .venv). Confirm 2-line usage API works on dummy data. Document fallback if any fails. Verify squeeze_pro() is in installed pandas_ta version.',
+   proof:'PASS/FAIL per library shown here. Install output + 2-line usage test result for each. If FAIL: fallback documented.'},
+
+  {id:202, area:'TA', phase:0, title:'P0·3 — Setup coverage table: 21 setups mapped to 3 buckets',
+   status:'missing', priority:'P0',
+   desc:'For all 21 setups in trading-architecture.md: current status in score_technical(), detect_pattern(), library needed, work category (complete / needs detect_pattern / full new impl).',
+   proof:'Table with 21 rows. 3 bucket counts shown. Rendered here.'},
+
+  {id:203, area:'TA', phase:0, title:'P0·4 — Sample cases: fire + anti-case per setup (fixture definitions)',
+   status:'missing', priority:'P0',
+   desc:'For each of 21 setups: 1 known fire case (ticker + date, verified via yfinance) + 1 anti-case. These define the Phase 6 TDD fixture CSVs. Dates verified — not guessed.',
+   proof:'Table with 21+ rows: setup, fire ticker, fire date, anti ticker, anti date. Dates confirmed to have expected indicator state.'},
+
+  {id:204, area:'TA', phase:0, title:'P0·5 — Scope decisions: 6 open questions answered',
+   status:'missing', priority:'P0',
+   desc:'Q1: Mean reversion (4 setups) in v1 scope? Q2: BOS replace or supplement breakout/breakdown? Q3: R:R min threshold — 2.0 hardcoded or .env configurable? Q4: valid_until — 5 calendar or trading days? Q5: Chart trail — display-only or signal? Q6: swingtrend confirmed installable?',
+   proof:'All 6 questions marked ✓ or ✗ by you in this tracker with decision in notes.'},
+
+  // Phase 1 — Foundation Refactor
+  {id:210, area:'TA', phase:1, title:'P1·1 — Add swingtrend + smartmoneyconcepts to pyproject.toml',
+   status:'missing', priority:'P1',
+   desc:'Add confirmed libraries from P0·2. uv lock. uv sync. Confirm .venv install succeeds.',
+   proof:'pyproject.toml diff. uv install terminal output showing both packages installed. No errors.'},
+
+  {id:211, area:'TA', phase:1, title:'P1·2 — Replace all ~50 hardcoded literals with rolling 90d percentiles',
+   status:'missing', priority:'P1',
+   desc:'Replace all literals from P0·1 threshold audit. np.percentile() on 90-day rolling windows. No literal thresholds remain in detection logic. Use per-stock, per-indicator windows.',
+   proof:'Grep of technical.py shows 0 hardcoded threshold literals in detection code. Count shown.'},
+
+  {id:212, area:'TA', phase:1, title:'P1·3 — Replace hand-coded ATR squeeze with pandas_ta.squeeze_pro()',
+   status:'missing', priority:'P1',
+   desc:'Remove custom ATR compression ratio check. Use squeeze_pro() — handles Lazybear/Normal/Wide compression widths. compression_break and compression_break_down use squeeze_pro ON→OFF transition.',
+   proof:'squeeze_pro() call visible in technical.py. Old hand-coded ATR check removed.'},
+
+  {id:213, area:'TA', phase:1, title:'P1·4 — Regression: all 15 pullback_in_trend tests pass unchanged',
+   status:'missing', priority:'P1',
+   desc:'NVDA 2024-04-16 still fires. NVDA 2024-01-04 still does not fire. Adaptive thresholds may widen/narrow but must preserve 15 existing assertions.',
+   proof:'pytest tests/factors/test_technical_pullback.py — 15 passed, 0 failed. Terminal output pasted in notes.'},
+
+  {id:214, area:'TA', phase:1, title:'P1·5 — Adaptive threshold test: TSLA rsi_p40 ≠ MSFT rsi_p40',
+   status:'missing', priority:'P1',
+   desc:'New test: high-vol stock (TSLA) and low-vol stock (MSFT) have different rolling RSI percentile cutoffs on same date. Proves adaptive thresholds work — fixed thresholds give same cutoff for both.',
+   proof:'Test output showing TSLA rsi_p40 != MSFT rsi_p40. Both still classified correctly for their respective states.'},
+
+  // Phase 2 — API Contract
+  {id:220, area:'TA', phase:2, title:'P2·1 — Write tests/api/test_picks_contract.py (TDD — write failing first)',
+   status:'missing', priority:'P1',
+   desc:'Assert: structure present + structure.legs non-empty, signal_fired_at present + ISO parseable, factors.technical.firing present, factors.technical.detail has all 8 required fields (pattern, confidence, direction, trend, weekly_trend, rsi, adx, vol_ratio).',
+   proof:'Test file written. pytest output showing FAILURES before any fix. Red phase confirmed.'},
+
+  {id:221, area:'TA', phase:2, title:'P2·2 — Fix picks.py serialization until contract tests pass',
+   status:'missing', priority:'P1',
+   desc:'Fix _pick_to_dict() to include structure.legs, signal_fired_at, all 8 technical detail fields. No other API changes.',
+   proof:'pytest tests/api/test_picks_contract.py — all passed. Terminal output pasted in notes.'},
+
+  // Phase 3 — UI Card + Checklist
+  {id:230, area:'TA', phase:3, title:'P3·1 — Write tests/ui/pullback_card.spec.js (Playwright TDD — failing first)',
+   status:'missing', priority:'P1',
+   desc:'Assert: .card-setup-name shows "Pullback to Support", .card-rec starts with ◆, .btn-pin visible (opacity=1, width>0), signal_fired_at text visible on card, R:R ratio visible. TA dot green, click opens checklist, 5 checks shown with real data values.',
+   proof:'Playwright output showing FAILURES. Screenshots captured before fix.'},
+
+  {id:231, area:'TA', phase:3, title:'P3·2 — Fix pick-cards.js + factor-strip.js until Playwright tests pass',
+   status:'missing', priority:'P1',
+   desc:'Fix card rendering, signal_fired_at display, R:R display, TA checklist for pullback_in_trend. No hardcoded true/false in checklist conditions.',
+   proof:'npx playwright test tests/ui/pullback_card.spec.js — all assertions passed. 0 failures.'},
+
+  {id:232, area:'TA', phase:3, title:'P3·3 — Screenshot proof committed to repo',
+   status:'missing', priority:'P1',
+   desc:'tests/ui/proof/phase3_card.png — full card visible. tests/ui/proof/phase3_checklist.png — TA checklist open with 5 real checks. tests/ui/proof/phase3_chart.png — chart with EMA lines + entry/stop lines.',
+   proof:'3 screenshot files exist in repo. Each shows correct state. Paths listed in notes.'},
+
+  // Phase 4 — SPEC + AUDIT Tabs
+  {id:240, area:'TA', phase:4, title:'P4·1 — spec_notes SQLite table + /api/spec/ta + /api/audit/ta',
+   status:'missing', priority:'P1',
+   desc:'DB: spec_notes(id, spec_id, note, created_at). GET /api/spec/ta returns spec JSON (pattern list + conditions). GET /api/audit/ta reads technical.py + factor-strip.js, returns findings (PASS/FAIL/WARN per check).',
+   proof:'curl /api/spec/ta → valid JSON with pullback_in_trend entry. curl /api/audit/ta → findings array.'},
+
+  {id:241, area:'TA', phase:4, title:'P4·2 — SPEC tab in Help overlay',
+   status:'missing', priority:'P1',
+   desc:'New SPEC tab in help-page.js. Shows each setup with detection conditions, weekly requirement, required detail fields. Each item has editable note field saved to spec_notes via POST.',
+   proof:'Screenshot: SPEC tab open showing pullback_in_trend section. Note field works.'},
+
+  {id:242, area:'TA', phase:4, title:'P4·3 — AUDIT tab in Help overlay',
+   status:'missing', priority:'P1',
+   desc:'AUDIT tab with RUN AUDIT button. Returns table: file, line, check, PASS/FAIL/WARN, detail. Checks: pattern parity (TA_CHECKS ↔ technical.py), field parity, no hardcoded true/false, 0 literal thresholds.',
+   proof:'Screenshot: AUDIT tab open after Phase 1. Table shows all PASS rows. 0 FAIL rows.'},
+
+  // Phase 5 — signal_triggers + Chart
+  {id:250, area:'TA', phase:5, title:'P5·1 — signal_triggers DB table + stop/target/R:R at scan time',
+   status:'missing', priority:'P1',
+   desc:'CREATE TABLE signal_triggers (id, ticker, scan_date, setup_type, direction, entry_low, entry_high, stop, target, rr_ratio, confidence, fired_at, valid_until). Stop = max(swing_low×0.995, entry_low−ATR). Target = measured move per category. R:R = (target−entry) / (entry−stop).',
+   proof:'DB schema shows signal_triggers table. Daily scan writes rows. pytest for storage round-trip passes. Terminal output.'},
+
+  {id:251, area:'TA', phase:5, title:'P5·2 — GET /api/chart/{ticker}/signals endpoint',
+   status:'missing', priority:'P1',
+   desc:'Returns array of signal_triggers for ticker sorted by scan_date. chart.js loads these on init. Each item has: setup_type, direction, fired_at, entry_low, entry_high, stop, target, rr_ratio.',
+   proof:'curl /api/chart/NVDA/signals returns non-empty array with all fields. Response JSON pasted.'},
+
+  {id:252, area:'TA', phase:5, title:'P5·3 — Chart markers + toggle toolbar',
+   status:'missing', priority:'P1',
+   desc:'Arrow markers at fired_at bar (arrowUp=long, arrowDown=short). Toggle toolbar: EMA21 | EMA50 | EMA200 | BB | SIGNALS | SUPERTREND. State persisted in localStorage per ticker. series.applyOptions({visible:false}) on toggle.',
+   proof:'Screenshot: chart with markers. Screenshot: markers toggled off. Screenshot: EMA50 toggled off. All 3 files committed.'},
+
+  // Phase 6 — All 21 Setups
+  {id:260, area:'TA', phase:6, title:'P6 OVERVIEW — detect_pattern() expanded to all 21 setups',
+   status:'missing', priority:'P1',
+   desc:'Library strategy: use swingtrend for swing levels, squeeze_pro for compression, smartmoneyconcepts for BOS/CHoCH, pandas_ta for everything else. Rolling percentile thresholds throughout. No hardcoded literals.',
+   proof:'pytest tests/factors/ — total passing count shows 42+ assertions across all setup tests. 0 failures.'},
+
+  {id:261, area:'TA', phase:6, title:'P6·1 — pullback_deep',                   status:'missing', priority:'P1', desc:'RSI 32-50, touches EMA50, vol declining. Weekly bullish required.', proof:'Fixture CSV + test file. pytest green. Fire case + anti-case.'},
+  {id:262, area:'TA', phase:6, title:'P6·2 — pullback_to_structure (swingtrend)',status:'missing', priority:'P1', desc:'Price tests prior swing high (now support). swingtrend SPH level used.', proof:'Fixture + test. swingtrend usage confirmed in code. pytest green.'},
+  {id:263, area:'TA', phase:6, title:'P6·3 — flag_continuation (squeeze_pro)',  status:'missing', priority:'P1', desc:'Impulse >5% in ≤10 bars. Tight range. squeeze_pro ON. Vol declining.', proof:'Fixture + test. squeeze_pro call confirmed. pytest green.'},
+  {id:264, area:'TA', phase:6, title:'P6·4 — compression_break (refactor)',     status:'missing', priority:'P1', desc:'Replace hand-coded ATR. Use squeeze_pro ON→OFF + momentum pos + vol surge.', proof:'Fixture + test. Old ATR check removed. pytest green.'},
+  {id:265, area:'TA', phase:6, title:'P6·5 — compression_break_down',           status:'missing', priority:'P1', desc:'Short version of above. squeeze_pro OFF + momentum neg.', proof:'Fixture + test. pytest green.'},
+  {id:266, area:'TA', phase:6, title:'P6·6 — breakout (refactor to swingtrend)',status:'missing', priority:'P1', desc:'Close above N-bar swing high (swingtrend SPH). Vol >1.5× avg. Level tested ≥2×.', proof:'Fixture + test. swingtrend SPH confirmed. pytest green.'},
+  {id:267, area:'TA', phase:6, title:'P6·7 — breakdown',                        status:'missing', priority:'P1', desc:'Close below N-bar swing low (swingtrend SPL). Vol >1.5× avg.', proof:'Fixture + test. pytest green.'},
+  {id:268, area:'TA', phase:6, title:'P6·8 — base_breakout (VCP)',              status:'missing', priority:'P1', desc:'20+ bar contraction. Within 3% of 50d high. Range contracts each week.', proof:'Fixture + test. pytest green.'},
+  {id:269, area:'TA', phase:6, title:'P6·9 — base_breakdown',                   status:'missing', priority:'P1', desc:'Short VCP. 20+ bar contraction near 50d low.', proof:'Fixture + test. pytest green.'},
+  {id:270, area:'TA', phase:6, title:'P6·10 — ema_reclaim',                     status:'missing', priority:'P1', desc:'Was below EMA50, closes above with vol >1.1×. Weekly not bearish_strong.', proof:'Fixture + test. pytest green.'},
+  {id:271, area:'TA', phase:6, title:'P6·11 — ema_rejection',                   status:'missing', priority:'P1', desc:'Was above EMA50, closes below. Weekly bearish or neutral.', proof:'Fixture + test. pytest green.'},
+  {id:272, area:'TA', phase:6, title:'P6·12 — choch_bullish (smartmoneyconcepts)',status:'missing', priority:'P1', desc:'First close above prior swing high in downtrend. CHoCH = Change of Character.', proof:'Fixture + test. smartmoneyconcepts bos_choch() call confirmed. pytest green.'},
+  {id:273, area:'TA', phase:6, title:'P6·13 — choch_bearish',                   status:'missing', priority:'P1', desc:'First close below prior swing low in uptrend.', proof:'Fixture + test. pytest green.'},
+  {id:274, area:'TA', phase:6, title:'P6·14 — bos_bullish (smartmoneyconcepts)',status:'missing', priority:'P1', desc:'Break of Structure bullish — closes above last swing high in structure.', proof:'Fixture + test. pytest green.'},
+  {id:275, area:'TA', phase:6, title:'P6·15 — bos_bearish',                     status:'missing', priority:'P1', desc:'Break of Structure bearish.', proof:'Fixture + test. pytest green.'},
+  {id:276, area:'TA', phase:6, title:'P6·16 — bullish_reversal (tighten gate)', status:'missing', priority:'P1', desc:'Weekly RSI <35 REQUIRED (was optional). RSI divergence + vol spike.', proof:'Fixture + test. Weekly RSI gate confirmed. pytest green.'},
+  {id:277, area:'TA', phase:6, title:'P6·17 — bearish_reversal',                status:'missing', priority:'P1', desc:'Weekly RSI >65 REQUIRED. RSI bear divergence + vol spike.', proof:'Fixture + test. pytest green.'},
+  {id:278, area:'TA', phase:6, title:'P6·18 — oversold_bounce',                 status:'missing', priority:'P1', desc:'RSI <rsi_p20 (adaptive). Up day. Above EMA200. Weekly ADX <30.', proof:'Fixture + test. Adaptive RSI used (not hardcoded 32). pytest green.'},
+  {id:279, area:'TA', phase:6, title:'P6·19 — overbought_reversal',             status:'missing', priority:'P1', desc:'RSI >rsi_p80 (adaptive). Down day. Vol expanding. Weekly RSI >65.', proof:'Fixture + test. pytest green.'},
+  {id:280, area:'TA', phase:6, title:'P6·20 — failed_breakdown',               status:'missing', priority:'P1', desc:'Dipped below EMA21, recovered above it. Vol >1.5×. Weekly not bearish_strong.', proof:'Fixture + test. pytest green.'},
+  {id:281, area:'TA', phase:6, title:'P6·21 — failed_breakout',                status:'missing', priority:'P1', desc:'Exceeded N-bar high (swingtrend SPH), reversed below same bar or next.', proof:'Fixture + test. swingtrend used. pytest green.'},
+  {id:282, area:'TA', phase:6, title:'P6·22 — rally_in_downtrend',             status:'missing', priority:'P1', desc:'Weekly bearish. RSI adaptive bounce zone (p43-p62). Price near EMA21 from below.', proof:'Fixture + test. pytest green.'},
+  {id:283, area:'TA', phase:6, title:'P6·23 — bb_mean_reversion_long (Q1=YES)',status:'missing', priority:'P2', desc:'Price at lower BB. ADX <adx_p35. Weekly ADX <20. Blocked until Q1 answered YES.', proof:'Q1 must be approved YES first. Then: fixture + test. pytest green.'},
+  {id:284, area:'TA', phase:6, title:'P6·24 — bb_mean_reversion_short (Q1=YES)',status:'missing', priority:'P2', desc:'Price at upper BB. ADX <adx_p35. Blocked until Q1=YES.', proof:'Blocked on Q1.'},
+  {id:285, area:'TA', phase:6, title:'P6·25 — ema200_snap_long (Q1=YES)',       status:'missing', priority:'P2', desc:'Price >15% below EMA200. Weekly RSI <35. Mean reversion to EMA200.', proof:'Blocked on Q1.'},
+  {id:286, area:'TA', phase:6, title:'P6·26 — ema200_snap_short (Q1=YES)',      status:'missing', priority:'P2', desc:'Price >15% above EMA200. Weekly RSI >70.', proof:'Blocked on Q1.'},
+
+  // Phase 7 — Agentic Sign-off
+  {id:290, area:'TA', phase:7, title:'P7·A — Agent A: full test suite run + proof collection',
+   status:'missing', priority:'P1',
+   desc:'Independent agent (no context from prior work) runs: pytest (all), npx playwright test (all), collects all screenshot files from tests/ui/proof/. Reports exact counts and any failures.',
+   proof:'Agent A report: N pytest passed 0 failed, M Playwright passed 0 failed, K screenshots collected. All filenames listed. Report pasted here.'},
+
+  {id:291, area:'TA', phase:7, title:'P7·B — Agent B: proof completeness verification',
+   status:'missing', priority:'P1',
+   desc:'Independent agent verifies: every P3-P6 item has corresponding screenshot file, every test has fire+anti-case, AUDIT tab shows 0 FAIL rows, no hardcoded true/false in TA_CHECKS, no literals in technical.py detection logic.',
+   proof:'Agent B report: all proof files exist (Y/N per item), anti-cases covered (count), AUDIT result. Discrepancies listed.'},
+
+  {id:292, area:'TA', phase:7, title:'P7·C — Agent C: A vs B comparison + final sign-off',
+   status:'missing', priority:'P1',
+   desc:'Third independent agent compares Agent A and Agent B reports. Flags discrepancies. Issues PASS or FAIL verdict per phase. Final verdict: SIGNED OFF or BLOCKED with specific reason.',
+   proof:'Agent C comparison report rendered here. Final verdict visible. SIGNED OFF = Phase 7 complete = you can approve.'},
+
+  // ── OLD TA — ARCHIVED (pre-2026-05-04) ────────────────────────────────────
+  {id:10, area:'OldTA', title:'EMA 21 / 50 (daily)',                                        status:'done',    priority:'done', desc:'Replaced by rolling percentile foundation in Phase 1.'},
+  {id:11, area:'OldTA', title:'ADX 14 (daily)',                                             status:'done',    priority:'done', desc:''},
+  {id:12, area:'OldTA', title:'RSI 14 (daily)',                                             status:'done',    priority:'done', desc:''},
+  {id:13, area:'OldTA', title:'Bollinger Bands 20 (daily)',                                 status:'done',    priority:'done', desc:''},
+  {id:14, area:'OldTA', title:'ATR 14 (daily)',                                             status:'done',    priority:'done', desc:''},
+  {id:15, area:'OldTA', title:'Volume ratio vs 20d avg',                                    status:'done',    priority:'done', desc:''},
+  {id:16, area:'OldTA', title:'EMA 200 (daily)',                                            status:'done',    priority:'done', desc:''},
+  {id:17, area:'OldTA', title:'Weekly EMA stack',                                           status:'done',    priority:'done', desc:''},
+  {id:18, area:'OldTA', title:'Weekly ADX + RSI',                                           status:'done',    priority:'done', desc:''},
+  {id:19, area:'OldTA', title:'RSI divergence detector',                                    status:'done',    priority:'done', desc:''},
+  {id:20, area:'OldTA', title:'Fibonacci retracement levels',                               status:'missing', priority:'P2',  desc:'Absorbed into Phase 6 pullback_to_structure fixture work.'},
+  {id:21, area:'OldTA', title:'MACD (daily)',                                               status:'done',    priority:'done', desc:''},
+  {id:22, area:'OldTA', title:'OBV',                                                        status:'missing', priority:'P2',  desc:''},
+  {id:23, area:'OldTA', title:'Volume character indicator',                                 status:'done',    priority:'done', desc:''},
+  {id:24, area:'OldTA', title:'VWAP (intraday)',                                            status:'missing', priority:'P3',  desc:''},
+  {id:25, area:'OldTA', title:'Volume Profile / VPOC',                                     status:'missing', priority:'P3',  desc:''},
+  {id:26, area:'OldTA', title:'compression_break (old plan)',                               status:'done',    priority:'done', desc:'Replaced by P6·4 with squeeze_pro.'},
+  {id:27, area:'OldTA', title:'pullback_in_trend (old plan)',                               status:'done',    priority:'done', desc:'Replaced by clean detect_pattern() — Phase 1 complete.'},
+  {id:28, area:'OldTA', title:'breakout (old plan)',                                        status:'done',    priority:'done', desc:'Replaced by P6·6 with swingtrend SPH.'},
+  {id:29, area:'OldTA', title:'flag / bull_flag (old plan)',                                status:'done',    priority:'done', desc:'Replaced by P6·3 flag_continuation.'},
+  {id:30, area:'OldTA', title:'ema_reclaim (old plan)',                                     status:'done',    priority:'done', desc:'Replaced by P6·10.'},
+  {id:31, area:'OldTA', title:'base_breakout / VCP (old plan)',                             status:'missing', priority:'P2',  desc:'Replaced by P6·8.'},
+  {id:32, area:'OldTA', title:'bullish_reversal (old plan)',                                status:'done',    priority:'done', desc:'Replaced by P6·16 with tighter weekly gate.'},
+  {id:33, area:'OldTA', title:'oversold_bounce (old plan)',                                 status:'missing', priority:'P2',  desc:'Replaced by P6·18 with adaptive RSI.'},
+  {id:34, area:'OldTA', title:'failed_breakdown (old plan)',                                status:'missing', priority:'P2',  desc:'Replaced by P6·20.'},
+  {id:35, area:'OldTA', title:'bearish_reversal (old plan)',                                status:'missing', priority:'P2',  desc:'Replaced by P6·17.'},
+  {id:36, area:'OldTA', title:'Weekly trend alignment gate (old plan)',                     status:'done',    priority:'done', desc:'Replaced by 5-state weekly classifier.'},
+  {id:37, area:'OldTA', title:'Pattern close validation (old plan)',                        status:'done',    priority:'done', desc:''},
+  {id:38, area:'OldTA', title:'Volume character validation (old plan)',                     status:'done',    priority:'done', desc:''},
+  {id:39, area:'OldTA', title:'Extended RSI gate (old plan)',                               status:'missing', priority:'P2',  desc:'Absorbed into rolling percentile system (rsi_p80 threshold).'},
+  {id:40, area:'OldTA', title:'Post-earnings gap penalty (old plan)',                       status:'missing', priority:'P2',  desc:''},
+  {id:41, area:'OldTA', title:'1H entry refinement (old plan)',                             status:'missing', priority:'P3',  desc:''},
+  {id:42, area:'OldTA', title:'IV Rank at scan time (old plan)',                            status:'done',    priority:'done', desc:''},
+  {id:43, area:'OldTA', title:'ATR-based entry zone (old plan)',                            status:'partial', priority:'P2',  desc:'Addressed in Phase 5 stop/target/R:R.'},
+  {id:44, area:'OldTA', title:'ATR-based stop level (old plan)',                            status:'partial', priority:'P2',  desc:'Addressed in Phase 5 stop/target/R:R.'},
+
+  // ── GEX ───────────────────────────────────────────────────────────────────
+  {id:45, area:'GEX', title:'Net dealer gamma (call GEX − put GEX)',            status:'done',    priority:'done', desc:''},
+  {id:46, area:'GEX', title:'Gamma flip level (linear interpolation)',           status:'done',    priority:'done', desc:''},
+  {id:47, area:'GEX', title:'Call wall (highest OI call above spot)',            status:'done',    priority:'done', desc:''},
+  {id:48, area:'GEX', title:'Put wall (highest OI put below spot)',              status:'done',    priority:'done', desc:''},
+  {id:49, area:'GEX', title:'Regime: short_gamma / long_gamma / flip_zone',     status:'done',    priority:'done', desc:'flip_zone = within ±5% of gamma flip.'},
+  {id:50, area:'GEX', title:'Max pain level',                                   status:'done',    priority:'done', desc:''},
+  {id:51, area:'GEX', title:'GEX by expiry bucket (0DTE / weekly / monthly)',   status:'missing', priority:'P2',   desc:'0DTE GEX amplifies intraday vol, not swing. Needs separate treatment.'},
+  {id:52, area:'GEX', title:'Delta Exposure (DEX)',                              status:'missing', priority:'P2',   desc:'Directional dealer hedge flow alongside GEX.'},
+  {id:53, area:'GEX', title:'GEX strike density cluster near spot',              status:'missing', priority:'P2',   desc:'High-GEX strikes clustered near spot = price pinning zone.'},
+  {id:54, area:'GEX', title:'Vanna exposure',                                   status:'missing', priority:'P3',   desc:'Important during IV crush or vol expansion events.'},
+  {id:55, area:'GEX', title:'Charm exposure (0DTE specific)',                   status:'missing', priority:'P3',   desc:'Not needed for swing trades.'},
+
+  // ── FLOW ──────────────────────────────────────────────────────────────────
+  {id:56, area:'Flow', title:'V/OI ratio ≥ 3.0 threshold',                     status:'done',    priority:'done', desc:''},
+  {id:57, area:'Flow', title:'Premium filter ≥ $500K per contract',             status:'done',    priority:'done', desc:''},
+  {id:58, area:'Flow', title:'Call/put premium totals + dominant side',         status:'done',    priority:'done', desc:''},
+  {id:59, area:'Flow', title:'Largest sweep size output',                       status:'done',    priority:'done', desc:''},
+  {id:60, area:'Flow', title:'Aggressive side detection',                       status:'done',    priority:'done', desc:'Ask-side = buyer aggressive. Bid-side = seller aggressive.'},
+  {id:61, area:'Flow', title:'Sweep vs block distinction',                      status:'done',    priority:'done', desc:'Sweep = multi-exchange fill. Block = single large fill.'},
+  {id:62, area:'Flow', title:'Dark pool cluster detection (FINRA ATS)',         status:'missing', priority:'P2',   desc:'3+ prints in ±0.5% band = institutional accumulation.'},
+  {id:63, area:'Flow', title:'Multi-leg / spread detection',                   status:'missing', priority:'P2',   desc:'Single-leg = directional. Multi-leg = hedge. Directional weighted higher.'},
+  {id:64, area:'Flow', title:'Time-of-day weighting',                           status:'missing', priority:'P3',   desc:'First/last 30min sweeps carry more urgency.'},
+  {id:65, area:'Flow', title:'Net OI change (new positions only)',              status:'missing', priority:'P3',   desc:'Volume − closing trades = truly new OI.'},
+
+  // ── DORMANT ───────────────────────────────────────────────────────────────
+  {id:66, area:'Dormant', title:'sig1: OI growth > 10% from original (+2 pts)', status:'done',   priority:'done', desc:''},
+  {id:67, area:'Dormant', title:'sig2: Catalyst within 14 days (+2 pts)',        status:'done',   priority:'done', desc:''},
+  {id:68, area:'Dormant', title:'sig3: Strike within 5% of spot (+2 pts)',       status:'done',   priority:'done', desc:''},
+  {id:69, area:'Dormant', title:'sig4: Original premium ≥ $1M (+1 pt)',          status:'done',   priority:'done', desc:''},
+  {id:70, area:'Dormant', title:'sig5: ≥ 90 DTE at open (+1 pt)',                status:'done',   priority:'done', desc:''},
+  {id:71, area:'Dormant', title:'sig6: Still > 7 days to expiry (+1 pt)',        status:'done',   priority:'done', desc:''},
+  {id:72, area:'Dormant', title:'⚠ DormantBet table population — CRITICAL BUG', status:'done',   priority:'done', desc:'Fixed. scanner.py now writes to dormant_bets table.'},
+  {id:73, area:'Dormant', title:'Recent volume on dormant strike',               status:'done',   priority:'done', desc:''},
+  {id:74, area:'Dormant', title:'IV change at dormant strike',                   status:'missing', priority:'P2',  desc:'Vol being bid at specific strike = activation signal.'},
+  {id:75, area:'Dormant', title:'Delta convergence monitoring (strike going ITM)',status:'missing', priority:'P2',  desc:'Increasing delta = price converging to strike.'},
+  {id:76, area:'Dormant', title:'OI absolute floor check (> 500 contracts)',     status:'missing', priority:'P2',  desc:'OI growth from tiny base = noise.'},
+  {id:77, area:'Dormant', title:'ML model v2 — GradientBoosting',               status:'missing', priority:'P3',  desc:'Needs ≥30 days activation history to train.'},
+
+  // ── SENTIMENT ─────────────────────────────────────────────────────────────
+  {id:78, area:'Sentiment', title:'Catalyst proximity scoring',                  status:'done',    priority:'done', desc:'<7d = +3, 7-30d = +1.'},
+  {id:79, area:'Sentiment', title:'Article count novelty proxy',                 status:'done',    priority:'done', desc:'Simple placeholder. Not a real z-score.'},
+  {id:80, area:'Sentiment', title:'Keyword bullish/bearish scoring',             status:'done',    priority:'done', desc:'10-word sets. Placeholder only.'},
+  {id:81, area:'Sentiment', title:'Sentiment direction output',                  status:'done',    priority:'done', desc:''},
+  {id:82, area:'Sentiment', title:'FinBERT NLP sentiment',                       status:'done',    priority:'done', desc:'Local model, no API cost. ~400MB.'},
+  {id:83, area:'Sentiment', title:'LLM MATERIAL/NOISE filter (Claude API)',      status:'done',    priority:'done', desc:'Classifies each headline before scoring.'},
+  {id:84, area:'Sentiment', title:'Novelty embedding distance — MiniLM 30d',    status:'done',    priority:'done', desc:'Real novelty z-score vs 30d baseline per ticker.'},
+  {id:85, area:'Sentiment', title:'News source credibility weighting',           status:'missing', priority:'P2',  desc:'Reuters=1.5× press release=0.5× blog=0.3×.'},
+  {id:86, area:'Sentiment', title:'Earnings estimate revisions as catalyst',     status:'missing', priority:'P3',  desc:'Analyst EPS revisions = forward-looking signal.'},
+  {id:87, area:'Sentiment', title:'Social sentiment (Reddit WSB)',               status:'missing', priority:'P3',  desc:'Out of MVP scope. Defer.'},
+
+  // ── SYNTHESIS ─────────────────────────────────────────────────────────────
+  {id:88, area:'Synthesis', title:'qualify_pick() — hard gates + 2/3 soft',     status:'done',    priority:'done', desc:''},
+  {id:89, area:'Synthesis', title:'conviction_score() 1-5',                     status:'done',    priority:'done', desc:''},
+  {id:90, area:'Synthesis', title:'tier_score() A/B/C/D',                       status:'done',    priority:'done', desc:''},
+  {id:91, area:'Synthesis', title:'setup_type() classification',                 status:'done',    priority:'done', desc:''},
+  {id:92, area:'Synthesis', title:'entry_zone() from swing levels',              status:'partial', priority:'P2',   desc:'ATR-based improvement covered in Phase 5 P5·1.'},
+  {id:93, area:'Synthesis', title:'stop_level() fixed %',                        status:'partial', priority:'P2',   desc:'ATR-based improvement covered in Phase 5 P5·1.'},
+  {id:94, area:'Synthesis', title:'Signal freshness — signal_fired_at + badges', status:'done',    priority:'done', desc:'Fresh (<2h) / Valid (2-8h) / Stale (>8h).'},
+  {id:95, area:'Synthesis', title:'Direction-aware gate (short setups macro RED)',status:'missing', priority:'P2',  desc:'Macro RED → no long picks. Short path not yet built.'},
+  {id:96, area:'Synthesis', title:'Factor score storage for all scanned tickers',status:'done',    priority:'done', desc:'Required for heat map.'},
+
+  // ── HEAT MAP ──────────────────────────────────────────────────────────────
+  {id:97, area:'HeatMap', title:'/api/signals/heat endpoint',                    status:'done',    priority:'done', desc:'Top-5 tickers per factor with scores.'},
+  {id:98, area:'HeatMap', title:'signal-heat.js frontend module',                status:'done',    priority:'done', desc:'5×5 grid. Color-coded. Click → select ticker.'},
+  {id:99, area:'HeatMap', title:'Factor score storage (prerequisite)',           status:'done',    priority:'done', desc:''},
+
+  // ── INFRA ─────────────────────────────────────────────────────────────────
+  {id:100, area:'Infra', title:'Daily scan CLI',                                 status:'done',    priority:'done', desc:''},
+  {id:101, area:'Infra', title:'Fetch CLI per ticker',                           status:'done',    priority:'done', desc:''},
+  {id:102, area:'Infra', title:'DB migration — SignalBench columns',             status:'done',    priority:'done', desc:'tier, factors_json, direction, setup_type, conviction, entry/stop columns.'},
+  {id:103, area:'Infra', title:'Windows Task Scheduler 8AM auto-scan',          status:'missing', priority:'P2',   desc:'.bat script + Task Scheduler XML.'},
+  {id:104, area:'Infra', title:'Backend pytest suite updates',                   status:'missing', priority:'P2',   desc:'New pick fields + factor module tests.'},
+  {id:105, area:'Infra', title:'Historical options chain data',                  status:'missing', priority:'P3',   desc:'Blocked: paid source needed for GEX/Flow backtest.'},
+  {id:106, area:'Infra', title:'FINRA ATS dark pool data feed',                 status:'missing', priority:'P3',   desc:'Public download. Required for dark pool detection.'},
+  {id:107, area:'Infra', title:'SPX breadth data source (^MMFI)',               status:'done',    priority:'done', desc:'yfinance ^MMFI or stooq ^SHI.'},
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  {id:108, area:'UI', title:'Pick cards (thesis, conviction, factor chips)',     status:'done',    priority:'done', desc:''},
+  {id:109, area:'UI', title:'Factor strip with inline detail panels',            status:'done',    priority:'done', desc:''},
+  {id:110, area:'UI', title:'Market context subnav strip',                       status:'done',    priority:'done', desc:''},
+  {id:111, area:'UI', title:'Category nav + WATCH tab',                          status:'done',    priority:'done', desc:''},
+  {id:112, area:'UI', title:'Date navigation (◀ TODAY ▶)',                       status:'done',    priority:'done', desc:''},
+  {id:113, area:'UI', title:'DEMO mode (mock NVDA/META/TSLA picks)',             status:'done',    priority:'done', desc:''},
+  {id:114, area:'UI', title:'Price chart (TradingView + GEX levels)',            status:'done',    priority:'done', desc:''},
+  {id:115, area:'UI', title:'AI chat (SSE streaming)',                           status:'done',    priority:'done', desc:''},
+  {id:116, area:'UI', title:'Help page (9 tabs)',                                status:'done',    priority:'done', desc:''},
+  {id:117, area:'UI', title:'Themes (dark / light / glass / bento)',             status:'done',    priority:'done', desc:''},
+  {id:118, area:'UI', title:'Auto-refresh (5 min poll)',                         status:'done',    priority:'done', desc:''},
+  {id:119, area:'UI', title:'NDX100 universe',                                   status:'done',    priority:'done', desc:''},
+  {id:120, area:'UI', title:'Signal heat map panel',                             status:'done',    priority:'done', desc:'signal-heat.js. 5×5 grid.'},
+  {id:121, area:'UI', title:'Signal freshness badges — Fresh/Valid/Stale',       status:'done',    priority:'done', desc:''},
+  {id:122, area:'UI', title:'Favorites persistence',                             status:'missing', priority:'P2',   desc:'Favorites table + /api/favorites endpoint.'},
+  {id:123, area:'UI', title:'Alert wiring',                                      status:'missing', priority:'P2',   desc:'Trigger: price enters entry zone. Storage + UI badge.'},
+  {id:124, area:'UI', title:'Category filter — mylist / closed / alerts',        status:'missing', priority:'P2',   desc:'Requires items 122 + 123 first.'},
+  {id:125, area:'UI', title:'Backtest chart overlay — signal markers',           status:'missing', priority:'P3',   desc:'Toggle on chart. /api/signals/:ticker?tf=1d.'},
+  {id:126, area:'UI', title:'Voice orb module',                                  status:'missing', priority:'P3',   desc:'Registered, not mounted.'},
+  {id:127, area:'UI', title:'Nav simplification — inline filter chips',          status:'missing', priority:'P1',   desc:'Move Breakout/Pullback etc from nav to filter chips inside picks panel.'},
+];
+
+const AREAS_ORDER = ['Macro','TA','OldTA','GEX','Flow','Dormant','Sentiment','Synthesis','HeatMap','Infra','UI'];
+const AREA_LABELS = {
+  Macro:'Macro Regime', TA:'Technical Analysis — Implementation Plan',
+  OldTA:'Technical Analysis — Archived (Pre 2026-05-04)',
+  GEX:'GEX / Dealer Positioning', Flow:'Options Flow', Dormant:'Dormant Bets',
+  Sentiment:'Catalyst & Sentiment', Synthesis:'Synthesis / Gate Logic',
+  HeatMap:'Signal Heat Map', Infra:'Infrastructure', UI:'UI / Frontend'
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {};
+
+function getItemState(id) {
+  return state[id] || { approval:'pending', comment:'', priority:'' };
+}
+function setItemState(id, key, value) {
+  if (!state[id]) state[id] = { approval:'pending', comment:'', priority:'' };
+  state[id][key] = value;
+  localStorage.setItem('ev-tracker-state', JSON.stringify(state));
+  updateStats();
+  markUnsaved();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function priBadge(p) {
+  if (p==='done')   return '<span class="badge badge-done2">DONE</span>';
+  if (p==='P0')     return '<span class="badge badge-p0">P0</span>';
+  if (p==='P1')     return '<span class="badge badge-p1">P1</span>';
+  if (p==='P2')     return '<span class="badge badge-p2">P2</span>';
+  if (p==='P3')     return '<span class="badge badge-p3">P3</span>';
+  return '';
+}
+function statusBadge(s) {
+  if (s==='done')    return '<span class="badge badge-done">Done</span>';
+  if (s==='partial') return '<span class="badge badge-partial">Partial</span>';
+  if (s==='missing') return '<span class="badge badge-missing">Missing</span>';
+  return '';
+}
+
+function renderRows(items) {
+  if (!items.length) return '<tr><td colspan="6" class="empty-state">No items.</td></tr>';
+  return items.map(item => {
+    const s = getItemState(item.id);
+    const aA = s.approval==='approved'?'active':'';
+    const aR = s.approval==='rejected'?'active':'';
+    const aQ = s.approval==='question'?'active':'';
+    const proofHtml = item.proof
+      ? `<div class="item-proof"><strong>Proof Required:</strong>${item.proof}</div>` : '';
+    return `<tr class="item-row" data-id="${item.id}" data-area="${item.area}" data-priority="${item.priority||'P1'}" data-status="${item.status}" data-approval="${s.approval}">
+      <td class="item-id">${item.id}</td>
+      <td><div class="item-title">${item.title}</div>${item.desc?`<div class="item-desc">${item.desc}</div>`:''}${proofHtml}</td>
+      <td style="width:72px;min-width:72px;">${priBadge(s.priority||item.priority)}</td>
+      <td style="width:72px;min-width:72px;">${statusBadge(item.status)}</td>
+      <td class="approval-cell">
+        <div class="approval-btns">
+          <button class="appr-btn approve ${aA}" onclick="setApproval(${item.id},'approved')">✓</button>
+          <button class="appr-btn reject ${aR}"  onclick="setApproval(${item.id},'rejected')">✗</button>
+          <button class="appr-btn question ${aQ}" onclick="setApproval(${item.id},'question')">?</button>
+        </div>
+      </td>
+      <td class="comment-cell">
+        <textarea class="comment-input" placeholder="Notes / decisions…" rows="1"
+          onchange="setComment(${item.id},this.value)"
+          oninput="autoResize(this)">${s.comment||''}</textarea>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function phaseStatusClass(phaseItems) {
+  const allApproved = phaseItems.every(i => getItemState(i.id).approval==='approved');
+  const anyApproved = phaseItems.some(i => getItemState(i.id).approval==='approved');
+  if (allApproved) return 'ps-complete';
+  if (anyApproved) return 'ps-progress';
+  return null; // use default from PHASE_META
+}
+
+function buildTAAreaHtml(items, aClass, label) {
+  // Group by phase
+  const phases = {};
+  items.forEach(i => {
+    const p = i.phase !== undefined ? i.phase : -1;
+    if (!phases[p]) phases[p] = [];
+    phases[p].push(i);
+  });
+
+  let bodyRows = '';
+  Object.keys(phases).sort((a,b)=>+a - +b).forEach(pKey => {
+    const pNum = +pKey;
+    const pm = PHASE_META[pNum];
+    const pItems = phases[pKey];
+    if (pm) {
+      const pClass = phaseStatusClass(pItems) || pm.defaultStatus;
+      const pLabel = pClass.replace('ps-','').toUpperCase();
+      bodyRows += `<tr class="phase-hdr"><td colspan="6">
+        <span class="ph-title">${pm.name}</span>
+        <span class="ps-badge ${pClass}">${pLabel}</span>
+        <span class="ph-gate">${pm.gate}</span>
+      </td></tr>`;
+    }
+    bodyRows += renderRows(pItems);
+  });
+
+  const allItems = ITEMS.filter(i => i.area === 'TA');
+  const doneCount = allItems.filter(i => i.status==='done').length;
+  const approvedCount = allItems.filter(i => getItemState(i.id).approval==='approved').length;
+  const pendingCount = allItems.filter(i => i.status!=='done' && getItemState(i.id).approval==='pending').length;
+
+  return `<div class="area-group ${aClass}" id="area-TA">
+    <div class="area-header" onclick="toggleArea('TA')">
+      <span class="area-name">${label}</span>
+      <span class="area-badge">${doneCount} done &nbsp;·&nbsp; ${approvedCount} approved &nbsp;·&nbsp; ${pendingCount} pending</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="area-body">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Item / Proof Required</th><th>Priority</th><th>Status</th><th>Approval</th><th style="min-width:180px;">Your Decision / Notes</th>
+        </tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function buildTracker() {
+  const fa  = document.getElementById('filter-area').value;
+  const fp  = document.getElementById('filter-priority').value;
+  const fs  = document.getElementById('filter-status').value;
+  const fap = document.getElementById('filter-approval').value;
+  const fq  = document.getElementById('filter-search').value.toLowerCase();
+
+  const body = document.getElementById('tracker-body');
+  let html = '';
+
+  AREAS_ORDER.forEach(area => {
+    if (fa && fa !== area) return;
+
+    const aClass = 'area-' + area.toLowerCase();
+    const label  = AREA_LABELS[area];
+
+    // Filter items
+    let items = ITEMS.filter(i => i.area === area).filter(i => {
+      const s = getItemState(i.id);
+      if (fp && fp !== (s.priority||i.priority)) return false;
+      if (fs && fs !== i.status) return false;
+      if (fap && fap !== s.approval) return false;
+      if (fq) {
+        const hay = (i.title+' '+(i.desc||'')+' '+(i.proof||'')).toLowerCase();
+        if (!hay.includes(fq)) return false;
+      }
+      return true;
+    });
+
+    if (!items.length) return;
+
+    // TA area gets special phase-grouped rendering
+    if (area === 'TA') {
+      html += buildTAAreaHtml(items, aClass, label);
+      return;
+    }
+
+    // Standard rendering for all other areas
+    const allItems = ITEMS.filter(i => i.area === area);
+    const doneCount    = allItems.filter(i => i.status==='done').length;
+    const approvedCount = allItems.filter(i => getItemState(i.id).approval==='approved').length;
+    const pendingCount  = allItems.filter(i => i.status!=='done' && getItemState(i.id).approval==='pending').length;
+    const isOldTA = area === 'OldTA';
+
+    html += `<div class="area-group ${aClass}${isOldTA?' collapsed':''}" id="area-${area}">
+      <div class="area-header" onclick="toggleArea('${area}')">
+        <span class="area-name">${label}</span>
+        <span class="area-badge">${doneCount} done &nbsp;·&nbsp; ${approvedCount} approved &nbsp;·&nbsp; ${pendingCount} pending</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="area-body">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Item</th><th>Priority</th><th>Status</th><th>Approval</th><th style="min-width:180px;">Notes</th>
+          </tr></thead>
+          <tbody>${renderRows(items)}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  body.innerHTML = html || '<div class="empty-state">No items match filters.</div>';
+  updateStats();
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function setApproval(id, val) {
+  const current = getItemState(id).approval;
+  setItemState(id, 'approval', current===val?'pending':val);
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (row) {
+    row.dataset.approval = state[id]?.approval||'pending';
+    const s = getItemState(id);
+    row.querySelector('.appr-btn.approve').classList.toggle('active', s.approval==='approved');
+    row.querySelector('.appr-btn.reject').classList.toggle('active',  s.approval==='rejected');
+    row.querySelector('.appr-btn.question').classList.toggle('active', s.approval==='question');
+    updateStats();
+    // Rebuild TA phase headers to update phase status badges
+    if (row.dataset.area === 'TA') buildTracker();
+  }
+}
+function setComment(id, val) { setItemState(id,'comment',val); }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(120,el.scrollHeight)+'px'; }
+function toggleArea(area) { document.getElementById('area-'+area)?.classList.toggle('collapsed'); }
+
+let allExpanded = false;
+function toggleAll() {
+  allExpanded = !allExpanded;
+  document.querySelectorAll('.area-group').forEach(g => g.classList.toggle('collapsed', !allExpanded));
+  document.querySelector('.btn-expand').textContent = allExpanded?'Collapse All':'Expand All';
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function updateStats() {
+  const total    = ITEMS.length;
+  const doneI    = ITEMS.filter(i=>i.status==='done').length;
+  const approved = ITEMS.filter(i=>getItemState(i.id).approval==='approved').length;
+  const rejected = ITEMS.filter(i=>getItemState(i.id).approval==='rejected').length;
+  const question = ITEMS.filter(i=>getItemState(i.id).approval==='question').length;
+  const pending  = ITEMS.filter(i=>i.status!=='done'&&getItemState(i.id).approval==='pending').length;
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-done').textContent     = doneI;
+  document.getElementById('stat-approved').textContent = approved;
+  document.getElementById('stat-rejected').textContent = rejected;
+  document.getElementById('stat-question').textContent = question;
+  document.getElementById('stat-pending').textContent  = pending;
+}
+
+// ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
+let unsaved=false, fileHandle=null;
+
+function markUnsaved() {
+  unsaved=true;
+  const el = document.getElementById('last-saved');
+  el.textContent='⚠ Unsaved changes'; el.style.color='var(--question)';
+}
+function markSaved() {
+  unsaved=false;
+  const el = document.getElementById('last-saved');
+  el.textContent=`Last saved ${new Date().toLocaleTimeString()}`; el.style.color='var(--text3)';
+  const ind=document.getElementById('save-indicator');
+  ind.classList.add('show'); setTimeout(()=>ind.classList.remove('show'),2000);
+}
+function getExportData() {
+  const nonPending = ITEMS.filter(i=>getItemState(i.id).approval!=='pending').map(i=>{
+    const s=getItemState(i.id);
+    return {id:i.id,area:i.area,title:i.title,status:i.status,priority:i.priority,approval:s.approval,comment:s.comment||''};
+  });
+  return {
+    exported_at:new Date().toISOString(),
+    summary:{total:ITEMS.length,done:ITEMS.filter(i=>i.status==='done').length,
+      approved:nonPending.filter(i=>i.approval==='approved').length,
+      rejected:nonPending.filter(i=>i.approval==='rejected').length,
+      question:nonPending.filter(i=>i.approval==='question').length},
+    all_state:state,
+    approved_items:nonPending.filter(i=>i.approval==='approved'),
+    question_items:nonPending.filter(i=>i.approval==='question'),
+    rejected_items:nonPending.filter(i=>i.approval==='rejected'),
+  };
+}
+async function saveToFile() {
+  const json=JSON.stringify(getExportData(),null,2);
+  if (window.showSaveFilePicker) {
+    try {
+      if (!fileHandle) fileHandle=await window.showSaveFilePicker({
+        suggestedName:'signal-tracker-state.json',startIn:'documents',
+        types:[{description:'JSON State File',accept:{'application/json':['.json']}}]
+      });
+      const w=await fileHandle.createWritable(); await w.write(json); await w.close();
+      markSaved(); return;
+    } catch(e) { if(e.name!=='AbortError'){fileHandle=null;fallbackDownload(json);} }
+  } else { fallbackDownload(json); }
+  markSaved();
+}
+function fallbackDownload(json) {
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='signal-tracker-state.json'; a.click();
+}
+async function loadFromFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h]=await window.showOpenFilePicker({types:[{description:'JSON',accept:{'application/json':['.json']}}]});
+      fileHandle=h; const text=await(await h.getFile()).text(); applyLoadedState(JSON.parse(text)); return;
+    } catch(e) { if(e.name!=='AbortError') fallbackFileInput(); }
+  } else { fallbackFileInput(); }
+}
+function fallbackFileInput() {
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=async e=>{applyLoadedState(JSON.parse(await e.target.files[0].text()));};
+  inp.click();
+}
+function applyLoadedState(data) {
+  if (data.all_state){state=data.all_state;localStorage.setItem('ev-tracker-state',JSON.stringify(state));buildTracker();markSaved();}
+}
+function clearState() {
+  if (!confirm('Reset all approvals and comments?')) return;
+  state={}; fileHandle=null; localStorage.removeItem('ev-tracker-state'); buildTracker();
+  document.getElementById('last-saved').textContent='';
+}
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+['filter-area','filter-priority','filter-status','filter-approval'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',buildTracker);
+});
+let searchTimer;
+document.getElementById('filter-search').addEventListener('input',()=>{
+  clearTimeout(searchTimer); searchTimer=setTimeout(buildTracker,200);
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+(function init(){
+  const saved=localStorage.getItem('ev-tracker-state');
+  if (saved){try{state=JSON.parse(saved);}catch(e){state={};}}
+  buildTracker();
+  const el=document.getElementById('last-saved');
+  el.textContent=saved?'State loaded from localStorage':'No saved state'; el.style.color='var(--text3)';
+})();
+</script>
+</body>
+</html>

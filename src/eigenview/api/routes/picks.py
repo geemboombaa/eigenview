@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import select, distinct
 
 from eigenview.data.storage import AsyncSessionLocal, Pick
 
@@ -53,10 +53,30 @@ def _pick_to_dict(p: Pick) -> dict:
         except Exception:
             pass
 
+    # Compute signal freshness
+    signal_fired_at = p.signal_fired_at
+    freshness_label = "unknown"
+    signal_age_hours = None
+    if signal_fired_at:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        delta_h = (now - signal_fired_at).total_seconds() / 3600
+        signal_age_hours = round(delta_h, 1)
+        if delta_h < 2:
+            freshness_label = "fresh"
+        elif delta_h < 8:
+            freshness_label = "valid"
+        else:
+            freshness_label = "stale"
+
+    # Extract iv_rank from factors if stored
+    iv_rank = None
+    ta_detail = factors_raw.get("technical", {}).get("detail", {})
+    iv_rank = factors_raw.get("iv_rank") or ta_detail.get("iv_rank")
+
     structure = recommend_structure(
         p.setup_type or "breakout",
         p.direction or "long",
-        None,
+        iv_rank,
     )
 
     return {
@@ -70,19 +90,39 @@ def _pick_to_dict(p: Pick) -> dict:
         "stop": p.stop,
         "thesis": p.thesis or "",
         "spot": None,
-        "iv_rank": None,
+        "iv_rank": iv_rank,
+        "signal_fired_at": signal_fired_at.isoformat() if signal_fired_at else None,
+        "signal_age_hours": signal_age_hours,
+        "freshness": freshness_label,
         "structure": structure,
         "factors": factors_raw,
     }
 
 
+@router.get("/picks/dates")
+async def get_pick_dates() -> list[str]:
+    """Return all dates that have at least one pick, most recent first."""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(distinct(Pick.date)).order_by(Pick.date.desc())
+        )
+        dates = result.scalars().all()
+    return [str(d) for d in dates]
+
+
 @router.get("/picks")
-async def get_picks() -> list:
-    today = date.today()
+async def get_picks(date_str: str = Query(None, alias="date")) -> list:
+    if date_str:
+        try:
+            target = date.fromisoformat(date_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format, use YYYY-MM-DD")
+    else:
+        target = date.today()
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Pick)
-            .where(Pick.date == today)
+            .where(Pick.date == target)
             .order_by(Pick.conviction.desc())
         )
         picks = result.scalars().all()

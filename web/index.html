@@ -6,7 +6,7 @@
   <title>EigenView — Daily Options Intelligence</title>
   <link rel="stylesheet" href="css/themes.css"/>
   <link rel="stylesheet" href="css/components.css"/>
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 <div id="ev-shell">
@@ -23,6 +23,9 @@
     </div>
     <div class="header-right">
       <span id="ev-scan-time" class="scan-badge">—</span>
+      <button id="ev-scan-btn" class="btn" title="Run daily scan on SP500+NDX100 universe" data-universe="full" style="padding:4px 10px;font-size:11px;letter-spacing:0.5px;">SCAN</button>
+      <button id="ev-scan-test-btn" class="btn" title="Quick scan: NVDA AAPL TSLA META AMD only" data-universe="test5" style="padding:4px 10px;font-size:10px;letter-spacing:0.5px;opacity:0.6;">SCAN·5</button>
+      <button id="ev-help-btn" class="btn" title="Help & Signal Reference" onclick="document.getElementById('ev-help-overlay').hidden=false" style="padding:4px 10px;font-size:11px;letter-spacing:0.5px;">HELP</button>
       <div id="ev-tpl-switcher" class="tpl-switcher"></div>
       <div id="ev-theme-switcher" class="theme-switcher">
         <button class="theme-btn active" data-theme="dark">DARK</button>
@@ -33,17 +36,29 @@
     </div>
   </header>
 
+  <div id="ev-subnav">
+    <nav id="ev-nav-slot"></nav>
+    <div id="ev-market-slot"></div>
+  </div>
+
   <div id="ev-body">
-    <nav id="ev-nav-slot" class="nav-slot"></nav>
-    <main id="ev-canvas" class="canvas">
-      <div id="ev-module-palette" class="module-palette" hidden>
-        <div class="palette-head">
-          <span>Add Panel</span>
-          <button id="ev-palette-close" class="btn btn-ghost">✕</button>
+    <div id="ev-picks-slot">
+      <div id="ev-picks-content" class="left-tab-pane"></div>
+      <div id="ev-matrix-content" class="left-tab-pane" style="display:none"></div>
+      <div id="ev-mine-content" class="left-tab-pane" style="display:none"></div>
+    </div>
+    <div id="ev-main-col">
+      <main id="ev-canvas" class="canvas">
+        <div id="ev-module-palette" class="module-palette" hidden>
+          <div class="palette-head">
+            <span>Add Panel</span>
+            <button id="ev-palette-close" class="btn btn-ghost">✕</button>
+          </div>
+          <div id="ev-palette-list"></div>
         </div>
-        <div id="ev-palette-list"></div>
-      </div>
-    </main>
+      </main>
+      <div id="ev-strip-slot"></div>
+    </div>
     <aside id="ev-chat-slot" class="chat-slot"></aside>
   </div>
 </div>
@@ -75,10 +90,12 @@
 <script src="js/modules/market-context.js"></script>
 <script src="js/modules/category-nav.js"></script>
 <script src="js/modules/pick-cards.js"></script>
+<script src="js/modules/factor-pulse.js"></script>
 <script src="js/modules/price-chart.js"></script>
 <script src="js/modules/factor-strip.js"></script>
 <script src="js/modules/ai-chat.js"></script>
 <script src="js/modules/voice-orb.js"></script>
+<script src="js/modules/help-page.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

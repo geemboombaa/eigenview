@@ -27,25 +27,79 @@
     // Templates
     EV_Templates.init();
 
-    // Mount nav
+    // Mount category nav (horizontal in subnav bar)
     const navSlot = document.getElementById('ev-nav-slot');
-    if (navSlot) EV.Canvas.mountModule('category-nav', navSlot, { slot: 'nav' });
+    if (navSlot) EV.Canvas.mountModule('category-nav', navSlot, { slot: 'nav', horizontal: true });
+
+    // Mount market context in subnav right side
+    const marketSlot = document.getElementById('ev-market-slot');
+    if (marketSlot) EV.Canvas.mountModule('market-context', marketSlot, { slot: 'market' });
+
+    // Mount pick cards in dedicated left column (PICKS tab)
+    const picksContent = document.getElementById('ev-picks-content');
+    if (picksContent) EV.Canvas.mountModule('pick-cards', picksContent, { slot: 'picks' });
+
+    // Wire category nav → left-pane content switching
+    const matrixContent = document.getElementById('ev-matrix-content');
+    const mineContent = document.getElementById('ev-mine-content');
+    let _matrixMounted = false;
+    EV.Store.subscribe('activeCategory', cat => {
+      [picksContent, matrixContent, mineContent].forEach(p => { if (p) p.style.display = 'none'; });
+      if (!cat || cat === 'today') {
+        if (picksContent) picksContent.style.display = '';
+      } else if (cat === 'matrix') {
+        if (matrixContent) {
+          matrixContent.style.display = '';
+          if (!_matrixMounted && window.EV_SignalMatrix) {
+            window.EV_SignalMatrix.mount(matrixContent);
+            _matrixMounted = true;
+          } else {
+            window.EV_SignalMatrix?.load?.();
+          }
+        }
+      } else if (cat === 'mine') {
+        if (mineContent) { mineContent.style.display = ''; _renderMine(mineContent); }
+      }
+    });
+
+    function _renderMine(container) {
+      const favs = new Set(JSON.parse(localStorage.getItem('ev-favorites') || '[]'));
+      const allPicks = EV.Store.get('picks') || [];
+      const favPicks = allPicks.filter(p => favs.has(p.ticker));
+      if (!favPicks.length) {
+        container.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-faint);font-size:12px;line-height:1.6"><strong style="display:block;color:var(--text-dim);margin-bottom:6px">Nothing saved yet</strong>Click ☆ on any pick card to add it here.</div>';
+        return;
+      }
+      container.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;overflow-y:auto;height:100%">' +
+        favPicks.map(p => {
+          const dir = (p.direction || 'long').toLowerCase();
+          const entry = p.entry_low != null ? `$${p.entry_low}–$${p.entry_high}` : '';
+          return `<div class="pick-list-row" data-ticker="${p.ticker}" data-dir="${dir}" style="cursor:pointer">
+            <span class="plr-ticker">${p.ticker}</span>
+            <span class="direction-tag tag-${dir}" style="font-size:9px;flex-shrink:0">${dir.toUpperCase()}</span>
+            <span class="plr-setup">${(p.setup_type||'').replace(/_/g,' ')}</span>
+            <span class="plr-meta">${entry}</span>
+            <div class="plr-conv">${Array.from({length:5},(_,i)=>`<span class="plr-dot${i<(p.conviction||0)?' on':''}"></span>`).join('')}</div>
+          </div>`;
+        }).join('') + '</div>';
+      container.querySelectorAll('[data-ticker]').forEach(el => {
+        el.addEventListener('click', () => EV.Store.set('selectedTicker', el.dataset.ticker));
+      });
+    }
+
+    // Mount price chart in main canvas
+    const canvas = document.getElementById('ev-canvas');
+    const chartEl = document.createElement('div');
+    canvas.appendChild(chartEl);
+    EV.Canvas.mountModule('price-chart', chartEl);
+
+    // Mount factor strip in dedicated slot below chart
+    const stripSlot = document.getElementById('ev-strip-slot');
+    if (stripSlot) EV.Canvas.mountModule('factor-strip', stripSlot, { slot: 'strip' });
 
     // Mount chat
     const chatSlot = document.getElementById('ev-chat-slot');
     if (chatSlot) EV.Canvas.mountModule('ai-chat', chatSlot, { slot: 'chat' });
-
-    // Mount main canvas modules
-    const canvas = document.getElementById('ev-canvas');
-    function addMod(id) {
-      const el = document.createElement('div');
-      canvas.appendChild(el);
-      EV.Canvas.mountModule(id, el);
-    }
-    addMod('market-context');
-    addMod('pick-cards');
-    addMod('price-chart');
-    addMod('factor-strip');
 
     // Fetch data in parallel
     const [regime, picks] = await Promise.all([
@@ -68,6 +122,96 @@
       if (badge) badge.textContent = 'No picks today';
     }
 
+    // Auto-refresh picks every 5 minutes
+    setInterval(async () => {
+      const fresh = await EV.API.get('/api/picks');
+      if (fresh && Array.isArray(fresh) && fresh.length > 0) {
+        EV.Store.set('picks', fresh);
+        const badge = document.getElementById('ev-scan-time');
+        if (badge) {
+          badge.textContent = `✓ ${fresh.length} pick${fresh.length !== 1 ? 's' : ''}`;
+          badge.style.color = 'var(--accent)';
+        }
+      }
+    }, 5 * 60 * 1000);
+
+    // SCAN button
+    const scanBtn = document.getElementById('ev-scan-btn');
+    if (scanBtn) {
+      let _scanPoll = null;
+
+      function _stopScanPoll() {
+        if (_scanPoll) { clearInterval(_scanPoll); _scanPoll = null; }
+      }
+
+      async function _pollScanStatus() {
+        const badge = document.getElementById('ev-scan-time');
+        const status = await EV.API.get('/api/scan/status');
+        if (!status) return;
+        if (badge) badge.textContent = status.message || '…';
+        if (!status.running) {
+          _stopScanPoll();
+          scanBtn.disabled = false;
+          if (scanTest) scanTest.disabled = false;
+          scanBtn.textContent = 'SCAN';
+          if (status.error) {
+            if (badge) { badge.textContent = 'Scan failed'; badge.style.color = 'var(--warn,#ffc857)'; }
+          } else {
+            if (badge) badge.style.color = status.picks > 0 ? 'var(--accent)' : 'var(--text-dim)';
+            // Reload picks + matrix
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const fresh = await EV.API.get(`/api/picks?date=${todayStr}`);
+            if (fresh && fresh.length > 0) {
+              EV.Store.set('picks', fresh);
+              EV.Store.set('selectedPick', fresh[0]);
+              if (badge) { badge.textContent = `✓ ${fresh.length} pick${fresh.length !== 1 ? 's' : ''}`; badge.style.color = 'var(--accent)'; }
+            }
+            window.EV_FactorPulse?.load?.();
+          }
+        }
+      }
+
+      // Also wire SCAN·5 quick button
+      const scanTest = document.getElementById('ev-scan-test-btn');
+      if (scanTest) {
+        scanTest.addEventListener('click', () => {
+          scanBtn.dataset.universe = 'test5';
+          scanBtn.click();
+          scanBtn.dataset.universe = 'ndx100';
+        });
+      }
+
+      scanBtn.addEventListener('click', async () => {
+        const universe = scanBtn.dataset.universe || 'ndx100';
+        const badge = document.getElementById('ev-scan-time');
+        scanBtn.disabled = true;
+        if (scanTest) scanTest.disabled = true;
+        const universeLabel = universe === 'test5' ? '5' : universe === 'ndx100' ? 'NDX100' : universe === 'sp500' ? 'SP500' : 'SP500+NDX';
+        scanBtn.textContent = `SCANNING…`;
+        if (badge) { badge.textContent = `Scanning ${universeLabel}…`; badge.style.color = 'var(--text-dim)'; }
+        try {
+          const resp = await fetch(`/api/scan?universe=${universe}`, { method: 'POST' });
+          const data = await resp.json();
+          if (data.status === 'already_running') {
+            if (badge) badge.textContent = 'Already scanning…';
+          } else if (data.status === 'too_recent') {
+            scanBtn.disabled = false;
+            if (scanTest) scanTest.disabled = false;
+            scanBtn.textContent = 'SCAN';
+            if (badge) { badge.textContent = data.message || 'Too soon'; badge.style.color = 'var(--text-dim)'; }
+            return;
+          }
+          // Poll status every 4s regardless
+          _stopScanPoll();
+          _scanPoll = setInterval(_pollScanStatus, 4000);
+        } catch {
+          scanBtn.disabled = false;
+          scanBtn.textContent = 'SCAN';
+          if (badge) { badge.textContent = 'Scan failed'; badge.style.color = 'var(--warn,#ffc857)'; }
+        }
+      });
+    }
+
     // Keyboard shortcuts
     document.addEventListener('keydown', e => {
       const inInput = inputFocused();
@@ -79,7 +223,7 @@
       }
       if (e.key === '/' && !inInput) {
         e.preventDefault();
-        document.querySelector('.chat-input')?.focus();
+        document.querySelector('.ev-chat-textarea')?.focus();
         return;
       }
       if (e.key === 'Escape') {
@@ -90,6 +234,10 @@
       }
       if (e.key === '?' && !inInput) {
         document.getElementById('ev-shortcuts-overlay').hidden = false;
+        return;
+      }
+      if ((e.key === 'h' || e.key === 'H') && !inInput) {
+        window.EV_Help?.open('overview');
         return;
       }
       if ((e.key === 'e' || e.key === 'E') && !inInput) {
@@ -140,7 +288,11 @@
       searchEl.addEventListener('keydown', e => {
         if (e.key === 'Escape') { searchEl.value = ''; searchEl.blur(); }
         if (e.key === 'Enter' && searchEl.value.trim()) {
-          EV.Store.set('searchQuery', searchEl.value.trim().toUpperCase());
+          const t = searchEl.value.trim().toUpperCase();
+          EV.Store.set('searchQuery', t);
+          EV.Store.set('selectedTicker', t);
+          const match = (EV.Store.get('picks') || []).find(p => p.ticker === t);
+          if (match) EV.Store.set('selectedPick', match);
           searchEl.blur();
         }
       });

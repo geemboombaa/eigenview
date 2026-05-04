@@ -1,0 +1,53 @@
+LIBRARY AUDIT — 2026-05-04
+===========================
+
+[1] pandas_ta.squeeze_pro
+Status: PASS
+Output:
+  squeeze_pro columns: ['SQZPRO_20_2.0_20_2.0_1.5_1.0', 'SQZPRO_ON_WIDE',
+                        'SQZPRO_ON_NORMAL', 'SQZPRO_ON_NARROW', 'SQZPRO_OFF', 'SQZPRO_NO']
+  squeeze_pro OK: True
+In pyproject.toml: YES (pandas-ta>=0.3.14b0)
+
+[2] smartmoneyconcepts
+Status: PASS (with caveat)
+Output:
+  Installed via: uv pip install smartmoneyconcepts==0.0.27
+  Import succeeds when stdout is set to UTF-8; the library's __init__.py prints a
+  star emoji (U+2B50) which crashes on Windows cp1252 consoles. This is a cosmetic
+  __init__ side-effect, not a functional failure — the actual smc API (smc.smc) loads fine.
+  Top-level attrs: ['os', 'smc']
+  Workaround: set PYTHONIOENCODING=utf-8 in the environment (already needed for the
+  project on Windows) or suppress with: python -X utf8 ...
+In pyproject.toml: NO — was not installed; added manually via uv pip for this audit.
+  If the library is needed in production, add "smartmoneyconcepts>=0.0.27" to pyproject.toml
+  dependencies. However, given the cp1252 encoding issue on Windows and the thin API surface,
+  scipy.signal.argrelextrema is the recommended alternative for swing-level detection.
+
+[3] scipy.signal.argrelextrema
+Status: PASS
+Output:
+  argrelextrema OK. highs: [2 7] lows: [4]
+  (correct: peaks at indices 2 and 7, trough at index 4 in test array)
+In pyproject.toml: NO (not listed directly — installed as transitive dependency of
+  py_vollib>=1.0.1, scipy 1.17.1 is present in the venv and ready to use)
+
+SUMMARY
+-------
+Ready to use now (no action needed):
+  - pandas_ta.squeeze_pro  [listed in pyproject.toml, installed, tested OK]
+  - scipy.signal.argrelextrema  [not in pyproject.toml but present via py_vollib transitive dep]
+
+Needs pip install / pyproject.toml addition if required:
+  - smartmoneyconcepts (0.0.27 now installed in venv via uv pip, NOT yet in pyproject.toml)
+    Add to pyproject.toml if you decide to use it. See caveat about UTF-8 on Windows.
+
+Not available / need alternative:
+  - (none — all three libraries are accessible)
+
+RECOMMENDATION
+--------------
+Use scipy.signal.argrelextrema for swing-level detection in technical.py (already available,
+no extra dependency, no encoding issues). Skip smartmoneyconcepts unless a specific SMC
+concept (order blocks, fair value gaps, etc.) is needed that isn't covered by pandas_ta +
+scipy — in that case, add it to pyproject.toml and ensure PYTHONUTF8=1 is set in .env.

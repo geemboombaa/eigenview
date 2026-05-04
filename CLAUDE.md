@@ -496,3 +496,262 @@ Decision: DIX bullish threshold = 43% (not 45%). Breadth healthy threshold = 50%
 Rationale: 45%/55% thresholds produced RED on mixed-signal conditions that historically were YELLOW (pre-rally coiled states). Looser thresholds correctly classify those as YELLOW with caution flag rather than blocking all picks.
 Decision: Phase 1 (data) must be complete before Phase 2 (factors). Phase 2 must be complete before Phase 3 (synthesis). Never mix layers.
 Rationale: Data failures are impossible to debug in factor code. Factor failures are impossible to debug in synthesis code. Strict sequencing = faster debugging.
+
+---
+
+## TA MODULE — ARCHITECTURE DECISIONS (from trading-architecture.md, merged 2026-05-04)
+
+### 21-Setup Taxonomy
+
+Four strategy categories. Category determines weekly context required, stop rules, and valid exits.
+
+| Category | Thesis | Weekly required (long) | Noise filter |
+|---|---|---|---|
+| **Trend Continuation** | Established trend, price pulls back, resumes | Bullish (EMA8>21, RSI 45–65, ADX >15) | Volume must decline on pullback |
+| **Breakout** | Price compressed, expansion follows with volume | Not bearish | Volume must confirm expansion |
+| **Reversal** | Trend extended to exhaustion, first structural break | Extended (RSI >65 for bearish rev, <35 for bullish) | Requires divergence OR structural break, not just RSI alone |
+| **Mean Reversion** | Price deviated from equilibrium, statistical pull back | Non-trending (ADX <20, flat EMAs) | Not valid if ADX >25 |
+
+#### Trend Continuation setups
+
+| Setup name | Detection | Libraries |
+|---|---|---|
+| `pullback_in_trend` | Daily bullish EMA stack, RSI at 40th pct, price > EMA21×0.99 < EMA50×1.08, vol declining | pandas_ta (EMA, RSI, ADX) |
+| `pullback_deep` | Daily bullish, RSI 32–50, price touches EMA50, vol declining | pandas_ta |
+| `pullback_to_structure` | Price tests prior swing high (now support) or prior breakout level | scipy argrelextrema |
+| `flag_continuation` | Impulse move → 5–10 bar tight range, BB contracting, vol declining | pandas_ta squeeze_pro ON |
+| `rally_in_downtrend` | Weekly bearish, RSI bounce to 43–62, price near EMA21 from below (short) | pandas_ta |
+
+#### Breakout setups
+
+| Setup name | Detection | Libraries |
+|---|---|---|
+| `breakout` | Close above N-bar swing high, vol >1.5× avg | scipy argrelextrema, pandas_ta |
+| `breakdown` | Close below N-bar swing low, vol >1.5× avg (short) | same |
+| `compression_break` | squeeze_pro ON→OFF, momentum positive, vol surge | pandas_ta squeeze_pro |
+| `compression_break_down` | squeeze_pro ON→OFF, momentum negative (short) | pandas_ta squeeze_pro |
+| `base_breakout` | 20+ bar low-vol contraction, price within 3% of 50-day high | pandas_ta |
+| `base_breakdown` | Same inverted (short) | pandas_ta |
+| `ema_reclaim` | Was below EMA50, closes above it vol >1.1× | pandas_ta |
+| `ema_rejection` | Was above EMA50, closes below it (short) | pandas_ta |
+| `bos_bullish` | Break of Structure: closes above last swing high in structure | smartmoneyconcepts bos_choch() |
+| `bos_bearish` | Break of Structure: closes below last swing low (short) | smartmoneyconcepts bos_choch() |
+
+#### Reversal setups
+
+| Setup name | Detection | Libraries |
+|---|---|---|
+| `bullish_reversal` | RSI bull divergence + vol spike + weekly RSI <35 | pandas_ta (RSI div: custom) |
+| `bearish_reversal` | RSI bear divergence + vol spike + weekly RSI >65 (short) | pandas_ta |
+| `overbought_reversal` | Daily trend bullish, RSI >68, vol down day, weekly RSI >65 (short) | pandas_ta |
+| `oversold_bounce` | RSI <32, reversal candle, above EMA200 | pandas_ta |
+| `failed_breakdown` | Dipped below EMA21, recovered above with vol >1.5× | pandas_ta |
+| `failed_breakout` | Exceeded N-bar high, reversed below with vol (short) | scipy + pandas_ta |
+| `choch_bullish` | Change of Character: first close above prior swing high in downtrend | smartmoneyconcepts bos_choch() |
+| `choch_bearish` | Change of Character: first close below prior swing low in uptrend (short) | smartmoneyconcepts bos_choch() |
+
+#### Mean Reversion setups
+
+| Setup name | Detection | Libraries |
+|---|---|---|
+| `bb_mean_reversion_long` | Price at lower BB, ADX <20, weekly ADX <20 | pandas_ta (BB, ADX) |
+| `bb_mean_reversion_short` | Price at upper BB, ADX <20 (short) | pandas_ta |
+| `ema200_snap_long` | Price >15% below EMA200, weekly RSI <35 | pandas_ta |
+| `ema200_snap_short` | Price >15% above EMA200, weekly RSI >70 (short) | pandas_ta |
+
+**Total: 21 setups.** Additions over original 15: pullback_deep, pullback_to_structure, flag_continuation, bos_bullish, bos_bearish, choch_bullish, choch_bearish, bb_mean_reversion long/short, ema200_snap long/short.
+
+---
+
+### Library-First Strategy
+
+Replace hand-coded detection with maintained libraries wherever possible.
+
+| Need | Library | Action |
+|---|---|---|
+| All indicators (EMA, RSI, ADX, ATR, BB, MACD) | `pandas_ta` | In deps — keep |
+| Compression state | `pandas_ta.squeeze_pro()` | Replace hand-coded ATR squeeze |
+| Swing levels (SPH/SPL) | `scipy.signal.argrelextrema` | swingtrend not on PyPI; use scipy (same output) |
+| BOS / CHoCH / FVG | `smartmoneyconcepts` PyPI | Add to deps |
+| SuperTrend trailing stop | `pandas_ta.supertrend()` | In deps |
+| Chandelier exit | NJiHin/TA_Chandelier port | ~30 lines, not reliably in pandas_ta stable |
+| RSI divergence | Custom (no library) | Keep existing |
+
+---
+
+### Stop / Target / R:R Formulas
+
+**Initial stop placement by category:**
+
+| Category | Long stop | Short stop |
+|---|---|---|
+| Trend Continuation | Below pullback swing low (last SPL before entry) | Above rally swing high |
+| Breakout | Below breakout level (prior resistance = new support) | Above breakdown level |
+| Reversal | Below reversal candle wick low | Above reversal candle wick high |
+| Mean Reversion | entry − 1.5×ATR14 | entry + 1.5×ATR14 |
+
+ATR sizing: `stop = max(logical_stop, entry − 1.0×ATR14)`. Shorts use 1.25×ATR14 minimum (volatility asymmetry).
+
+```python
+stop_long  = max(swing_low * 0.995, entry_low - atr)
+stop_short = min(swing_high * 1.005, entry_high + atr * 1.25)
+```
+
+**Target (measured move) by category:**
+
+| Category | Target method |
+|---|---|
+| Trend Continuation | Prior swing high (from argrelextrema) |
+| Breakout | `breakout_level + (breakout_level - base_low)` |
+| Reversal | 50% or 61.8% Fibonacci retracement of prior move |
+| Mean Reversion | EMA20 or BB midline |
+
+**R:R minimum:** target / (entry − stop) ≥ 2.0. Setups below 2.0 are downgraded in conviction (not eliminated).
+
+**Trailing stop methods (display-only, chart overlays):**
+
+| Method | Formula | Best for |
+|---|---|---|
+| SuperTrend | `pandas_ta.supertrend(length=7, multiplier=3.0)` | Trending moves (primary) |
+| Chandelier exit | `highest_high(22) - 3×ATR(22)` | Trending moves, tighter |
+| EMA trail | Trail under EMA21 | Trend continuation |
+| EMA50 trail | Trail under EMA50 | Longer swing holds |
+
+Trail activates only after price moves ≥1 ATR in favor. Before that: use initial stop.
+
+---
+
+### Rolling Percentile Strategy (replaces hardcoded thresholds)
+
+All 50+ literal threshold numbers in `technical.py` replaced with ticker-specific rolling percentiles over 90 days. Rationale: population-average thresholds misfire on high-vol tickers (too often) and low-vol tickers (never). Adaptive thresholds calibrate to each stock's own regime.
+
+```python
+rsi_oversold   = np.percentile(rsi_90d,  20)   # was: 32
+rsi_overbought = np.percentile(rsi_90d,  80)   # was: 68–72
+adx_trending   = np.percentile(adx_90d,  65)   # was: 20–25
+vol_surge      = np.percentile(vol_90d,  70)   # was: 1.5× avg
+vol_light      = np.percentile(vol_90d,  35)   # was: 0.8× avg
+atr_contracted = np.percentile(atr_90d,  30)   # was: 0.65–0.7× avg
+```
+
+Exception: ADX gate for pullback keeps absolute floor of 15 (prevents false firing in compression).
+
+Evidence: Clenow (2013) + Carver (2015) quantify +0.15–0.25 Sharpe improvement from adaptive vs fixed thresholds on equity long/short books.
+
+---
+
+### 5-State Weekly Classifier
+
+Weekly context computed by resampling daily prices — no new data source needed.
+
+```python
+weekly_df = daily_df.resample('W-FRI').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'}).dropna()
+weekly_df.ta.ema(length=10, append=True)
+weekly_df.ta.ema(length=20, append=True)
+weekly_df.ta.adx(length=14, append=True)
+weekly_df.ta.rsi(length=14, append=True)
+```
+
+States: `BULLISH | BULLISH_EXTENDED | NEUTRAL | BEARISH_WEAK | BEARISH_STRONG`
+
+---
+
+### Multi-Timeframe (MTF) Matrix
+
+Weekly state gates which setup categories are valid for that stock that day.
+
+| Weekly state | Condition | Valid long setups | Valid short setups |
+|---|---|---|---|
+| **Bullish** | EMA8>21, RSI 45–65, ADX >15 | Trend Continuation, Breakout | None |
+| **Bullish extended** | RSI >70 OR ADX >35 | Bearish Reversal only | Bearish Reversal |
+| **Neutral / sideways** | ADX <20, EMAs flat | Breakout (compression), Mean Reversion | Breakdown, Mean Reversion |
+| **Bearish weak** | EMA8<21 recently, RSI 40–55 | Mean Reversion, Failed Breakdown | Trend Continuation (short), Breakdown |
+| **Bearish strong** | EMA8<21, RSI <45, ADX >20 | Bullish Reversal only | Trend Continuation (short), Breakdown |
+| **Bearish extended** | RSI <30 OR ADX >35 | Bullish Reversal only | None (no new shorts at extreme) |
+
+---
+
+### Signal Persistence — `signal_triggers` Table
+
+Every daily scan writes to this table (add to storage.py schema):
+
+```sql
+CREATE TABLE signal_triggers (
+    id          INTEGER PRIMARY KEY,
+    ticker      TEXT NOT NULL,
+    scan_date   TEXT NOT NULL,
+    setup_type  TEXT NOT NULL,
+    direction   TEXT NOT NULL,    -- 'long' | 'short'
+    entry_low   REAL,
+    entry_high  REAL,
+    stop        REAL,
+    target      REAL,
+    rr_ratio    REAL,             -- target / (entry - stop)
+    confidence  REAL,
+    fired_at    TEXT,             -- ISO datetime of bar that fired
+    valid_until TEXT              -- scan_date + 5 trading days
+);
+```
+
+Also add to `signal_bench` for future GBT training:
+```sql
+forward_return_5d  REAL,
+forward_return_20d REAL,
+indicator_state    TEXT   -- JSON snapshot of all indicator values at signal time
+```
+
+Signal freshness: Fresh (<2h) / Valid (2–8h) / Stale (>8h) — displayed as badge on pick card.
+
+---
+
+### Chart Toggles
+
+Persistent in localStorage per ticker.
+
+| Toggle | Default |
+|---|---|
+| EMA 21 | ON |
+| EMA 50 | ON |
+| EMA 200 | ON |
+| BB | OFF |
+| Signals (historical markers) | ON |
+| SuperTrend | OFF |
+
+---
+
+### LLM Role in TA Pipeline (confirmed scope)
+
+LLM is NOT a pattern classifier. Confirmed waste of effort:
+- CNN/LSTM on raw OHLCV — doesn't beat rules in rigorous backtests (Jiang, Kelly & Xiu, JoF 2023)
+- LLM for TA pattern confirmation — 500–2000ms latency, $5–25/scan, zero edge over rules
+- LLM for chart image analysis — April 2026 benchmark: coin-flip on direction, 0.46% on pattern naming
+
+LLM correct scope (downstream only): thesis generation, material/noise news filter, chat.
+
+Future (180+ days, needs training data): GBT on `(indicator_state_vector → pattern_label)` can learn non-linear interactions. Start collecting `indicator_state` + `forward_return` columns in `signal_bench` from Day 1 of scanning.
+
+---
+
+### Open Questions (decisions pending)
+
+- [ ] **Q1** Mean reversion setups (BB reversion, EMA200 snap-back) in scope for v1?
+- [ ] **Q2** Chart trail (SuperTrend / Chandelier) — display-only vs executable signal?
+- [ ] **Q3** R:R minimum threshold: 2.0 fixed or configurable?
+- [ ] **Q4** `valid_until` logic: 5 trading days flat, or extend if price still in setup zone?
+- [ ] **Q5** BOS vs breakout: should BOS replace `breakout`/`breakdown` or supplement as higher-confidence variant?
+- [ ] **Q6** `swingtrend` not on PyPI — `scipy.signal.argrelextrema` confirmed as replacement (same output). Lock this?
+
+---
+
+### TA Decisions Log (2026-05-04)
+
+| Date | Decision |
+|---|---|
+| 2026-05-04 | Per-stock GEX as hard gate confirmed novel — no open-source equivalent |
+| 2026-05-04 | Claude vision ruled out for pattern detection — April 2026: 57% direction accuracy, 0.46% pattern naming |
+| 2026-05-04 | 21-setup taxonomy approved (draft) |
+| 2026-05-04 | SuperTrend as primary trail (pandas_ta confirmed in package) |
+| 2026-05-04 | Chandelier exit as secondary trail — port ~30 lines from Pine |
+| 2026-05-04 | swingtrend not on PyPI; scipy.signal.argrelextrema used instead |
+| 2026-05-04 | Rolling 40th-percentile RSI replaces hardcoded 38–57 range for pullback detection |
+| 2026-05-04 | TA Stage 1 pullback_in_trend: 15/15 tests passing (2.07s) |

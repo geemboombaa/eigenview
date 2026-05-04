@@ -40,10 +40,22 @@
   }
 
   const PATTERN_LABELS = {
-    breakout: { text: 'Breakout ↑', color: '#22c55e', shape: 'arrowUp' },
-    pullback_in_trend: { text: 'Pullback', color: '#3b82f6', shape: 'arrowDown' },
-    compression_break: { text: 'Compression Break', color: '#a855f7', shape: 'arrowUp' },
-    bearish_reversal: { text: 'Bearish ↓', color: '#ef4444', shape: 'arrowDown' },
+    breakout:             { text: 'Breakout ↑',         color: '#22c55e', shape: 'arrowUp' },
+    pullback_in_trend:    { text: 'Pullback to Support',  color: '#22c55e', shape: 'arrowUp'  },
+    compression_break:    { text: 'Compression Break',  color: '#a855f7', shape: 'arrowUp' },
+    ema_reclaim:          { text: 'EMA Reclaim',         color: '#22c55e', shape: 'arrowUp' },
+    base_breakout:        { text: 'Base Breakout',       color: '#22c55e', shape: 'arrowUp' },
+    oversold_bounce:      { text: 'Oversold Bounce',     color: '#3b82f6', shape: 'arrowUp' },
+    failed_breakdown:     { text: 'Failed Breakdown',    color: '#22c55e', shape: 'arrowUp' },
+    bullish_reversal:     { text: 'Bullish Rev ↑',       color: '#22c55e', shape: 'arrowUp' },
+    bearish_reversal:     { text: 'Bearish Rev ↓',       color: '#ef4444', shape: 'arrowDown' },
+    breakdown:            { text: 'Breakdown ↓',         color: '#ef4444', shape: 'arrowDown' },
+    rally_in_downtrend:   { text: 'Rally (Short)',        color: '#f97316', shape: 'arrowDown' },
+    compression_break_down: { text: 'Compression ↓',    color: '#a855f7', shape: 'arrowDown' },
+    ema_rejection:        { text: 'EMA Rejection',       color: '#ef4444', shape: 'arrowDown' },
+    base_breakdown:       { text: 'Base Breakdown ↓',    color: '#ef4444', shape: 'arrowDown' },
+    overbought_reversal:  { text: 'Overbought Rev ↓',   color: '#ef4444', shape: 'arrowDown' },
+    failed_breakout:      { text: 'Failed Breakout ↓',  color: '#f97316', shape: 'arrowDown' },
   };
 
   function patternBadgeHtml(pattern) {
@@ -73,6 +85,7 @@
       this._chart = null;
       this._series = {};
       this._maximized = false;
+      this._lastData = null;
 
       this._render();
       this._bindHeader();
@@ -104,12 +117,27 @@
       // escape key to close maximize
       this._onEscape = (e) => { if (e.key === 'Escape' && this._maximized) this._toggleMaximize(); };
       document.addEventListener('keydown', this._onEscape);
+
+      // ResizeObserver: fire _resizeChart when container gets real dimensions
+      const body = this._qs('#pc-chart-body');
+      if (body && window.ResizeObserver) {
+        this._ro = new ResizeObserver(() => this._resizeChart());
+        this._ro.observe(body);
+      }
+
+      // MutationObserver: rebuild chart when data-theme changes (light/dark switch)
+      this._themeObs = new MutationObserver(() => {
+        if (this._lastData) this._buildChart(this._lastData);
+      });
+      this._themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
     unmount() {
       super.unmount();
       if (this._onEscape) document.removeEventListener('keydown', this._onEscape);
       if (this._chart) { this._chart.remove(); this._chart = null; }
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      if (this._themeObs) { this._themeObs.disconnect(); this._themeObs = null; }
     }
 
     resize(_size) {
@@ -127,7 +155,7 @@
             </div>
             <button class="pc-maximize-btn" id="pc-max-btn" title="Maximize">⤢</button>
           </div>
-          <div class="pc-body" id="pc-body">
+          <div class="pc-body" id="pc-chart-body">
             <div class="pc-chart-container" id="pc-chart-container"></div>
             <div class="pc-state" id="pc-state" style="display:none;"></div>
           </div>
@@ -152,9 +180,10 @@
       this._maximized = !this._maximized;
       this.el.classList.toggle('maximized', this._maximized);
       if (this._maximized) {
+        this._preMaxStyle = this.el.style.cssText;
         this.el.style.cssText = 'position:fixed;inset:0;z-index:1000;';
       } else {
-        this.el.style.cssText = '';
+        this.el.style.cssText = this._preMaxStyle || '';
       }
       const btn = this._qs('#pc-max-btn');
       if (btn) btn.textContent = this._maximized ? '⤡' : '⤢';
@@ -205,11 +234,12 @@
         return;
       }
 
+      this._lastData = data;
       this._showState('none');
       this._buildChart(data);
 
       // pattern badge overlay
-      const body = this._qs('#pc-body');
+      const body = this._qs('#pc-chart-body');
       if (body && data.pattern) {
         const badgeHtml = patternBadgeHtml(data.pattern);
         if (badgeHtml) {
@@ -254,7 +284,7 @@
         },
         crosshair: { mode: LC.CrosshairMode?.Normal ?? 1 },
         rightPriceScale: { borderColor: colors.border },
-        timeScale: { borderColor: colors.border, timeVisible: true },
+        timeScale: { borderColor: colors.border, timeVisible: true, rightOffset: 12 },
         handleScroll: true,
         handleScale: true,
       });
@@ -275,14 +305,14 @@
 
       // EMA 21
       if (ind.ema21?.length) {
-        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'EMA21' });
+        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
         s.setData(ind.ema21);
         this._series.ema21 = s;
       }
 
       // EMA 50
       if (ind.ema50?.length) {
-        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'EMA50' });
+        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
         s.setData(ind.ema50);
         this._series.ema50 = s;
       }
@@ -327,6 +357,18 @@
         candleSeries.createPriceLine({ price: gex.gamma_flip, color: '#f59e0b', lineWidth: 1, lineStyle: LC.LineStyle?.Solid ?? 0, axisLabelVisible: true, title: 'Flip' });
       }
 
+      // Entry zone + stop level (from today's pick data)
+      const ez = data.entry_zone || {};
+      if (ez.low) {
+        candleSeries.createPriceLine({ price: ez.low, color: 'rgba(34,197,94,0.7)', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Entry' });
+      }
+      if (ez.high && ez.high !== ez.low) {
+        candleSeries.createPriceLine({ price: ez.high, color: 'rgba(34,197,94,0.5)', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Entry Hi' });
+      }
+      if (data.stop) {
+        candleSeries.createPriceLine({ price: data.stop, color: 'rgba(239,68,68,0.8)', lineWidth: 2, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Stop' });
+      }
+
       // Pattern marker on last candle
       if (data.pattern && data.pattern.type !== 'no_pattern') {
         const info = PATTERN_LABELS[data.pattern.type];
@@ -350,7 +392,7 @@
       if (!this._chart) return;
       const container = this._qs('#pc-chart-container');
       if (!container) return;
-      const body = this._qs('#pc-body');
+      const body = this._qs('#pc-chart-body');
       const w = body ? body.clientWidth : container.clientWidth;
       const h = body ? body.clientHeight : container.clientHeight;
       if (w > 0 && h > 0) {

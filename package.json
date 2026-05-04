@@ -1,0 +1,28 @@
+{
+  "name": "eigenview",
+  "version": "1.0.0",
+  "description": "A curated daily options-idea dashboard for US liquid-options stocks. Fuses technical analysis, GEX / dealer positioning, options flow, **dormant long-dated bet activation** (novel), and novelty-weighted news sentiment into 3–5 ranked trade ideas per day.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geemboombaa/eigenview.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/geemboombaa/eigenview/issues"
+  },
+  "homepage": "https://github.com/geemboombaa/eigenview#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
