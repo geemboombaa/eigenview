@@ -1,0 +1,26 @@
+P1·3 — squeeze_pro Usage Proof
+=================================
+Grep command: Select-String -Pattern "squeeze_pro" in technical.py
+
+Matches (4 lines):
+  Line 310: # squeeze_pro replaces manual ATR-range compression check.
+  Line 313:     sqz = ta.squeeze_pro(df['high'], df['low'], df['close'])
+  Line 374: # squeeze_pro: squeeze just released (OFF) + momentum positive (close > BBU) + vol surge
+  Line 390: # squeeze_pro: squeeze just released (OFF) + momentum negative (close < BBL) + vol surge
+
+Implementation summary:
+  - ta.squeeze_pro() called with (high, low, close) at line 313
+  - squeeze_on  = SQZPRO_ON_NARROW | SQZPRO_ON_NORMAL | SQZPRO_ON_WIDE (active compression)
+  - squeeze_off = SQZPRO_OFF (squeeze just released — breakout signal)
+  - squeeze_released = squeeze_off and not squeeze_on
+
+Pattern mapping:
+  - compression_break:      requires squeeze_released + close > BBU + vol surge
+  - compression_break_down: requires squeeze_released + close < BBL + vol surge
+  - base_breakout:          requires squeeze_on (active compression in coil near highs)
+  - base_breakdown:         requires squeeze_on (active compression in coil near lows)
+
+Old code removed: manual atr_last5 < atr_20avg * 0.7 / 0.65 checks for compression patterns.
+Graceful fallback: try/except block falls back to ATR-ratio proxy if squeeze_pro fails.
+
+Tests: 21/21 pass

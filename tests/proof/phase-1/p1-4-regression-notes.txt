@@ -1,0 +1,89 @@
+Phase 1 · P1-4 Regression Notes
+================================
+Date: 2026-05-04
+Scope: test_technical_pullback.py — impact of adaptive RSI threshold change
+
+The `detect_pattern` function (technical.py lines 644-651) replaced the fixed
+RSI window [38, 57] with a rolling 90-day percentile threshold:
+  rsi_p40 = np.percentile(ddf["RSI_14"].dropna().iloc[-90:], 40)
+The pullback gate now checks `rsif <= rsi_p40` (adaptive upper bound) AND
+`rsif >= 30` (absolute floor). This changes what "dip zone" means per ticker.
+
+
+TESTS THAT MAY BREAK OR NEED REVIEW
+-------------------------------------
+
+1. test_pullback_rsi_in_dip_zone  (line 57)
+   Assertion: `38 <= rsi <= 57`
+   Status: LIKELY TO BREAK
+   Reason: This is an absolute fixed-range check. The new code uses rsi_p40
+   (the 40th percentile of NVDA's 90-day RSI history as of 2024-04-16). If
+   NVDA's rsi_p40 on that date happens to be outside [38, 57] (e.g. NVDA
+   had elevated RSI in the prior 90 days → rsi_p40 could be 60+), the
+   pattern may still fire but rsi could be ≤ rsi_p40 while being > 57.
+   Conversely, rsi_p40 could be < 38 if NVDA was in a persistent dip —
+   then the pattern wouldn't fire at all and the test would fail on the
+   pattern assertion upstream.
+   Fix: Replace with `assert rsi <= result["detail"].get("rsi_p40", 58)` OR
+   verify rsi is in the adaptive dip zone: `rsi >= 30 and rsi <= rsi_p40`.
+   NOTE: rsi_p40 is not currently exposed in the `detail` dict — it must be
+   added to detect_pattern's return value for this assertion to work properly.
+
+2. test_additional_pullback_dates_fire  (lines 98-106, parametrized)
+   Dates: 2024-04-08, 2024-04-09, 2024-04-15
+   Status: AT RISK
+   Reason: These dates were chosen when the RSI check was fixed [38, 57].
+   With the adaptive threshold, each date has its own rsi_p40 computed from
+   the 90-day window ending on that date. The RSI values documented in the
+   comments (51, 47, 48) are within [38, 57], but whether they fall below
+   the *adaptive* rsi_p40 on those specific dates depends on NVDA's RSI
+   distribution in the prior 90 days. If NVDA had a strong run (RSI mostly
+   above 60), rsi_p40 could be ≥ 50, making RSI=51 fail the `rsi <= rsi_p40`
+   gate. The tests may still pass by coincidence — but they're fragile.
+   Fix: Audit rsi_p40 on each of these dates from the fixture CSV and update
+   comments with actual percentile values. If a date no longer qualifies,
+   replace it with a date that does under the new adaptive logic.
+
+3. test_no_pullback_when_extended  (lines 111-118, parametrized)
+   Dates: 2024-01-16, 2024-02-22
+   Status: LOW RISK — expected NOT to fire
+   Reason: These dates have RSI=76 and post-gap-up conditions. Even if
+   rsi_p40 is elevated (e.g. 65+), RSI=76 would still exceed it and the
+   pattern correctly won't fire. The negative assertion is robust.
+
+4. test_no_pullback_on_compression_day  (line 90)
+   Date: 2024-01-04
+   Status: LOW RISK — gated by ADX < 15 (daily_trend = "sideways")
+   Reason: ADX check runs before RSI check. If ADX < 15 on that date, the
+   pattern won't fire regardless of rsi_p40. The test is robust.
+
+5. test_pullback_pattern_fires  (line 36)
+   test_pullback_confidence  (line 41)
+   test_pullback_daily_trend_bullish  (line 46)
+   test_pullback_weekly_trend_bullish  (line 51)
+   test_pullback_adx_trending  (line 64)
+   test_pullback_volume_light  (line 69)
+   test_pullback_swing_low_present  (line 76)
+   test_weekly_state_bullish_on_apr16  (line 83)
+   Status: LOW RISK (pattern must fire for these to be meaningful)
+   Reason: These all depend on 2024-04-16 qualifying as pullback_in_trend.
+   If the adaptive rsi_p40 on that date is high enough to include NVDA's
+   actual RSI (~48), they pass. If not, ALL of these fail on pattern check.
+   The root dependency is whether 2024-04-16 still qualifies under adaptive
+   thresholds — needs empirical verification against fixture data.
+
+
+SUMMARY
+-------
+- 1 test needs assertion rewrite: test_pullback_rsi_in_dip_zone (fixed range → adaptive)
+- 3 parametrized dates need RSI percentile audit: 2024-04-08, 2024-04-09, 2024-04-15
+- All 2024-04-16 tests are contingent on that date qualifying under adaptive logic
+- Negative tests (no_pullback_*) are robust to the change
+- rsi_p40 should be added to detect_pattern's detail dict for testability
+
+RECOMMENDED ACTION BEFORE RUNNING pytest
+-----------------------------------------
+Add `"rsi_p40": rsi_p40` to the `detail` dict in detect_pattern (technical.py ~line 670).
+Then update test_pullback_rsi_in_dip_zone to:
+  assert result["detail"]["rsi"] <= result["detail"]["rsi_p40"]
+  assert result["detail"]["rsi"] >= 30

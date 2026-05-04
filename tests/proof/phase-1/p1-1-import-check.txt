@@ -1,0 +1,12 @@
+P1·1 — smartmoneyconcepts import check
+=======================================
+Command: PYTHONUTF8=1 python -c "import smartmoneyconcepts; print('OK')"
+Result:  OK (import succeeded, PYTHONUTF8=1 avoids cp1252 crash on Windows)
+
+Package installed: smartmoneyconcepts>=0.0.27
+  - Already present in venv (numba, numpy deps satisfied)
+scipy>=1.11 also confirmed installed (already present as transitive dep, now explicit in pyproject.toml)
+
+pyproject.toml additions:
+    "smartmoneyconcepts>=0.0.27",
+    "scipy>=1.11",

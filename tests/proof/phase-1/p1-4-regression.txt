@@ -1,0 +1,33 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0 -- C:\Users\v_per\Claude\Projects\Eigenview\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\v_per\Claude\Projects\Eigenview
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0, snapshot-0.9.0, vcr-1.0.2
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=function
+collecting ... collected 16 items
+
+tests/factors/test_technical_pullback.py::test_pullback_pattern_fires PASSED [  6%]
+tests/factors/test_technical_pullback.py::test_pullback_confidence PASSED [ 12%]
+tests/factors/test_technical_pullback.py::test_pullback_daily_trend_bullish PASSED [ 18%]
+tests/factors/test_technical_pullback.py::test_pullback_weekly_trend_bullish PASSED [ 25%]
+tests/factors/test_technical_pullback.py::test_pullback_rsi_in_dip_zone PASSED [ 31%]
+tests/factors/test_technical_pullback.py::test_pullback_adx_trending PASSED [ 37%]
+tests/factors/test_technical_pullback.py::test_pullback_volume_light PASSED [ 43%]
+tests/factors/test_technical_pullback.py::test_pullback_swing_low_present PASSED [ 50%]
+tests/factors/test_technical_pullback.py::test_weekly_state_bullish_on_apr16 PASSED [ 56%]
+tests/factors/test_technical_pullback.py::test_no_pullback_on_compression_day PASSED [ 62%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-08] PASSED [ 68%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-09] PASSED [ 75%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-15] PASSED [ 81%]
+tests/factors/test_technical_pullback.py::test_no_pullback_when_extended[2024-01-16] PASSED [ 87%]
+tests/factors/test_technical_pullback.py::test_no_pullback_when_extended[2024-02-22] PASSED [ 93%]
+tests/factors/test_technical_pullback.py::test_adaptive_thresholds_differ_by_stock PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\pandas_ta\__init__.py:37
+  C:\Users\v_per\Claude\Projects\Eigenview\.venv\Lib\site-packages\pandas_ta\__init__.py:37: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    from pandas_ta.core import AnalysisIndicators
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 16 passed, 1 warning in 1.98s ========================
