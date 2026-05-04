@@ -88,12 +88,12 @@ async function injectMockPicks(page) {
           legs: 'Buy 190C / Sell 195C · Jun 21',
         },
         factors: {
-          macro_regime: { firing: true,  strength: 0.8,  label: 'GREEN' },
-          technical:    { firing: true,  strength: 0.85, label: 'breakout' },
-          gex:          { firing: false, strength: 0.2,  label: 'long_gamma', detail: { call_wall: 200, put_wall: 175, gamma_flip: 182 } },
-          flow:         { firing: true,  strength: 0.6,  label: 'aggressive_call' },
-          dormant:      { firing: false, strength: 0.0,  label: 'inactive' },
-          sentiment:    { firing: true,  strength: 0.7,  label: 'catalyst', detail: { catalyst_near: true } },
+          macro_regime: { firing: true,  strength: 0.8,  label: 'GREEN',    detail: { regime: 'bull', vix: 14.8, spy_trend: 'above_50d', breadth: 0.74 } },
+          technical:    { firing: true,  strength: 0.85, label: 'breakout', detail: { direction: 'long', pattern: 'bull_flag', rsi: 61.2, adx: 36.1, atr_rank: 0.68, ma20_cross: 'above', volume_ratio: 2.1 } },
+          gex:          { firing: false, strength: 0.2,  label: 'long_gamma', detail: { call_wall: 200, put_wall: 175, gamma_flip: 182, net_gex: 0.8, regime: 'neutral' } },
+          flow:         { firing: true,  strength: 0.6,  label: 'aggressive_call', detail: { premium_usd: 1800000, call_put_ratio: 2.4, aggressive_side: 'call', unusual_score: 0.61, largest_strike: 195 } },
+          dormant:      { firing: false, strength: 0.0,  label: 'inactive', detail: { position_age_days: 0, open_interest_rank: 0.12, activation_score: 0.0 } },
+          sentiment:    { firing: true,  strength: 0.7,  label: 'catalyst', detail: { novelty_score: 0.7, catalyst_near: true, news_sentiment: 0.72, embedding_distance: 0.78 } },
         },
       },
       {
@@ -112,12 +112,12 @@ async function injectMockPicks(page) {
           legs: 'Buy 880P / Sell 860P · May 17',
         },
         factors: {
-          macro_regime: { firing: false, strength: 0.4, label: 'YELLOW' },
-          technical:    { firing: true,  strength: 0.7, label: 'bearish_reversal' },
-          gex:          { firing: true,  strength: 0.9, label: 'short_gamma', detail: { call_wall: 950, put_wall: 870, gamma_flip: 910 } },
-          flow:         { firing: true,  strength: 0.55, label: 'put_sweep' },
-          dormant:      { firing: true,  strength: 0.8, label: 'ACTIVATING' },
-          sentiment:    { firing: false, strength: 0.3, label: 'neutral' },
+          macro_regime: { firing: false, strength: 0.4, label: 'YELLOW',  detail: { regime: 'neutral', vix: 22.1, spy_trend: 'below_20d', breadth: 0.48 } },
+          technical:    { firing: true,  strength: 0.7, label: 'bearish_reversal', detail: { direction: 'short', pattern: 'head_shoulders', rsi: 38.7, adx: 29.3, atr_rank: 0.81, ma20_cross: 'below', volume_ratio: 1.55 } },
+          gex:          { firing: true,  strength: 0.9, label: 'short_gamma', detail: { call_wall: 950, put_wall: 870, gamma_flip: 910, net_gex: -3.1, regime: 'negative' } },
+          flow:         { firing: true,  strength: 0.55, label: 'put_sweep', detail: { premium_usd: 3100000, call_put_ratio: 0.4, aggressive_side: 'put', unusual_score: 0.78, largest_strike: 870 } },
+          dormant:      { firing: true,  strength: 0.8, label: 'ACTIVATING', detail: { position_age_days: 32, open_interest_rank: 0.88, activation_score: 0.8 } },
+          sentiment:    { firing: false, strength: 0.3, label: 'neutral', detail: { novelty_score: 0.3, catalyst_near: false, news_sentiment: 0.41, embedding_distance: 0.39 } },
         },
       },
       {
@@ -136,12 +136,12 @@ async function injectMockPicks(page) {
           legs: 'Buy 250C / Sell 260C · Jun 21',
         },
         factors: {
-          macro_regime: { firing: true,  strength: 0.9, label: 'GREEN' },
-          technical:    { firing: true,  strength: 0.9, label: 'compression_break' },
-          gex:          { firing: true,  strength: 0.8, label: 'long_gamma', detail: { call_wall: 270, put_wall: 230, gamma_flip: 238 } },
-          flow:         { firing: true,  strength: 0.75, label: 'call_sweep' },
-          dormant:      { firing: true,  strength: 0.6, label: 'ACTIVATING' },
-          sentiment:    { firing: true,  strength: 0.8, label: 'catalyst' },
+          macro_regime: { firing: true,  strength: 0.9, label: 'GREEN',   detail: { regime: 'bull', vix: 13.2, spy_trend: 'above_50d', breadth: 0.81 } },
+          technical:    { firing: true,  strength: 0.9, label: 'compression_break', detail: { direction: 'long', pattern: 'compression_coil', rsi: 52.4, adx: 22.1, atr_rank: 0.18, ma20_cross: 'above', volume_ratio: 0.88 } },
+          gex:          { firing: true,  strength: 0.8, label: 'long_gamma', detail: { call_wall: 270, put_wall: 230, gamma_flip: 238, net_gex: 1.9, regime: 'positive' } },
+          flow:         { firing: true,  strength: 0.75, label: 'call_sweep', detail: { premium_usd: 2200000, call_put_ratio: 3.1, aggressive_side: 'call', unusual_score: 0.76, largest_strike: 260 } },
+          dormant:      { firing: true,  strength: 0.6, label: 'ACTIVATING', detail: { position_age_days: 28, open_interest_rank: 0.77, activation_score: 0.6 } },
+          sentiment:    { firing: true,  strength: 0.8, label: 'catalyst', detail: { novelty_score: 0.8, catalyst_near: true, news_sentiment: 0.81, embedding_distance: 0.85 } },
         },
       },
     ];
@@ -405,6 +405,50 @@ test.describe('Template system', () => {
   test('template button click applies template', async ({ page }) => {
     await page.locator('.tpl-btn').nth(1).click();
     await expect(page.locator('.tpl-btn').nth(1)).toHaveClass(/active/);
+  });
+
+  test('standard template shows picks and main col', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('standard'));
+    await expect(page.locator('#ev-picks-slot')).toBeVisible();
+    await expect(page.locator('#ev-main-col')).toBeVisible();
+    await expect(page.locator('#ev-chat-slot')).toBeVisible();
+  });
+
+  test('minimal template hides main col', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('minimal'));
+    const mainVisible = await page.locator('#ev-main-col').isVisible();
+    expect(mainVisible).toBe(false);
+    await expect(page.locator('#ev-picks-slot')).toBeVisible();
+  });
+
+  test('focus template hides picks slot', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('focus'));
+    await page.waitForTimeout(50);
+    const picksVisible = await page.locator('#ev-picks-slot').isVisible();
+    expect(picksVisible).toBe(false);
+    await expect(page.locator('#ev-main-col')).toBeVisible();
+  });
+
+  test('pro template hides strip slot', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('pro'));
+    const stripVisible = await page.locator('#ev-strip-slot').isVisible();
+    expect(stripVisible).toBe(false);
+    await expect(page.locator('#ev-picks-slot')).toBeVisible();
+    await expect(page.locator('#ev-main-col')).toBeVisible();
+  });
+
+  test('research template hides main chart but shows strip', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('research'));
+    await expect(page.locator('#ev-main-col')).toBeVisible();
+    await expect(page.locator('#ev-strip-slot')).toBeVisible();
+  });
+
+  test('switching back to standard restores all panels', async ({ page }) => {
+    await page.evaluate(() => window.EV_Templates.applyTemplate('focus'));
+    await page.evaluate(() => window.EV_Templates.applyTemplate('standard'));
+    await expect(page.locator('#ev-picks-slot')).toBeVisible();
+    await expect(page.locator('#ev-main-col')).toBeVisible();
+    await expect(page.locator('#ev-chat-slot')).toBeVisible();
   });
 });
 
@@ -734,13 +778,14 @@ test.describe('Category Nav module', () => {
   });
 
   test('TODAY section present', async ({ page }) => {
-    const nav = page.locator('.nav-slot, [data-module-type="category-nav"]');
-    await expect(nav).toContainText('TODAY');
+    // Horizontal mode renders pills, not section labels — check for today's picks pill
+    const todayPill = page.locator('#ev-nav-slot [data-nav-id="today"], .nav-slot [data-nav-id="today"], [data-module-type="category-nav"] .nav-item');
+    await expect(todayPill.first()).toBeVisible();
   });
 
   test('today filter item exists', async ({ page }) => {
-    const nav = page.locator('.nav-slot, [data-module-type="category-nav"]');
-    const items = nav.locator('.nav-item, [data-cat]');
+    const nav = page.locator('#ev-nav-slot, [data-module-type="category-nav"]');
+    const items = nav.locator('.nav-pill, .nav-item, [data-cat]');
     const count = await items.count();
     expect(count).toBeGreaterThan(0);
   });
@@ -1191,18 +1236,18 @@ test.describe('Price Chart — resize', () => {
     expect(height).toBeGreaterThanOrEqual(80);
   });
 
-  test('market-context module never collapses below 80px', async ({ page }) => {
+  test('market-context module is visible in subnav (positive height)', async ({ page }) => {
     const el = page.locator('[data-module-type="market-context"]');
     const height = await el.evaluate(e => e.getBoundingClientRect().height);
-    expect(height).toBeGreaterThanOrEqual(80);
+    expect(height).toBeGreaterThan(0);
   });
 
-  test('.ev-module CSS has min-height: 80px', async ({ page }) => {
-    const minH = await page.evaluate(() => {
-      const el = document.querySelector('.ev-module');
-      return el ? window.getComputedStyle(el).minHeight : null;
+  test('canvas ev-module fills available height', async ({ page }) => {
+    const h = await page.evaluate(() => {
+      const el = document.querySelector('#ev-canvas .ev-module');
+      return el ? el.getBoundingClientRect().height : 0;
     });
-    expect(minH).toBe('80px');
+    expect(h).toBeGreaterThan(0);
   });
 });
 
@@ -1266,14 +1311,20 @@ test.describe('Factor Strip — cells', () => {
     expect(prefill).toContain('TECH');
   });
 
-  test('clicking TECH cell opens help overlay', async ({ page }) => {
+  test('clicking TECH cell opens detail panel', async ({ page }) => {
     await page.locator('.factor-cell[data-factor="technical"]').click();
+    await page.waitForTimeout(100);
+    await expect(page.locator('.fs-detail')).toBeVisible();
+  });
+
+  test('clicking TECH ? button opens help overlay', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="technical"] .fc-help-btn').click();
     await page.waitForTimeout(100);
     await expect(page.locator('#ev-help-overlay')).not.toHaveAttribute('hidden');
   });
 
-  test('clicking GEX cell opens help at gex tab', async ({ page }) => {
-    await page.locator('.factor-cell[data-factor="gex"]').click();
+  test('clicking GEX ? button opens help at gex tab', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="gex"] .fc-help-btn').click();
     await page.waitForTimeout(100);
     const activeTab = await page.evaluate(() =>
       document.querySelector('.ev-help-tab.active')?.dataset.tab
@@ -1281,8 +1332,8 @@ test.describe('Factor Strip — cells', () => {
     expect(activeTab).toBe('gex');
   });
 
-  test('clicking DORMANT cell opens help at dormant tab', async ({ page }) => {
-    await page.locator('.factor-cell[data-factor="dormant"]').click();
+  test('clicking DORMANT ? button opens help at dormant tab', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="dormant"] .fc-help-btn').click();
     await page.waitForTimeout(100);
     const activeTab = await page.evaluate(() =>
       document.querySelector('.ev-help-tab.active')?.dataset.tab
@@ -1299,6 +1350,28 @@ test.describe('Factor Strip — cells', () => {
     await page.waitForTimeout(200);
     const cell = page.locator('.factor-cell[data-factor="dormant"]');
     await expect(cell).toHaveClass(/firing/);
+  });
+
+  test('clicking TECH cell shows populated detail grid (not empty message)', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="technical"]').click();
+    await page.waitForTimeout(150);
+    const items = page.locator('.fdp-grid .fdp-item');
+    const count = await items.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('detail panel shows correct factor label after click', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="gex"]').click();
+    await page.waitForTimeout(150);
+    await expect(page.locator('.fdp-name')).toContainText('GEX');
+  });
+
+  test('detail panel does not show empty-data message when factor has detail', async ({ page }) => {
+    await page.locator('.factor-cell[data-factor="technical"]').click();
+    await page.waitForTimeout(150);
+    const emptyMsg = page.locator('.fs-detail .fdp-empty');
+    const visible = await emptyMsg.isVisible();
+    expect(visible).toBe(false);
   });
 });
 
@@ -1792,7 +1865,7 @@ test.describe('Module mounting', () => {
   });
 
   test('category-nav module mounted in nav slot', async ({ page }) => {
-    await expect(page.locator('.nav-slot')).toBeVisible();
+    await expect(page.locator('#ev-nav-slot')).toBeVisible();
   });
 
   test('EV registry contains registered module IDs', async ({ page }) => {
@@ -1914,7 +1987,51 @@ test.describe('Responsive min-height', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 30. VOICE ORB
+// 30. LAYOUT — NO OVERLAP
+// ═════════════════════════════════════════════════════════════════════════════
+
+test.describe('Layout — no overlap', () => {
+  test.beforeEach(async ({ page }) => { await waitForApp(page); });
+
+  test('subnav does not overlap ev-body (body starts at subnav bottom)', async ({ page }) => {
+    const { subnavBottom, bodyTop } = await page.evaluate(() => {
+      const s = document.getElementById('ev-subnav')?.getBoundingClientRect();
+      const b = document.getElementById('ev-body')?.getBoundingClientRect();
+      return { subnavBottom: Math.round(s?.bottom || 0), bodyTop: Math.round(b?.top || 0) };
+    });
+    expect(bodyTop).toBeGreaterThanOrEqual(subnavBottom);
+  });
+
+  test('slot elements do not have ev-module class (no min-height inflation)', async ({ page }) => {
+    const slotIds = ['ev-nav-slot', 'ev-market-slot', 'ev-picks-slot', 'ev-strip-slot', 'ev-chat-slot'];
+    const hasClass = await page.evaluate(ids => ids.map(id => document.getElementById(id)?.classList.contains('ev-module')), slotIds);
+    hasClass.forEach(has => expect(has).toBe(false));
+  });
+
+  test('picks, main-col and chat do not overlap each other', async ({ page }) => {
+    const boxes = await page.evaluate(() => {
+      const ids = ['ev-picks-slot', 'ev-main-col', 'ev-chat-slot'];
+      return ids.map(id => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { l: Math.round(r.left), r: Math.round(r.right) } : null; });
+    });
+    const [picks, main, chat] = boxes;
+    if (picks && main) expect(picks.r).toBeLessThanOrEqual(main.l + 1);
+    if (main && chat) expect(main.r).toBeLessThanOrEqual(chat.l + 1);
+  });
+
+  test('subnav slot heights match subnav (not inflated by ev-module min-height)', async ({ page }) => {
+    const heights = await page.evaluate(() => {
+      const subnav = document.getElementById('ev-subnav')?.getBoundingClientRect().height || 0;
+      const nav = document.getElementById('ev-nav-slot')?.getBoundingClientRect().height || 0;
+      const market = document.getElementById('ev-market-slot')?.getBoundingClientRect().height || 0;
+      return { subnav: Math.round(subnav), nav: Math.round(nav), market: Math.round(market) };
+    });
+    expect(heights.nav).toBeLessThanOrEqual(heights.subnav + 2);
+    expect(heights.market).toBeLessThanOrEqual(heights.subnav + 2);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 31. VOICE ORB
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('Voice Orb', () => {

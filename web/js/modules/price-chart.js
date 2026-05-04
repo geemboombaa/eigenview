@@ -40,10 +40,22 @@
   }
 
   const PATTERN_LABELS = {
-    breakout: { text: 'Breakout ↑', color: '#22c55e', shape: 'arrowUp' },
-    pullback_in_trend: { text: 'Pullback', color: '#3b82f6', shape: 'arrowDown' },
-    compression_break: { text: 'Compression Break', color: '#a855f7', shape: 'arrowUp' },
-    bearish_reversal: { text: 'Bearish ↓', color: '#ef4444', shape: 'arrowDown' },
+    breakout:             { text: 'Breakout ↑',         color: '#22c55e', shape: 'arrowUp' },
+    pullback_in_trend:    { text: 'Pullback to Support',  color: '#22c55e', shape: 'arrowUp'  },
+    compression_break:    { text: 'Compression Break',  color: '#a855f7', shape: 'arrowUp' },
+    ema_reclaim:          { text: 'EMA Reclaim',         color: '#22c55e', shape: 'arrowUp' },
+    base_breakout:        { text: 'Base Breakout',       color: '#22c55e', shape: 'arrowUp' },
+    oversold_bounce:      { text: 'Oversold Bounce',     color: '#3b82f6', shape: 'arrowUp' },
+    failed_breakdown:     { text: 'Failed Breakdown',    color: '#22c55e', shape: 'arrowUp' },
+    bullish_reversal:     { text: 'Bullish Rev ↑',       color: '#22c55e', shape: 'arrowUp' },
+    bearish_reversal:     { text: 'Bearish Rev ↓',       color: '#ef4444', shape: 'arrowDown' },
+    breakdown:            { text: 'Breakdown ↓',         color: '#ef4444', shape: 'arrowDown' },
+    rally_in_downtrend:   { text: 'Rally (Short)',        color: '#f97316', shape: 'arrowDown' },
+    compression_break_down: { text: 'Compression ↓',    color: '#a855f7', shape: 'arrowDown' },
+    ema_rejection:        { text: 'EMA Rejection',       color: '#ef4444', shape: 'arrowDown' },
+    base_breakdown:       { text: 'Base Breakdown ↓',    color: '#ef4444', shape: 'arrowDown' },
+    overbought_reversal:  { text: 'Overbought Rev ↓',   color: '#ef4444', shape: 'arrowDown' },
+    failed_breakout:      { text: 'Failed Breakout ↓',  color: '#f97316', shape: 'arrowDown' },
   };
 
   function patternBadgeHtml(pattern) {
@@ -272,7 +284,7 @@
         },
         crosshair: { mode: LC.CrosshairMode?.Normal ?? 1 },
         rightPriceScale: { borderColor: colors.border },
-        timeScale: { borderColor: colors.border, timeVisible: true },
+        timeScale: { borderColor: colors.border, timeVisible: true, rightOffset: 12 },
         handleScroll: true,
         handleScale: true,
       });
@@ -293,14 +305,14 @@
 
       // EMA 21
       if (ind.ema21?.length) {
-        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'EMA21' });
+        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
         s.setData(ind.ema21);
         this._series.ema21 = s;
       }
 
       // EMA 50
       if (ind.ema50?.length) {
-        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: 'EMA50' });
+        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
         s.setData(ind.ema50);
         this._series.ema50 = s;
       }
@@ -343,6 +355,18 @@
       }
       if (gex.gamma_flip) {
         candleSeries.createPriceLine({ price: gex.gamma_flip, color: '#f59e0b', lineWidth: 1, lineStyle: LC.LineStyle?.Solid ?? 0, axisLabelVisible: true, title: 'Flip' });
+      }
+
+      // Entry zone + stop level (from today's pick data)
+      const ez = data.entry_zone || {};
+      if (ez.low) {
+        candleSeries.createPriceLine({ price: ez.low, color: 'rgba(34,197,94,0.7)', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Entry' });
+      }
+      if (ez.high && ez.high !== ez.low) {
+        candleSeries.createPriceLine({ price: ez.high, color: 'rgba(34,197,94,0.5)', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Entry Hi' });
+      }
+      if (data.stop) {
+        candleSeries.createPriceLine({ price: data.stop, color: 'rgba(239,68,68,0.8)', lineWidth: 2, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Stop' });
       }
 
       // Pattern marker on last candle

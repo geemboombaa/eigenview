@@ -120,6 +120,7 @@ class MacroDaily(Base):
     vix_m2: Mapped[float | None] = mapped_column(Float)
     vix_m3: Mapped[float | None] = mapped_column(Float)
     vix_contango_pct: Mapped[float | None] = mapped_column(Float)
+    spx_breadth_pct: Mapped[float | None] = mapped_column(Float)   # % stocks above 50dma
     fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -150,6 +151,7 @@ class Pick(Base):
     conviction: Mapped[int | None] = mapped_column(Integer)
     thesis: Mapped[str | None] = mapped_column(Text)
     factors_json: Mapped[str | None] = mapped_column(Text)
+    signal_fired_at: Mapped[datetime | None] = mapped_column(DateTime)  # when pattern first fired
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -171,7 +173,7 @@ class DormantBet(Base):
 
 
 class SignalBench(Base):
-    """Tickers that passed TA+GEX but didn't get 2-of-3 soft factors."""
+    """Near-miss and partial-signal tickers — tiered B/C/D."""
     __tablename__ = "signal_bench"
     __table_args__ = (UniqueConstraint("date", "ticker"),)
 
@@ -180,6 +182,39 @@ class SignalBench(Base):
     ticker: Mapped[str] = mapped_column(String(20), nullable=False)
     soft_factors_firing: Mapped[int] = mapped_column(Integer, default=0)
     reason: Mapped[str | None] = mapped_column(Text)
+    # Tier: B=near miss (TA+GEX+1soft), C=one hard gate+1soft, D=strong single signal
+    tier: Mapped[str] = mapped_column(String(2), default='B')
+    factors_json: Mapped[str | None] = mapped_column(Text)
+    direction: Mapped[str | None] = mapped_column(String(10))
+    setup_type: Mapped[str | None] = mapped_column(String(50))
+    conviction: Mapped[int] = mapped_column(Integer, default=1)
+    entry_low: Mapped[float | None] = mapped_column(Float)
+    entry_high: Mapped[float | None] = mapped_column(Float)
+    stop: Mapped[float | None] = mapped_column(Float)
+
+
+class FactorScore(Base):
+    """Per-ticker per-day raw factor scores for all scanned tickers (heat map source)."""
+    __tablename__ = "factor_scores"
+    __table_args__ = (UniqueConstraint("date", "ticker"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    ta_strength: Mapped[float | None] = mapped_column(Float)
+    ta_label: Mapped[str | None] = mapped_column(String(50))
+    gex_strength: Mapped[float | None] = mapped_column(Float)
+    gex_label: Mapped[str | None] = mapped_column(String(50))
+    flow_strength: Mapped[float | None] = mapped_column(Float)
+    flow_label: Mapped[str | None] = mapped_column(String(50))
+    dormant_strength: Mapped[float | None] = mapped_column(Float)
+    dormant_label: Mapped[str | None] = mapped_column(String(50))
+    sentiment_strength: Mapped[float | None] = mapped_column(Float)
+    sentiment_label: Mapped[str | None] = mapped_column(String(50))
+    macro_score: Mapped[int | None] = mapped_column(Integer)
+    spot_price: Mapped[float | None] = mapped_column(Float)
+    factors_firing: Mapped[int | None] = mapped_column(Integer)  # count of factors firing
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class LlmLog(Base):
