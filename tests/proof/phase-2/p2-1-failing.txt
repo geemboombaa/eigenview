@@ -1,0 +1,52 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0 -- C:\Users\v_per\Claude\Projects\Eigenview\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\v_per\Claude\Projects\Eigenview
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0, snapshot-0.9.0, vcr-1.0.2
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+tests/api/test_score_technical_contract.py::test_score_technical_has_weekly_state FAILED [ 50%]
+tests/api/test_score_technical_contract.py::test_score_technical_has_rsi_p40 FAILED [100%]
+
+================================== FAILURES ===================================
+____________________ test_score_technical_has_weekly_state ____________________
+
+    def test_score_technical_has_weekly_state():
+        from eigenview.factors.technical import score_technical
+        df = _make_df()
+        result = score_technical(df, "TEST")
+>       assert "weekly_state" in result.detail, (
+            "score_technical detail missing 'weekly_state' ? add it alongside weekly_trend"
+        )
+E       AssertionError: score_technical detail missing 'weekly_state' ? add it alongside weekly_trend
+E       assert 'weekly_state' in {'adx': 33.2, 'bear_divergence': np.False_, 'bull_divergence': np.False_, 'confidence': 0.8, ...}
+E        +  where {'adx': 33.2, 'bear_divergence': np.False_, 'bull_divergence': np.False_, 'confidence': 0.8, ...} = FactorResult(factor_id='technical', firing=True, strength=0.8, label='rally_in_downtrend', detail={'pattern': 'rally_in_downtrend', 'confidence': 0.8, 'direction': 'short', 'trend': 'bearish', 'weekly_trend': 'bearish_strong', 'swing_high': 392.55071238553313, 'swing_low': 382.2696435455718, 'adx': 33.2, 'rsi': 39.37, 'vol_character': 'declining', 'vol_ratio': 0.48, 'bull_divergence': np.False_, 'bear_divergence': np.False_, 'ema200': None, 'weekly_ema8': 390.83, 'weekly_ema21': 397.17, 'fib_levels': {'high': 410.96, 'low': 382.27, 'f236': 404.19, 'f382': 400.0, 'f500': 396.62, 'f618': 393.23, 'f786': 388.41}}, narrative='Bearish rally in downtrend (80% conf): ADX 33.2, RSI 39.4, vol 0.48x avg (declining). Weekly: bearish_strong.').detail
+
+tests\api\test_score_technical_contract.py:32: AssertionError
+______________________ test_score_technical_has_rsi_p40 _______________________
+
+    def test_score_technical_has_rsi_p40():
+        from eigenview.factors.technical import score_technical
+        df = _make_df()
+        result = score_technical(df, "TEST")
+>       assert "rsi_p40" in result.detail, (
+            "score_technical detail missing 'rsi_p40' ? expose rolling RSI percentile"
+        )
+E       AssertionError: score_technical detail missing 'rsi_p40' ? expose rolling RSI percentile
+E       assert 'rsi_p40' in {'adx': 33.2, 'bear_divergence': np.False_, 'bull_divergence': np.False_, 'confidence': 0.8, ...}
+E        +  where {'adx': 33.2, 'bear_divergence': np.False_, 'bull_divergence': np.False_, 'confidence': 0.8, ...} = FactorResult(factor_id='technical', firing=True, strength=0.8, label='rally_in_downtrend', detail={'pattern': 'rally_in_downtrend', 'confidence': 0.8, 'direction': 'short', 'trend': 'bearish', 'weekly_trend': 'bearish_strong', 'swing_high': 392.55071238553313, 'swing_low': 382.2696435455718, 'adx': 33.2, 'rsi': 39.37, 'vol_character': 'declining', 'vol_ratio': 0.48, 'bull_divergence': np.False_, 'bear_divergence': np.False_, 'ema200': None, 'weekly_ema8': 390.83, 'weekly_ema21': 397.17, 'fib_levels': {'high': 410.96, 'low': 382.27, 'f236': 404.19, 'f382': 400.0, 'f500': 396.62, 'f618': 393.23, 'f786': 388.41}}, narrative='Bearish rally in downtrend (80% conf): ADX 33.2, RSI 39.4, vol 0.48x avg (declining). Weekly: bearish_strong.').detail
+
+tests\api\test_score_technical_contract.py:41: AssertionError
+============================== warnings summary ===============================
+tests/api/test_score_technical_contract.py::test_score_technical_has_weekly_state
+  C:\Users\v_per\Claude\Projects\Eigenview\.venv\Lib\site-packages\pandas_ta\__init__.py:37: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    from pandas_ta.core import AnalysisIndicators
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/api/test_score_technical_contract.py::test_score_technical_has_weekly_state
+FAILED tests/api/test_score_technical_contract.py::test_score_technical_has_rsi_p40
+======================== 2 failed, 1 warning in 2.49s =========================
+

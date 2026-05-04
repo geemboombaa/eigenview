@@ -1,0 +1,105 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0 -- C:\Users\v_per\Claude\Projects\Eigenview\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\v_per\Claude\Projects\Eigenview
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0, snapshot-0.9.0, vcr-1.0.2
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=function
+collecting ... collected 83 items
+
+tests/api/test_picks_contract.py::test_picks_returns_list PASSED         [  1%]
+tests/api/test_picks_contract.py::test_pick_has_required_fields PASSED   [  2%]
+tests/api/test_picks_contract.py::test_pick_structure_non_empty PASSED   [  3%]
+tests/api/test_picks_contract.py::test_pick_signal_fired_at PASSED       [  4%]
+tests/api/test_picks_contract.py::test_pick_technical_factor PASSED      [  6%]
+tests/api/test_score_technical_contract.py::test_score_technical_has_weekly_state PASSED [  7%]
+tests/api/test_score_technical_contract.py::test_score_technical_has_rsi_p40 PASSED [  8%]
+tests/data/test_calendar.py::test_get_catalysts_returns_required_fields PASSED [  9%]
+tests/data/test_calendar.py::test_days_from_now_accuracy PASSED          [ 10%]
+tests/data/test_calendar.py::test_get_catalysts_empty_result PASSED      [ 12%]
+tests/data/test_calendar.py::test_days_to_next_catalyst_returns_int PASSED [ 13%]
+tests/data/test_chains.py::test_fetch_chain_returns_correct_structure PASSED [ 14%]
+tests/data/test_chains.py::test_fetch_chain_filters_zero_iv PASSED       [ 15%]
+tests/data/test_chains.py::test_fetch_chain_empty_expiries PASSED        [ 16%]
+tests/data/test_chains.py::test_fetch_chain_gamma_present_and_valid PASSED [ 18%]
+tests/data/test_macro.py::test_fetch_macro_returns_all_keys PASSED       [ 19%]
+tests/data/test_macro.py::test_vix_contango_pct_calculation PASSED       [ 20%]
+tests/data/test_macro.py::test_fetch_macro_partial_on_source_failure PASSED [ 21%]
+tests/data/test_macro.py::test_cot_net_long_pct_bounds PASSED            [ 22%]
+tests/data/test_news.py::test_fetch_news_returns_expected_keys PASSED    [ 24%]
+tests/data/test_news.py::test_fetch_news_deduplicates_same_url PASSED    [ 25%]
+tests/data/test_news.py::test_fetch_news_av_empty_feed PASSED            [ 26%]
+tests/data/test_news.py::test_url_hash_is_64_char_hex PASSED             [ 27%]
+tests/data/test_prices.py::test_fetch_prices_happy_path PASSED           [ 28%]
+tests/data/test_prices.py::test_fetch_prices_empty_raises PASSED         [ 30%]
+tests/data/test_prices.py::test_fetch_prices_stale_flag PASSED           [ 31%]
+tests/data/test_prices.py::test_fetch_prices_deterministic PASSED        [ 32%]
+tests/factors/test_dormant.py::test_accumulating_state PASSED            [ 33%]
+tests/factors/test_dormant.py::test_no_bets_in_db PASSED                 [ 34%]
+tests/factors/test_dormant.py::test_high_score_fires PASSED              [ 36%]
+tests/factors/test_dormant.py::test_low_score_no_fire PASSED             [ 37%]
+tests/factors/test_dormant.py::test_oi_growth_detected PASSED            [ 38%]
+tests/factors/test_flow.py::test_large_call_sweep_fires PASSED           [ 39%]
+tests/factors/test_flow.py::test_put_sweep_fires PASSED                  [ 40%]
+tests/factors/test_flow.py::test_below_threshold_no_fire PASSED          [ 42%]
+tests/factors/test_flow.py::test_low_voi_no_fire PASSED                  [ 43%]
+tests/factors/test_flow.py::test_no_data PASSED                          [ 44%]
+tests/factors/test_gex.py::test_short_gamma_fires PASSED                 [ 45%]
+tests/factors/test_gex.py::test_long_gamma_no_fire PASSED                [ 46%]
+tests/factors/test_gex.py::test_call_wall_put_wall_detected PASSED       [ 48%]
+tests/factors/test_gex.py::test_no_data PASSED                           [ 49%]
+tests/factors/test_gex.py::test_flip_zone PASSED                         [ 50%]
+tests/factors/test_macro_regime.py::test_green_regime PASSED             [ 51%]
+tests/factors/test_macro_regime.py::test_yellow_regime PASSED            [ 53%]
+tests/factors/test_macro_regime.py::test_red_regime PASSED               [ 54%]
+tests/factors/test_macro_regime.py::test_no_data PASSED                  [ 55%]
+tests/factors/test_macro_regime.py::test_partial_data PASSED             [ 56%]
+tests/factors/test_sentiment.py::test_bullish_news_fires PASSED          [ 57%]
+tests/factors/test_sentiment.py::test_no_news_no_fire PASSED             [ 59%]
+tests/factors/test_sentiment.py::test_catalyst_near_fires PASSED         [ 60%]
+tests/factors/test_sentiment.py::test_bearish_sentiment PASSED           [ 61%]
+tests/factors/test_sentiment.py::test_old_news_ignored PASSED            [ 62%]
+tests/factors/test_technical.py::test_breakout_fires PASSED              [ 63%]
+tests/factors/test_technical.py::test_pullback_fires PASSED              [ 65%]
+tests/factors/test_technical.py::test_no_pattern PASSED                  [ 66%]
+tests/factors/test_technical.py::test_insufficient_data PASSED           [ 67%]
+tests/factors/test_technical.py::test_bearish_trend_blocks PASSED        [ 68%]
+tests/factors/test_technical_pullback.py::test_pullback_pattern_fires PASSED [ 69%]
+tests/factors/test_technical_pullback.py::test_pullback_confidence PASSED [ 71%]
+tests/factors/test_technical_pullback.py::test_pullback_daily_trend_bullish PASSED [ 72%]
+tests/factors/test_technical_pullback.py::test_pullback_weekly_trend_bullish PASSED [ 73%]
+tests/factors/test_technical_pullback.py::test_pullback_rsi_in_dip_zone PASSED [ 74%]
+tests/factors/test_technical_pullback.py::test_pullback_adx_trending PASSED [ 75%]
+tests/factors/test_technical_pullback.py::test_pullback_volume_light PASSED [ 77%]
+tests/factors/test_technical_pullback.py::test_pullback_swing_low_present PASSED [ 78%]
+tests/factors/test_technical_pullback.py::test_weekly_state_bullish_on_apr16 PASSED [ 79%]
+tests/factors/test_technical_pullback.py::test_no_pullback_on_compression_day PASSED [ 80%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-08] PASSED [ 81%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-09] PASSED [ 83%]
+tests/factors/test_technical_pullback.py::test_additional_pullback_dates_fire[2024-04-15] PASSED [ 84%]
+tests/factors/test_technical_pullback.py::test_no_pullback_when_extended[2024-01-16] PASSED [ 85%]
+tests/factors/test_technical_pullback.py::test_no_pullback_when_extended[2024-02-22] PASSED [ 86%]
+tests/factors/test_technical_pullback.py::test_adaptive_thresholds_differ_by_stock PASSED [ 87%]
+tests/synthesis/test_gate.py::test_qualify_all_gates_pass PASSED         [ 89%]
+tests/synthesis/test_gate.py::test_qualify_red_macro_blocks PASSED       [ 90%]
+tests/synthesis/test_gate.py::test_qualify_ta_gate_blocks PASSED         [ 91%]
+tests/synthesis/test_gate.py::test_qualify_only_1_soft_fails PASSED      [ 92%]
+tests/synthesis/test_gate.py::test_conviction_score_high PASSED          [ 93%]
+tests/synthesis/test_gate.py::test_setup_type_priority PASSED            [ 95%]
+tests/synthesis/test_ranker.py::test_rank_sorts_by_conviction PASSED     [ 96%]
+tests/synthesis/test_ranker.py::test_rank_filters_unqualified PASSED     [ 97%]
+tests/synthesis/test_ranker.py::test_write_picks_inserts_rows PASSED     [ 98%]
+tests/synthesis/test_ranker.py::test_write_picks_updates_existing PASSED [100%]
+
+============================== warnings summary ===============================
+tests\api\test_picks_contract.py:74
+  C:\Users\v_per\Claude\Projects\Eigenview\tests\api\test_picks_contract.py:74: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "signal_fired_at": datetime.utcnow(),
+
+.venv\Lib\site-packages\pandas_ta\__init__.py:37
+  C:\Users\v_per\Claude\Projects\Eigenview\.venv\Lib\site-packages\pandas_ta\__init__.py:37: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    from pandas_ta.core import AnalysisIndicators
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 83 passed, 2 warnings in 34.24s =======================
+
