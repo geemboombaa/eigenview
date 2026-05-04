@@ -173,6 +173,38 @@
   line-height: 1.6;
 }
 .ev-help-callout strong { color: var(--accent); }
+
+/* ── SPEC tab ── */
+.spec-pattern { margin-bottom: 24px; }
+.spec-pattern-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.spec-category { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 0.3px; }
+.spec-conditions { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 14px; }
+.spec-conditions th { text-align: left; color: var(--text-faint); font-weight: 600; letter-spacing: 0.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.spec-conditions td { padding: 5px 8px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); }
+.spec-conditions td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+.spec-note-row { display: flex; gap: 8px; margin-top: 10px; }
+.spec-note-input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 12px; padding: 6px 10px; font-family: inherit; }
+.spec-note-input:focus { outline: none; border-color: var(--accent); }
+.spec-note-btn { background: var(--accent); color: #000; border: none; border-radius: 5px; padding: 6px 14px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.spec-note-btn:hover { opacity: 0.85; }
+.spec-notes-list { margin-top: 10px; }
+.spec-note-item { font-size: 11px; color: var(--text-dim); padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+
+/* ── AUDIT tab ── */
+.audit-run-btn { background: var(--accent); color: #000; border: none; border-radius: 6px; padding: 8px 20px; font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; margin-bottom: 16px; }
+.audit-run-btn:hover { opacity: 0.85; }
+.audit-summary { display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; }
+.audit-sum-pass { color: #00ff99; font-weight: 700; }
+.audit-sum-fail { color: #ff2d55; font-weight: 700; }
+.audit-sum-warn { color: #ffd60a; font-weight: 700; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.audit-table th { text-align: left; color: var(--text-faint); font-weight: 600; letter-spacing: 0.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.audit-table td { padding: 5px 8px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.audit-table td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+.audit-status { font-weight: 700; white-space: nowrap; }
+.audit-pass .audit-status { color: #00ff99; }
+.audit-fail .audit-status { color: #ff2d55; }
+.audit-warn .audit-status { color: #ffd60a; }
 `;
 
   function injectCSS() {
@@ -193,6 +225,8 @@
     { id: 'macro', label: 'Macro' },
     { id: 'selection', label: 'Stock Selection' },
     { id: 'ui', label: 'Dashboard UI' },
+    { id: 'spec', label: 'SPEC' },
+    { id: 'audit', label: 'AUDIT' },
   ];
 
   const PANELS = {
@@ -517,6 +551,34 @@
       </div>
     `,
 
+    spec: `
+      <div class="ev-help-section" id="help-spec">
+        <div class="ev-help-section-head">
+          <span class="ev-help-section-title">Pattern Spec</span>
+          <span class="ev-help-live-badge live">Live</span>
+        </div>
+        <p class="ev-help-p">Exact conditions required for each detected pattern. Populated from <code>/api/spec/ta</code>.</p>
+        <div id="spec-patterns-container">
+          <p class="ev-help-p" style="color:var(--text-faint)">Loading…</p>
+        </div>
+      </div>
+    `,
+
+    audit: `
+      <div class="ev-help-section" id="help-audit">
+        <div class="ev-help-section-head">
+          <span class="ev-help-section-title">Signal Audit</span>
+        </div>
+        <p class="ev-help-p">Verifies that <code>technical.py</code> implements all required checks. Run after any factor change.</p>
+        <button class="audit-run-btn" id="ev-audit-run-btn">RUN AUDIT</button>
+        <div id="ev-audit-summary" class="audit-summary" style="display:none"></div>
+        <table class="audit-table" id="ev-audit-results" style="display:none">
+          <thead><tr><th>File</th><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+          <tbody id="ev-audit-tbody"></tbody>
+        </table>
+      </div>
+    `,
+
     ui: `
       <div class="ev-help-section" id="help-ui">
         <div class="ev-help-section-head">
@@ -610,10 +672,105 @@
       const id = tab.dataset.tab;
       document.querySelectorAll('.ev-help-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
       document.querySelectorAll('.ev-help-panel').forEach(p => p.classList.toggle('active', p.id === `ev-help-panel-${id}`));
+      _wireTabActions(id);
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && !overlay.hidden) overlay.hidden = true;
     });
+  }
+
+  async function loadSpec() {
+    const container = document.getElementById('spec-patterns-container');
+    if (!container) return;
+    try {
+      const data = await fetch('/api/spec/ta').then(r => r.json());
+      container.innerHTML = data.patterns.map(p => `
+        <div class="spec-pattern">
+          <div class="spec-pattern-name">${p.display_name}</div>
+          <div class="spec-category">${p.category} · Weekly: ${p.weekly_requirement}</div>
+          <table class="spec-conditions">
+            <thead><tr><th>Check</th><th>Field</th><th>Condition</th></tr></thead>
+            <tbody>
+              ${p.conditions.map(c => `
+                <tr>
+                  <td>${c.label}</td>
+                  <td><code>${c.field}</code></td>
+                  <td>${c.expected ? (Array.isArray(c.expected) ? c.expected.join(' | ') : c.expected) : (c.check || '')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          <div class="spec-note-row">
+            <input class="spec-note-input" type="text" placeholder="Add note about ${p.display_name}…" id="spec-note-input-${p.name}">
+            <button class="spec-note-btn" onclick="window._evSaveNote('${p.name}', this)">Save</button>
+          </div>
+          <div class="spec-notes-list" id="spec-notes-${p.name}"></div>
+        </div>`).join('');
+      // Load existing notes for each pattern
+      for (const p of data.patterns) {
+        loadSpecNotes(p.name);
+      }
+    } catch {
+      if (container) container.innerHTML = '<p class="ev-help-p" style="color:#ff2d55">Failed to load spec — is the server running?</p>';
+    }
+  }
+
+  async function loadSpecNotes(specId) {
+    try {
+      const data = await fetch(`/api/spec/notes/${specId}`).then(r => r.json());
+      const el = document.getElementById(`spec-notes-${specId}`);
+      if (!el) return;
+      el.innerHTML = data.notes.map(n => `<div class="spec-note-item">${n.note} <span style="color:var(--text-faint);font-size:10px">${n.created_at.slice(0, 10)}</span></div>`).join('');
+    } catch { /* ignore */ }
+  }
+
+  window._evSaveNote = async function(specId, btn) {
+    const input = document.getElementById(`spec-note-input-${specId}`);
+    if (!input || !input.value.trim()) return;
+    try {
+      await fetch('/api/spec/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spec_id: specId, note: input.value.trim() }),
+      });
+      input.value = '';
+      loadSpecNotes(specId);
+    } catch { /* ignore */ }
+  };
+
+  async function runAudit() {
+    const tbody = document.getElementById('ev-audit-tbody');
+    const table = document.getElementById('ev-audit-results');
+    const summary = document.getElementById('ev-audit-summary');
+    if (!tbody || !table || !summary) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-faint)">Running…</td></tr>';
+    table.style.display = '';
+    summary.style.display = 'none';
+    try {
+      const data = await fetch('/api/audit/ta').then(r => r.json());
+      tbody.innerHTML = data.findings.map(f =>
+        `<tr class="audit-${f.status.toLowerCase()}">
+          <td>${f.file}</td>
+          <td>${f.check}</td>
+          <td class="audit-status">${f.status}</td>
+          <td>${f.detail || ''}</td>
+        </tr>`
+      ).join('');
+      summary.style.display = 'flex';
+      summary.innerHTML = `
+        <span class="audit-sum-pass">PASS: ${data.summary.pass}</span>
+        <span class="audit-sum-fail">FAIL: ${data.summary.fail}</span>
+        <span class="audit-sum-warn">WARN: ${data.summary.warn}</span>`;
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#ff2d55">Audit failed — is the server running?</td></tr>';
+    }
+  }
+
+  function _wireTabActions(tabId) {
+    if (tabId === 'spec') loadSpec();
+    if (tabId === 'audit') {
+      const btn = document.getElementById('ev-audit-run-btn');
+      if (btn && !btn._wired) { btn.addEventListener('click', runAudit); btn._wired = true; }
+    }
   }
 
   function init() {
@@ -629,6 +786,7 @@
       if (tabId) {
         document.querySelectorAll('.ev-help-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
         document.querySelectorAll('.ev-help-panel').forEach(p => p.classList.toggle('active', p.id === `ev-help-panel-${tabId}`));
+        _wireTabActions(tabId);
       }
       if (sectionId) {
         requestAnimationFrame(() => {

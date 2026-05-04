@@ -1,0 +1,41 @@
+GET /api/audit/ta
+
+{
+    "findings": [
+        {
+            "file": "technical.py",
+            "check": "pullback_in_trend in detect_pattern",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "file": "technical.py",
+            "check": "No hardcoded RSI literals",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "file": "technical.py",
+            "check": "squeeze_pro() in use",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "file": "technical.py",
+            "check": "rsi_p40 in detail dict",
+            "status": "PASS",
+            "detail": ""
+        },
+        {
+            "file": "technical.py",
+            "check": "weekly_state in detail dict",
+            "status": "PASS",
+            "detail": ""
+        }
+    ],
+    "summary": {
+        "pass": 5,
+        "fail": 0,
+        "warn": 0
+    }
+}

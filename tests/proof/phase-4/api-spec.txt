@@ -1,0 +1,57 @@
+GET /api/spec/ta
+
+{
+    "patterns": [
+        {
+            "name": "pullback_in_trend",
+            "display_name": "Pullback to Support",
+            "category": "Trend Continuation",
+            "weekly_requirement": "BULLISH or BULLISH_EXTENDED",
+            "conditions": [
+                {
+                    "id": "uptrend",
+                    "label": "Uptrend intact",
+                    "field": "trend",
+                    "expected": "bullish"
+                },
+                {
+                    "id": "rsi_dip",
+                    "label": "RSI in dip zone",
+                    "field": "rsi",
+                    "check": "lte_rsi_p40"
+                },
+                {
+                    "id": "adx_trending",
+                    "label": "ADX trending",
+                    "field": "adx",
+                    "check": "gte_15"
+                },
+                {
+                    "id": "vol_light",
+                    "label": "Volume light on pullback",
+                    "field": "vol_ratio",
+                    "check": "lte_vol_p72"
+                },
+                {
+                    "id": "weekly_ok",
+                    "label": "Weekly context bullish",
+                    "field": "weekly_state",
+                    "expected": [
+                        "BULLISH",
+                        "BULLISH_EXTENDED"
+                    ]
+                }
+            ],
+            "detail_fields": [
+                "trend",
+                "weekly_trend",
+                "rsi",
+                "rsi_p40",
+                "adx",
+                "vol_ratio",
+                "swing_low",
+                "weekly_state"
+            ]
+        }
+    ]
+}
