@@ -1,0 +1,19 @@
+GET /api/chart/NVDA/signals
+
+Response: []  (empty — no signals in DB yet, endpoint functional)
+
+HTTP 200 OK
+Content-Type: application/json
+
+Schema per row when populated:
+{
+  "scan_date": "YYYY-MM-DD",
+  "setup_type": "breakout",
+  "direction": "long",
+  "entry_low": 875.0,
+  "entry_high": 892.0,
+  "stop": 848.0,
+  "target": null,
+  "rr_ratio": null,
+  "fired_at": "2026-05-04T14:41:00.000000"
+}

@@ -8,11 +8,11 @@ import pandas_ta as ta  # noqa: F401
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from eigenview.data.storage import AsyncSessionLocal, Pick, Price
+from eigenview.data.storage import AsyncSessionLocal, Chain, Pick, Price, SignalTrigger
 
 router = APIRouter()
 
-_TF_LIMIT = {"1d": 90, "1h": 60, "1w": 52}
+_TF_LIMIT = {"1d": 200, "1h": 60, "1w": 52}
 _TF_TIMEFRAME = {"1d": "1d", "1h": "1h", "1w": "1wk"}
 
 
@@ -44,6 +44,14 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
             select(Pick).where(Pick.date == today, Pick.ticker == ticker)
         )
         pick = pick_result.scalar_one_or_none()
+
+        # Fallback: get raw chains for GEX computation if no pick
+        chains_for_gex = []
+        if not (pick and pick.factors_json):
+            chain_result = await session.execute(
+                select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == today)
+            )
+            chains_for_gex = chain_result.scalars().all()
 
     if not rows:
         return {"candles": [], "indicators": {}, "gex_levels": {}, "pattern": {}}
@@ -111,9 +119,62 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
         except Exception:
             pass
 
+    # Fallback: compute GEX levels from Chain table
+    if not any(gex_levels.values()) and chains_for_gex:
+        try:
+            from eigenview.factors.gex import score_gex
+            spot = float(df["close"].iloc[-1])
+            gex_result = score_gex(list(chains_for_gex), spot, ticker)
+            d = gex_result.detail
+            gex_levels = {
+                "call_wall": d.get("call_wall"),
+                "put_wall": d.get("put_wall"),
+                "gamma_flip": d.get("gamma_flip"),
+            }
+        except Exception:
+            pass
+
+    entry_zone: dict = {}
+    stop_price: float | None = None
+    if pick:
+        entry_zone = {
+            "low": float(pick.entry_low) if pick.entry_low else None,
+            "high": float(pick.entry_high) if pick.entry_high else None,
+        }
+        stop_price = float(pick.stop) if pick.stop else None
+
     return {
         "candles": candles,
         "indicators": indicators,
         "gex_levels": gex_levels,
         "pattern": pattern,
+        "entry_zone": entry_zone,
+        "stop": stop_price,
     }
+
+
+@router.get("/chart/{ticker}/signals")
+async def get_chart_signals(ticker: str) -> list[dict]:
+    ticker = ticker.upper()
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(SignalTrigger)
+            .where(SignalTrigger.ticker == ticker)
+            .order_by(SignalTrigger.scan_date.desc())
+            .limit(50)
+        )
+        triggers = result.scalars().all()
+    return [
+        {
+            "scan_date": t.scan_date,
+            "setup_type": t.setup_type,
+            "direction": t.direction,
+            "entry_low": t.entry_low,
+            "entry_high": t.entry_high,
+            "stop": t.stop,
+            "target": t.target,
+            "rr_ratio": t.rr_ratio,
+            "fired_at": t.fired_at,
+        }
+        for t in triggers
+    ]
