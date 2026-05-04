@@ -617,6 +617,17 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         f"Weekly: {weekly_trend_str}."
     )
 
+    # weekly_state: 5-state classifier consistent with detect_pattern()
+    wt = weekly_trend_str  # 'bullish' | 'bearish_strong' | 'bearish_weak' | 'unknown'
+    if wt == "bullish":
+        weekly_state = "BULLISH"
+    elif wt == "bearish_strong":
+        weekly_state = "BEARISH_STRONG"
+    elif wt == "bearish_weak":
+        weekly_state = "BEARISH_WEAK"
+    else:
+        weekly_state = "NEUTRAL"
+
     return FactorResult(
         factor_id="technical",
         firing=firing,
@@ -628,10 +639,12 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             "direction": "short" if pattern in SHORT_PATTERNS else "long",
             "trend": trend,
             "weekly_trend": weekly_trend_str,
+            "weekly_state": weekly_state,
             "swing_high": swing_high,
             "swing_low": swing_low,
             "adx": round(adxf, 2),
             "rsi": round(rsif, 2) if rsif is not None else None,
+            "rsi_p40": round(rsi_p40, 2),
             "vol_character": vol_char,
             "vol_ratio": vol_ratio,
             "bull_divergence": bull_div,
