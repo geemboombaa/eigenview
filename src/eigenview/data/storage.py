@@ -241,6 +241,59 @@ class LlmLog(Base):
     model: Mapped[str | None] = mapped_column(String(50))
 
 
+class SignalTrigger(Base):
+    """Fired signal events — one row per ticker per scan per setup pattern."""
+    __tablename__ = "signal_triggers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    scan_date: Mapped[str] = mapped_column(String(10), nullable=False)  # YYYY-MM-DD
+    setup_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)  # "long" or "short"
+    entry_low: Mapped[float | None] = mapped_column(Float)
+    entry_high: Mapped[float | None] = mapped_column(Float)
+    stop: Mapped[float | None] = mapped_column(Float)
+    target: Mapped[float | None] = mapped_column(Float)
+    rr_ratio: Mapped[float | None] = mapped_column(Float)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    fired_at: Mapped[str | None] = mapped_column(String(30))   # ISO datetime
+    valid_until: Mapped[str | None] = mapped_column(String(30))  # ISO datetime or None
+
+
+async def write_signal_trigger(
+    session: AsyncSession,
+    ticker: str,
+    scan_date: str,
+    setup_type: str,
+    direction: str,
+    entry_low: float | None,
+    entry_high: float | None,
+    stop: float | None,
+    target: float | None,
+    confidence: float | None,
+) -> SignalTrigger:
+    rr: float | None = None
+    if stop and target and entry_high and entry_high != stop:
+        rr = (target - entry_high) / (entry_high - stop)
+    trigger = SignalTrigger(
+        ticker=ticker,
+        scan_date=scan_date,
+        setup_type=setup_type,
+        direction=direction,
+        entry_low=entry_low,
+        entry_high=entry_high,
+        stop=stop,
+        target=target,
+        rr_ratio=rr,
+        confidence=confidence,
+        fired_at=datetime.utcnow().isoformat(),
+        valid_until=None,
+    )
+    session.add(trigger)
+    await session.commit()
+    return trigger
+
+
 async def create_tables() -> None:
     """Create all tables if they don't exist."""
     async with engine.begin() as conn:

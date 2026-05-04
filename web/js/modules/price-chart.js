@@ -18,6 +18,10 @@
 .pc-err-icon{font-size:20px;opacity:0.4;}
 .pc-pattern-badge{position:absolute;top:8px;left:8px;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600;letter-spacing:0.5px;pointer-events:none;z-index:10;}
 .maximized .pc-wrap{border-radius:0;}
+.chart-toggles{display:flex;gap:4px;padding:4px 8px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel);}
+.chart-tog-btn{font-size:9px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text-faint);cursor:pointer;font-family:var(--font-mono,'SF Mono',monospace);letter-spacing:0.8px;transition:all 0.1s;}
+.chart-tog-btn:hover{color:var(--text);border-color:var(--accent-dim);}
+.chart-tog-btn.active{color:var(--accent);border-color:rgba(94,227,161,0.4);background:rgba(94,227,161,0.06);}
 `;
 
   function injectCSS() {
@@ -86,6 +90,11 @@
       this._series = {};
       this._maximized = false;
       this._lastData = null;
+      this._toggleState = {
+        ema21:   JSON.parse(localStorage.getItem('chart_ema21')    ?? 'true'),
+        ema50:   JSON.parse(localStorage.getItem('chart_ema50')    ?? 'true'),
+        signals: JSON.parse(localStorage.getItem('chart_signals')  ?? 'true'),
+      };
 
       this._render();
       this._bindHeader();
@@ -145,6 +154,7 @@
     }
 
     _render() {
+      const ts = this._toggleState;
       this.el.innerHTML = `
         <div class="pc-wrap">
           <div class="pc-header">
@@ -154,6 +164,11 @@
               <button class="pc-tf-btn" data-tf="1wk">1W</button>
             </div>
             <button class="pc-maximize-btn" id="pc-max-btn" title="Maximize">⤢</button>
+          </div>
+          <div class="chart-toggles">
+            <button class="chart-tog-btn${ts.ema21 ? ' active' : ''}" data-toggle="ema21">EMA21</button>
+            <button class="chart-tog-btn${ts.ema50 ? ' active' : ''}" data-toggle="ema50">EMA50</button>
+            <button class="chart-tog-btn${ts.signals ? ' active' : ''}" data-toggle="signals">SIGNALS</button>
           </div>
           <div class="pc-body" id="pc-chart-body">
             <div class="pc-chart-container" id="pc-chart-container"></div>
@@ -174,6 +189,33 @@
       });
 
       this._qs('#pc-max-btn').addEventListener('click', () => this._toggleMaximize());
+
+      this._qs('.chart-toggles').addEventListener('click', e => {
+        const btn = e.target.closest('.chart-tog-btn');
+        if (!btn) return;
+        const key = btn.dataset.toggle;
+        this._toggleState[key] = !this._toggleState[key];
+        localStorage.setItem(`chart_${key}`, JSON.stringify(this._toggleState[key]));
+        btn.classList.toggle('active', this._toggleState[key]);
+        this._applyToggle(key);
+      });
+    }
+
+    _applyToggle(key) {
+      if (key === 'ema21' && this._series.ema21) {
+        this._series.ema21.applyOptions({ visible: this._toggleState.ema21 });
+      } else if (key === 'ema50' && this._series.ema50) {
+        this._series.ema50.applyOptions({ visible: this._toggleState.ema50 });
+      } else if (key === 'signals') {
+        // Re-apply markers: clear if toggled off, restore if on
+        const candle = this._series.candle;
+        if (!candle) return;
+        if (!this._toggleState.signals) {
+          candle.setMarkers([]);
+        } else if (this._lastSignalMarkers) {
+          candle.setMarkers(this._lastSignalMarkers);
+        }
+      }
     }
 
     _toggleMaximize() {
@@ -235,6 +277,7 @@
       }
 
       this._lastData = data;
+      this._lastSignalMarkers = null;
       this._showState('none');
       this._buildChart(data);
 
@@ -248,6 +291,31 @@
           body.appendChild(tmp.firstElementChild);
         }
       }
+
+      // Load historical signal markers
+      this._loadChartSignals(this._ticker);
+    }
+
+    async _loadChartSignals(ticker) {
+      try {
+        const signals = await (window.EV?.API.get(`/api/chart/${ticker}/signals`) ?? Promise.resolve([]));
+        if (!signals || !signals.length) return;
+        const candle = this._series.candle;
+        if (!candle) return;
+
+        const markers = signals.map(s => ({
+          time: s.scan_date,
+          position: s.direction === 'long' ? 'belowBar' : 'aboveBar',
+          color: s.direction === 'long' ? '#00ff99' : '#ff2d55',
+          shape: s.direction === 'long' ? 'arrowUp' : 'arrowDown',
+          text: s.setup_type.replace(/_/g, ' '),
+        }));
+
+        this._lastSignalMarkers = markers;
+        if (this._toggleState.signals) {
+          candle.setMarkers(markers);
+        }
+      } catch (_) {}
     }
 
     _buildChart(data) {
@@ -305,14 +373,14 @@
 
       // EMA 21
       if (ind.ema21?.length) {
-        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
+        const s = this._chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '', visible: this._toggleState.ema21 });
         s.setData(ind.ema21);
         this._series.ema21 = s;
       }
 
       // EMA 50
       if (ind.ema50?.length) {
-        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '' });
+        const s = this._chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: '', visible: this._toggleState.ema50 });
         s.setData(ind.ema50);
         this._series.ema50 = s;
       }

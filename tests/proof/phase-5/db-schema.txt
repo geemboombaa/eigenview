@@ -1,0 +1,16 @@
+signal_triggers table — Postgres information_schema.columns
+
+column_name                    data_type
+id                             integer
+ticker                         character varying
+scan_date                      character varying
+setup_type                     character varying
+direction                      character varying
+entry_low                      double precision
+entry_high                     double precision
+stop                           double precision
+target                         double precision
+rr_ratio                       double precision
+confidence                     double precision
+fired_at                       character varying
+valid_until                    character varying
