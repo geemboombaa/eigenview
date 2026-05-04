@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks
+from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec
+from eigenview.data.storage import create_tables
 
-app = FastAPI(title="EigenView API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_tables()
+    yield
+
+
+app = FastAPI(title="EigenView API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +35,7 @@ app.include_router(chart.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(layouts.router, prefix="/api")
 app.include_router(heat.router, prefix="/api")
+app.include_router(spec.router, prefix="/api")
 
 
 @app.get("/api/health")

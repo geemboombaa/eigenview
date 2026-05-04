@@ -217,6 +217,16 @@ class FactorScore(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class SpecNote(Base):
+    """Notes attached to spec entries (e.g. pullback_in_trend)."""
+    __tablename__ = "spec_notes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    spec_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class LlmLog(Base):
     __tablename__ = "llm_log"
 
