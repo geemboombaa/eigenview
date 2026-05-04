@@ -1,0 +1,128 @@
+Phase 6c — Agent C Results
+P6·16 – P6·22 implementation and testing
+Date: 2026-05-04
+Branch: phase-6
+
+=============================================================================
+SETUP SUMMARY
+=============================================================================
+
+7 setups implemented in src/eigenview/factors/technical.py:
+
+  P6·16  bullish_reversal      — guard: wc.rsi < 35 + weekly_trend == 'bearish_weak'
+  P6·17  bearish_reversal      — guard: wc.rsi > 65 + weekly_trend == 'bullish'
+  P6·18  oversold_bounce       — RSI < rsi_p20, up candle, above EMA200, weekly ADX < 30
+  P6·19  overbought_reversal   — RSI > rsi_p80, down candle, wc.rsi > 65, bullish weekly
+  P6·20  failed_breakdown      — 5-bar dip below EMA21 + recovery + vol > vol_p65
+  P6·21  failed_breakout       — prior swing high (< pos 56 in 60-bar window) exceeded,
+                                  closed back below, vol declining
+  P6·22  rally_in_downtrend    — weekly bearish, RSI in [rsi_p43, rsi_p62], price
+                                  within 2% below EMA21, vol < vol_p55
+
+New percentile variables added (adaptive branch, ≥ 60 bars):
+  rsi_p43, rsi_p62
+  adx_p30
+
+New percentile variables added (static fallback):
+  rsi_p43 = 47.0, rsi_p62 = 58.0, adx_p30 = 17.0
+
+=============================================================================
+BUGS FOUND AND FIXED DURING IMPLEMENTATION
+=============================================================================
+
+Bug 1 — failed_breakout logic: argrelextrema always detected the spike bar as
+  the "last swing high", making exceeded_recently always False.
+  Fix: filter swing_high_idx to prior_swing_idx = swing_high_idx[swing_high_idx < 56]
+  so only established (non-recent) swing highs are used as the reference level.
+
+Bug 2 — failed_breakdown outer elif consuming elif chain: the outer elif
+  condition for failed_breakdown was too broad ('low' in df.columns and len >= 6
+  and weekly != bearish_strong). When inner conditions (recent_dip, recovered)
+  failed, the chain stopped — breakout never ran. Also: no guard against
+  close_now > recent_high (a clean breakout should not match failed_breakdown).
+  Fix: merged inner conditions into the outer elif, added close_now <= recent_high guard.
+
+=============================================================================
+TEST FILE
+=============================================================================
+
+tests/factors/test_technical_phase6c.py
+  28 tests, 0 skipped
+
+Test strategy:
+  P6·18, P6·19, P6·20, P6·21, P6·22: positive synthetic + anti-case tests
+  P6·16, P6·17: anti-case tests only (positive cases require mathematical
+    conditions that are near-contradictory in synthetic data — e.g., P6·16
+    needs wc.rsi < 35 AND wc.adx <= 25 simultaneously)
+
+=============================================================================
+TEST RESULTS — tests/factors/test_technical_phase6c.py
+=============================================================================
+
+PASSED  test_p618_fires
+PASSED  test_p618_confidence_adequate
+PASSED  test_p618_rsi_low
+PASSED  test_p618_up_candle
+PASSED  test_p618_antcase_no_up_candle
+PASSED  test_p619_fires
+PASSED  test_p619_confidence_adequate
+PASSED  test_p619_weekly_bullish
+PASSED  test_p619_down_candle
+PASSED  test_p619_antcase_no_weekly_rsi
+PASSED  test_p620_fires
+PASSED  test_p620_confidence_adequate
+PASSED  test_p620_antcase_bearish_strong_weekly
+PASSED  test_p621_fires
+PASSED  test_p621_confidence_adequate
+PASSED  test_p621_weekly_not_bullish
+PASSED  test_p621_antcase_bullish_weekly
+PASSED  test_p621_antcase_vol_expanding
+PASSED  test_p622_fires
+PASSED  test_p622_confidence_adequate
+PASSED  test_p622_weekly_bearish
+PASSED  test_p622_antcase_bullish_weekly
+PASSED  test_p622_antcase_high_volume
+PASSED  test_p616_antcase_bearish_strong_weekly
+PASSED  test_p616_antcase_flat_trend
+PASSED  test_p617_antcase_insufficient_weekly_bars
+PASSED  test_p617_antcase_bearish_daily_trend
+PASSED  test_p617_antcase_weekly_not_bullish
+
+28 passed, 0 failed in 2.85s
+
+=============================================================================
+FULL SUITE RESULT — tests/factors/ (132 tests)
+=============================================================================
+
+132 passed, 0 failed in 10.52s
+
+All pre-existing tests (test_technical.py, test_technical_phase6a.py,
+test_technical_phase6b.py, test_technical_pullback.py) continue to pass.
+
+=============================================================================
+SYNTHETIC DATA CONSTRUCTORS (for reproduction)
+=============================================================================
+
+P6·18 oversold_bounce:
+  n=80, up=linspace(100,135,75), crash=[130,124,118.5,111], bounce=[114]
+  open[-1]=109 (up candle), vol[-1]=1.5M
+
+P6·19 overbought_reversal:
+  n=160, seed=7, baseline=linspace(95,100,60), sideways(89 bars, noise)
+  explosive run: 10 bars +4%/bar starting from 100
+  down bar: close[-1] = run[-1]*0.97, open[-1] = run[-1]
+  vol[-1]=2M
+
+P6·20 failed_breakdown:
+  n=138, up=linspace(100,140,130), crash=[128,122], recover=[124,127,130,133,136,139]
+  vol[-1]=1.8M
+  Note: close[-1]=139 < recent_close_high=140 (required by new guard)
+
+P6·21 failed_breakout:
+  n=160, seed=9, zigzag: -0.8 (5 bars) then +0.5 (4 bars), repeat
+  highs[-3]=70.0 (exceeds prior swing high ~68.68), opens[-3]=69.0
+  vols[-3:]=[700K,750K,800K]
+
+P6·22 rally_in_downtrend:
+  n=160, seed=11, sawtooth: -0.8 (5 bars) then +0.64 (4 bars), from 140
+  vols[-3:]=[800K,750K,700K]

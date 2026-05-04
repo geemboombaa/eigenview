@@ -53,8 +53,10 @@ def test_long_gamma_no_fire():
         _make_put(400, gamma=0.001, oi=500),
     ]
     result = score_gex(chains, SPOT)
-    assert result.firing is False
+    # long_gamma now fires at low strength (doesn't block gate)
+    assert result.firing is True
     assert result.label == "long_gamma"
+    assert result.strength <= 0.2
     assert result.detail["net_gex"] > 0
 
 
