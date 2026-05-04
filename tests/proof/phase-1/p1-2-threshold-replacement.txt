@@ -1,0 +1,8 @@
+﻿
+LineNumber Line                          
+---------- ----                          
+        69     if wc.adx and wc.adx > 25:
+       247         atr_p15 = 0.65        
+       248         atr_p20 = 0.70        
+
+
