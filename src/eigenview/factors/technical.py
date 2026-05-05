@@ -1167,4 +1167,216 @@ def detect_pattern(
         confidence = round(min(1.0, confidence), 3)
         return {"pattern": "ema_rejection", "confidence": confidence, "detail": detail}
 
+    # ── P6.12–P6.15 CHoCH / BOS (smartmoneyconcepts) ───────────────────────
+    # Signals are placed at historical swing indices; BrokenIndex marks confirmation.
+    # A signal is "recent" if either:
+    #   (a) the signal's own bar index falls in the last 60 bars, OR
+    #   (b) its BrokenIndex (when the level was actually broken) is in the last 60 bars.
+    # This is necessary because the SMC library places the signal at the SWING POINT
+    # (which can be 10-30 bars before the break bar).
+    _choch_bullish_signal = False
+    _choch_bearish_signal = False
+    _bos_bullish_signal   = False
+    _bos_bearish_signal   = False
+    if len(ddf) >= 40:
+        try:
+            import os as _os
+            _os.environ['PYTHONUTF8'] = '1'
+            import smartmoneyconcepts.smc as _smc
+            _shl = _smc.swing_highs_lows(ddf, swing_length=10)
+            _bc  = _smc.bos_choch(ddf, _shl, close_break=True)
+            _n   = len(ddf)
+            _recent_window = 60  # look back 60 bars for signal or its confirmation
+            _bi  = _bc['BrokenIndex'].values  # nan or bar index (float)
+            _bos_vals   = _bc['BOS'].values
+            _choch_vals = _bc['CHOCH'].values
+            for _iloc in range(len(_bc)):
+                _bos_v   = _bos_vals[_iloc]
+                _choch_v = _choch_vals[_iloc]
+                # Skip if both BOS and CHOCH are nan at this position
+                _bos_active   = not (isinstance(_bos_v,   float) and np.isnan(_bos_v))
+                _choch_active = not (isinstance(_choch_v, float) and np.isnan(_choch_v))
+                if not _bos_active and not _choch_active:
+                    continue
+                # Check recency: signal bar index OR BrokenIndex in last 60 bars
+                _bi_val = _bi[_iloc]
+                _bi_recent = (
+                    _bi_val is not None
+                    and not (isinstance(_bi_val, float) and np.isnan(_bi_val))
+                    and int(_bi_val) >= _n - _recent_window
+                )
+                _sig_recent = _iloc >= _n - _recent_window
+                if not (_bi_recent or _sig_recent):
+                    continue
+                if _bos_active and _bos_v == 1:
+                    _bos_bullish_signal = True
+                if _bos_active and _bos_v == -1:
+                    _bos_bearish_signal = True
+                if _choch_active and _choch_v == 1:
+                    _choch_bullish_signal = True
+                if _choch_active and _choch_v == -1:
+                    _choch_bearish_signal = True
+        except Exception:
+            pass  # graceful fallback — all signals remain False
+
+    # P6.12 choch_bullish — CHoCH bullish reversal (trend change from down to up)
+    if (
+        _choch_bullish_signal
+        and weekly_state in ("NEUTRAL", "BEARISH_WEAK")
+    ):
+        confidence = 0.70
+        confidence = round(min(1.0, confidence), 3)
+        detail["choch_bullish"] = True
+        return {"pattern": "choch_bullish", "confidence": confidence, "detail": detail}
+
+    # P6.13 choch_bearish — CHoCH bearish reversal (trend change from up to down)
+    if (
+        _choch_bearish_signal
+        and weekly_state in ("NEUTRAL", "BULLISH", "BULLISH_EXTENDED")
+    ):
+        confidence = 0.70
+        confidence = round(min(1.0, confidence), 3)
+        detail["choch_bearish"] = True
+        return {"pattern": "choch_bearish", "confidence": confidence, "detail": detail}
+
+    # P6.14 bos_bullish — BOS bullish (continuation break, not reversal)
+    if (
+        _bos_bullish_signal
+        and weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+    ):
+        confidence = 0.68
+        confidence = round(min(1.0, confidence), 3)
+        detail["bos_bullish"] = True
+        return {"pattern": "bos_bullish", "confidence": confidence, "detail": detail}
+
+    # P6.15 bos_bearish — BOS bearish (continuation break downward)
+    if (
+        _bos_bearish_signal
+        and weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG")
+    ):
+        confidence = 0.68
+        confidence = round(min(1.0, confidence), 3)
+        detail["bos_bearish"] = True
+        return {"pattern": "bos_bearish", "confidence": confidence, "detail": detail}
+
+    # ── P6.23 bb_mean_reversion_long ─────────────────────────────────────────
+    # Price at/below lower BB + ADX low (non-trending) + RSI oversold
+    # Requires Bollinger bands already computed (_bbl_dp)
+    if bbl_dp is not None and rsif is not None:
+        _adx_full_mr = ddf["ADX_14"].dropna().tail(63).values
+        # Floor at 20: in purely sideways markets the p35 can be very low (5-10);
+        # using max(..., 20) ensures we don't exclude genuinely low-ADX conditions.
+        _adx_p35_mr = max(20.0, float(np.percentile(_adx_full_mr, 35)) if len(_adx_full_mr) >= 10 else 20.0)
+        _rsi_full_mr = ddf["RSI_14"].dropna().tail(63).values
+        _rsi_p30_mr  = float(np.percentile(_rsi_full_mr, 30)) if len(_rsi_full_mr) >= 10 else 35.0
+        if (
+            close_now <= bbl_dp * 1.005                  # at or within 0.5% of lower BB
+            and adxf < _adx_p35_mr                       # low trend strength
+            and rsif < _rsi_p30_mr                       # oversold
+            and weekly_state not in ("BULLISH_EXTENDED", "BEARISH_STRONG")
+        ):
+            confidence = 0.65
+            if close_now <= bbl_dp:
+                confidence += 0.05  # at or below lower band
+            if rsif < _rsi_p30_mr * 0.85:
+                confidence += 0.05  # deeply oversold
+            confidence = round(min(1.0, confidence), 3)
+            detail["bbl"] = round(bbl_dp, 2)
+            detail["adx_p35"] = round(_adx_p35_mr, 2)
+            return {"pattern": "bb_mean_reversion_long", "confidence": confidence, "detail": detail}
+
+    # ── P6.24 bb_mean_reversion_short ────────────────────────────────────────
+    # Price at/above upper BB + ADX low + RSI overbought
+    if bbu_dp is not None and rsif is not None:
+        _adx_full_mr2 = ddf["ADX_14"].dropna().tail(63).values
+        _adx_p35_mr2 = max(20.0, float(np.percentile(_adx_full_mr2, 35)) if len(_adx_full_mr2) >= 10 else 20.0)
+        _rsi_full_mr2 = ddf["RSI_14"].dropna().tail(63).values
+        _rsi_p70_mr2  = float(np.percentile(_rsi_full_mr2, 70)) if len(_rsi_full_mr2) >= 10 else 65.0
+        if (
+            close_now >= bbu_dp * 0.995                  # at or within 0.5% of upper BB
+            and adxf < _adx_p35_mr2                      # low trend strength
+            and rsif > _rsi_p70_mr2                      # overbought
+            and weekly_state not in ("BEARISH_STRONG", "BULLISH_EXTENDED")
+        ):
+            confidence = 0.65
+            if close_now >= bbu_dp:
+                confidence += 0.05  # at or above upper band
+            if rsif > _rsi_p70_mr2 * 1.05:
+                confidence += 0.05  # deeply overbought
+            confidence = round(min(1.0, confidence), 3)
+            detail["bbu"] = round(bbu_dp, 2)
+            detail["adx_p35"] = round(_adx_p35_mr2, 2)
+            return {"pattern": "bb_mean_reversion_short", "confidence": confidence, "detail": detail}
+
+    # ── P6.25 ema200_snap_long ────────────────────────────────────────────────
+    # Price > 15% below EMA200 + weekly RSI < 35 + ADX trending (not sideways) + up day
+    _ema200_dp = ddf["EMA_200"].iloc[-1] if "EMA_200" in ddf.columns else None
+    if _ema200_dp is not None and not pd.isna(_ema200_dp) and rsif is not None:
+        _ema200_dp_f = float(_ema200_dp)
+        _deviation_dp = (close_now / _ema200_dp_f - 1) if _ema200_dp_f > 0 else 0.0
+        _adx_full_snap = ddf["ADX_14"].dropna().tail(63).values
+        _adx_p40_snap  = float(np.percentile(_adx_full_snap, 40)) if len(_adx_full_snap) >= 10 else 20.0
+        _wkly_rsi_snap = None
+        if hasattr(weekly_df, 'index') and len(weekly_df) >= 15:
+            _wdf_snap = weekly_df[weekly_df.index <= as_of_ts].copy()
+            if len(_wdf_snap) >= 15:
+                _wdf_snap.ta.rsi(length=14, append=True)
+                _wkly_rsi_snap_raw = _wdf_snap.iloc[-1].get("RSI_14")
+                _wkly_rsi_snap = float(_wkly_rsi_snap_raw) if _wkly_rsi_snap_raw is not None and not pd.isna(_wkly_rsi_snap_raw) else None
+        _up_day_snap = (
+            len(ddf) >= 2
+            and "open" in ddf.columns
+            and float(ddf["close"].iloc[-1]) > float(ddf["open"].iloc[-1])
+        )
+        # ADX threshold: use max(p40, 20) so in extreme crash regimes where p40 can
+        # shoot to 100 (flat + sudden trend), a 20-floor ensures the check is fair.
+        _adx_thresh_snap = min(_adx_p40_snap, 50.0)  # cap so ADX>50 always passes
+        if (
+            _deviation_dp < -0.15                        # >15% below EMA200
+            and adxf > _adx_thresh_snap                  # trending (not sideways)
+            and (_wkly_rsi_snap is None or _wkly_rsi_snap < 35.0)  # weekly deeply oversold
+            and _up_day_snap
+        ):
+            confidence = 0.68
+            if _deviation_dp < -0.20:
+                confidence += 0.05  # extreme deviation bonus
+            if _wkly_rsi_snap is not None and _wkly_rsi_snap < 25.0:
+                confidence += 0.05
+            confidence = round(min(1.0, confidence), 3)
+            detail["ema200"] = round(_ema200_dp_f, 2)
+            detail["ema200_deviation_pct"] = round(_deviation_dp * 100, 2)
+            return {"pattern": "ema200_snap_long", "confidence": confidence, "detail": detail}
+
+    # ── P6.26 ema200_snap_short ───────────────────────────────────────────────
+    # Price > 15% above EMA200 + weekly RSI > 70 + down day
+    if _ema200_dp is not None and not pd.isna(_ema200_dp) and rsif is not None:
+        _ema200_dp_f2 = float(_ema200_dp)
+        _deviation_dp2 = (close_now / _ema200_dp_f2 - 1) if _ema200_dp_f2 > 0 else 0.0
+        _wkly_rsi_snap2 = None
+        if hasattr(weekly_df, 'index') and len(weekly_df) >= 15:
+            _wdf_snap2 = weekly_df[weekly_df.index <= as_of_ts].copy()
+            if len(_wdf_snap2) >= 15:
+                _wdf_snap2.ta.rsi(length=14, append=True)
+                _wkly_rsi_snap2_raw = _wdf_snap2.iloc[-1].get("RSI_14")
+                _wkly_rsi_snap2 = float(_wkly_rsi_snap2_raw) if _wkly_rsi_snap2_raw is not None and not pd.isna(_wkly_rsi_snap2_raw) else None
+        _down_day_snap2 = (
+            len(ddf) >= 2
+            and "open" in ddf.columns
+            and float(ddf["close"].iloc[-1]) < float(ddf["open"].iloc[-1])
+        )
+        if (
+            _deviation_dp2 > 0.15                        # >15% above EMA200
+            and (_wkly_rsi_snap2 is None or _wkly_rsi_snap2 > 70.0)  # weekly overbought
+            and _down_day_snap2
+        ):
+            confidence = 0.68
+            if _deviation_dp2 > 0.25:
+                confidence += 0.05
+            if _wkly_rsi_snap2 is not None and _wkly_rsi_snap2 > 80.0:
+                confidence += 0.05
+            confidence = round(min(1.0, confidence), 3)
+            detail["ema200"] = round(_ema200_dp_f2, 2)
+            detail["ema200_deviation_pct"] = round(_deviation_dp2 * 100, 2)
+            return {"pattern": "ema200_snap_short", "confidence": confidence, "detail": detail}
+
     return {"pattern": "no_pattern", "confidence": 0.0, "detail": detail}

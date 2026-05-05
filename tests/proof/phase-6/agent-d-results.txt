@@ -1,0 +1,39 @@
+Phase 6D — CHoCH + BOS + Mean Reversion Setups
+================================================
+Date: 2026-05-04
+Branch: phase-6-remaining
+
+SETUPS IMPLEMENTED (detect_pattern in technical.py):
+  P6·12  choch_bullish           confidence=0.70  weekly: NEUTRAL|BEARISH_WEAK
+  P6·13  choch_bearish           confidence=0.70  weekly: NEUTRAL|BULLISH|BULLISH_EXTENDED
+  P6·14  bos_bullish             confidence=0.68  weekly: BULLISH|BULLISH_EXTENDED
+  P6·15  bos_bearish             confidence=0.68  weekly: BEARISH_WEAK|BEARISH_STRONG
+  P6·23  bb_mean_reversion_long  confidence=0.65  price<=BBL, ADX<p35(floor 20), RSI<p30
+  P6·24  bb_mean_reversion_short confidence=0.65  price>=BBU, ADX<p35(floor 20), RSI>p70
+  P6·25  ema200_snap_long        confidence=0.68  >15% below EMA200 + wk_RSI<35 + up day
+  P6·26  ema200_snap_short       confidence=0.68  >15% above EMA200 + wk_RSI>70 + down day
+
+TOTAL DETECT_PATTERN SETUPS: 19 original + 4 choch/bos + 4 mean reversion = 27
+
+CHoCH/BOS DETECTION APPROACH:
+  - Uses smartmoneyconcepts.smc.bos_choch() with swing_length=10, close_break=True
+  - Signal is "recent" if: signal bar index OR BrokenIndex >= n-60 bars
+  - Graceful fallback: all signals False on import/compute error
+  - PYTHONUTF8=1 env set before import (Unicode star in SMC banner)
+
+IMPLEMENTATION NOTES:
+  - ADX p35 floored at 20.0 for BB mean reversion (prevents false rejection in
+    purely sideways markets where p35 can be as low as 5)
+  - EMA200 snap ADX threshold capped at 50 to handle flat+crash regimes where
+    p40 can reach 100 (only last 63 bars, most of which are extremely flat)
+  - Weekly RSI computation for ema200_snap uses weekly_df parameter directly
+
+TEST RESULTS:
+  tests/factors/test_technical_phase6d.py: 28/28 PASSED
+  tests/factors/ (full suite):            160/160 PASSED (no regressions)
+
+Tests cover:
+  - Positive firing (pattern detected + confidence >= threshold)
+  - Detail field presence (bbl, bbu, choch_bullish, choch_bearish, bos_bullish, bos_bearish)
+  - Anti-cases: wrong weekly state blocks each pattern
+  - Anti-cases: wrong price condition (no up/down day, small deviation, high ADX)
