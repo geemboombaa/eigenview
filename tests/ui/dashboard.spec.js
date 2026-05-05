@@ -248,33 +248,42 @@ test.describe('TV chart', () => {
 });
 
 test.describe('Factor strip', () => {
-  test('factor cells render after pick selected', async ({ page }) => {
+  test('factor dot buttons render after pick selected', async ({ page }) => {
+    // UI overhaul (9f1a5de): factor strip uses .fs-dot-btn[data-fid], not .factor-cell
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('.pick-card').first();
     if (await card.count() === 0) test.skip('no pick cards');
     await card.click();
+    await page.waitForTimeout(300);
 
-    const cells = page.locator('[data-module-type="factor-strip"] .factor-cell, [data-module-type="factor-strip"] .fs-cell');
-    await expect(cells.first()).toBeVisible({ timeout: 3000 });
-    const count = await cells.count();
+    const dots = page.locator('[data-module-type="factor-strip"] .fs-dot-btn');
+    await expect(dots.first()).toBeVisible({ timeout: 3000 });
+    const count = await dots.count();
     expect(count).toBeGreaterThanOrEqual(2);
   });
 
-  test('clicking factor cell prefills chat', async ({ page }) => {
+  test('factor strip shows detail panel after pick selected', async ({ page }) => {
+    // UI overhaul (9f1a5de): TA auto-expands on pick select when technical fires
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const card = page.locator('.pick-card').first();
     if (await card.count() === 0) test.skip('no pick cards');
     await card.click();
+    await page.waitForTimeout(500); // let auto-expand fire
 
-    const cells = page.locator('[data-module-type="factor-strip"] .factor-cell, [data-module-type="factor-strip"] .fs-cell');
-    if (await cells.count() === 0) test.skip('no factor cells rendered');
-
-    await cells.first().click();
-    const textarea = page.locator('[data-module-type="ai-chat"] textarea');
-    await expect(textarea).not.toBeEmpty({ timeout: 1000 });
+    const det = page.locator('[data-module-type="factor-strip"] .fs-detail');
+    // Detail may be populated via auto-expand; if not, click GEX button
+    const isEmpty = await det.evaluate(el => el.innerHTML.trim() === '');
+    if (isEmpty) {
+      const gexBtn = page.locator('[data-module-type="factor-strip"] .fs-dot-btn[data-fid="gex"]');
+      if (await gexBtn.count() > 0) {
+        await gexBtn.click();
+        await page.waitForTimeout(200);
+      }
+    }
+    await expect(det).not.toBeEmpty({ timeout: 2000 });
   });
 });
