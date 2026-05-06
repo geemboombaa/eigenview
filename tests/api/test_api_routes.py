@@ -1,10 +1,9 @@
 """tests/api/test_api_routes.py — contract tests for all API endpoints."""
 from __future__ import annotations
 
-import json
 import sys
-from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,6 +22,13 @@ _ENGINE = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 _SessionLocal = async_sessionmaker(_ENGINE, expire_on_commit=False)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _no_real_db_lifespan():
+    """Prevent lifespan from opening real asyncpg connections during tests."""
+    with patch("eigenview.api.main.create_tables", new_callable=AsyncMock):
+        yield
+
+
 async def _setup_db() -> None:
     from eigenview.data.storage import Base
     async with _ENGINE.begin() as conn:
@@ -30,21 +36,25 @@ async def _setup_db() -> None:
 
 
 async def _seed() -> None:
-    from sqlalchemy import text
+    import datetime as dt
+    from eigenview.data.storage import MacroDaily, Price
     async with _SessionLocal() as s:
-        # Macro row
-        await s.execute(text("""
-            INSERT INTO macro_daily (date, dix, gex_index, vix_m1, vix_m2, vix_contango_pct)
-            VALUES (:date, 0.48, 1200000000.0, 14.5, 16.0, 0.03)
-        """), {"date": str(date.today())})
-
-        # Price rows
+        s.add(MacroDaily(
+            date=date.today(),
+            dix=0.48,
+            gex_index=1_200_000_000.0,
+            vix_m1=14.5,
+            vix_m2=16.0,
+            vix_contango_pct=0.03,
+        ))
         for i in range(5):
-            await s.execute(text("""
-                INSERT INTO prices (ticker, date, open, high, low, close, volume, timeframe)
-                VALUES ('NVDA', :date, 100.0, 105.0, 95.0, 102.0, 1000000, '1d')
-            """), {"date": str(date.today() - __import__('datetime').timedelta(days=i))})
-
+            s.add(Price(
+                ticker="NVDA",
+                date=date.today() - dt.timedelta(days=i),
+                open=100.0, high=105.0, low=95.0, close=102.0,
+                volume=1_000_000,
+                timeframe="1d",
+            ))
         await s.commit()
 
 
@@ -72,12 +82,15 @@ def client(event_loop_policy):
     heat_mod.AsyncSessionLocal = _SessionLocal
     bench_mod.AsyncSessionLocal = _SessionLocal
 
-    yield TestClient(app)
+    with TestClient(app) as tc:
+        yield tc
 
     market_mod.AsyncSessionLocal = orig_market
     chart_mod.AsyncSessionLocal = orig_chart
     heat_mod.AsyncSessionLocal = orig_heat
     bench_mod.AsyncSessionLocal = orig_bench
+
+    _ENGINE.sync_engine.dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -112,9 +125,11 @@ def test_market_regime_label_valid(client):
 # GET /api/market/regime — no data fallback
 # ---------------------------------------------------------------------------
 
-def test_market_regime_empty_db_returns_unknown():
+def test_market_regime_empty_db_returns_unknown(client):
     """Without seeded macro data, endpoint returns UNKNOWN gracefully."""
     import asyncio
+    import eigenview.api.routes.market as market_mod
+
     empty_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     empty_session = async_sessionmaker(empty_engine, expire_on_commit=False)
 
@@ -128,15 +143,13 @@ def test_market_regime_empty_db_returns_unknown():
     loop.run_until_complete(_init())
     loop.close()
 
-    import eigenview.api.routes.market as market_mod
-    from eigenview.api.main import app
     orig = market_mod.AsyncSessionLocal
     market_mod.AsyncSessionLocal = empty_session
+    try:
+        resp = client.get("/api/market/regime")
+    finally:
+        market_mod.AsyncSessionLocal = orig
 
-    with TestClient(app) as c:
-        resp = c.get("/api/market/regime")
-
-    market_mod.AsyncSessionLocal = orig
     assert resp.status_code == 200
     assert resp.json()["regime"] == "UNKNOWN"
 
@@ -175,14 +188,14 @@ def test_chart_unknown_ticker_returns_empty_candles(client):
 # ---------------------------------------------------------------------------
 
 def test_heat_returns_200(client):
-    resp = client.get("/api/heat")
+    resp = client.get("/api/signals/heat")
     assert resp.status_code == 200
 
 
 def test_heat_returns_list(client):
-    resp = client.get("/api/heat")
+    resp = client.get("/api/signals/heat")
     data = resp.json()
-    assert isinstance(data, list)
+    assert isinstance(data, dict)
 
 
 # ---------------------------------------------------------------------------

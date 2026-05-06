@@ -51,7 +51,7 @@ class Price(Base):
     __tablename__ = "prices"
     __table_args__ = (UniqueConstraint("ticker", "date", "timeframe"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     open: Mapped[float] = mapped_column(Float)
@@ -67,7 +67,7 @@ class Chain(Base):
     __tablename__ = "chains"
     __table_args__ = (UniqueConstraint("ticker", "snapshot_date", "strike", "expiry", "call_put"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     strike: Mapped[float] = mapped_column(Float, nullable=False)
@@ -86,7 +86,7 @@ class NewsItem(Base):
     __tablename__ = "news"
     __table_args__ = (UniqueConstraint("url_hash"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     headline: Mapped[str] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
@@ -100,7 +100,7 @@ class Catalyst(Base):
     __tablename__ = "catalysts"
     __table_args__ = (UniqueConstraint("ticker", "event_type", "event_date"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     event_type: Mapped[str] = mapped_column(String(50))
     event_date: Mapped[date] = mapped_column(Date)
@@ -112,7 +112,7 @@ class MacroDaily(Base):
     __tablename__ = "macro_daily"
     __table_args__ = (UniqueConstraint("date"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     dix: Mapped[float | None] = mapped_column(Float)
     gex_index: Mapped[float | None] = mapped_column(Float)
@@ -128,7 +128,7 @@ class CotWeekly(Base):
     __tablename__ = "cot_weekly"
     __table_args__ = (UniqueConstraint("week_ending", "instrument"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     week_ending: Mapped[date] = mapped_column(Date, nullable=False)
     instrument: Mapped[str] = mapped_column(String(20), nullable=False)
     net_long_pct: Mapped[float | None] = mapped_column(Float)
@@ -139,7 +139,7 @@ class Pick(Base):
     __tablename__ = "picks"
     __table_args__ = (UniqueConstraint("date", "ticker"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     score: Mapped[float | None] = mapped_column(Float)
@@ -159,7 +159,7 @@ class DormantBet(Base):
     __tablename__ = "dormant_bets"
     __table_args__ = (UniqueConstraint("ticker", "contract", "original_date"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     contract: Mapped[str] = mapped_column(String(50), nullable=False)
     original_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -177,7 +177,7 @@ class SignalBench(Base):
     __tablename__ = "signal_bench"
     __table_args__ = (UniqueConstraint("date", "ticker"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False)
     soft_factors_firing: Mapped[int] = mapped_column(Integer, default=0)
@@ -198,7 +198,7 @@ class FactorScore(Base):
     __tablename__ = "factor_scores"
     __table_args__ = (UniqueConstraint("date", "ticker"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     ta_strength: Mapped[float | None] = mapped_column(Float)
@@ -221,7 +221,7 @@ class SpecNote(Base):
     """Notes attached to spec entries (e.g. pullback_in_trend)."""
     __tablename__ = "spec_notes"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     spec_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     note: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -230,7 +230,7 @@ class SpecNote(Base):
 class LlmLog(Base):
     __tablename__ = "llm_log"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     call_type: Mapped[str] = mapped_column(String(50))
     ticker: Mapped[str | None] = mapped_column(String(20))
