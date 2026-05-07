@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/geemboombaa/eigenview#readme",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "wait-on": "^9.0.5"
   }
 }

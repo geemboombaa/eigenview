@@ -19,12 +19,39 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras
 
-      - name: Run tests
-        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml
+      - name: Run tests with coverage
+        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=75 --cov-report=term-missing:skip-covered
+
+      - name: Check no trivial tests
+        run: |
+          if grep -r "^\s*assert True\s*$\|^\s*pass\s*$" tests/ --include="*.py" -l; then
+            echo "FAIL: trivial tests found (assert True / pass-only test bodies)"
+            exit 1
+          fi
+          echo "OK: no trivial tests found"
+
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Start server
+        run: uv run eigenview serve &
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:8000 --timeout 30000
+
+      - name: Run Playwright UI tests
+        run: npx playwright test tests/ui/ --reporter=line
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ github.sha }}
-          path: results/
+          path: |
+            results/
+            playwright-report/
+            test-results/
