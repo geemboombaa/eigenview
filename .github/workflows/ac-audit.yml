@@ -1,0 +1,147 @@
+name: AC Audit
+
+on:
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check test AC traceability
+        run: |
+          python3 - <<'EOF'
+          import ast, glob, sys, json
+
+          missing_ac = []
+          trivial = []
+
+          for f in glob.glob('tests/**/*.py', recursive=True):
+              try:
+                  tree = ast.parse(open(f).read())
+              except:
+                  continue
+              for node in ast.walk(tree):
+                  if not isinstance(node, ast.FunctionDef):
+                      continue
+                  if not node.name.startswith('test_'):
+                      continue
+                  # Check AC reference in name
+                  if 'AC' not in node.name and 'REQ' not in node.name:
+                      missing_ac.append(f'{f}::{node.name}')
+                  # Check for trivial body
+                  stmts = [s for s in node.body if not isinstance(s, ast.Expr)]
+                  if len(node.body) <= 2:
+                      for stmt in ast.walk(node):
+                          if isinstance(stmt, ast.Assert):
+                              if isinstance(stmt.test, ast.Constant) and stmt.test.value is True:
+                                  trivial.append(f'{f}::{node.name}')
+
+          report = {'missing_ac_reference': missing_ac, 'trivial_tests': trivial}
+          with open('ac-audit-report.json', 'w') as fp:
+              json.dump(report, fp, indent=2)
+
+          print(f"Tests missing AC reference: {len(missing_ac)}")
+          print(f"Trivial tests: {len(trivial)}")
+
+          if missing_ac:
+              print("\nMissing AC reference:")
+              for m in missing_ac[:20]:
+                  print(f"  {m}")
+
+          if trivial:
+              print("\nTrivial tests:")
+              for t in trivial:
+                  print(f"  {t}")
+
+          # Fail if trivial tests found. Missing AC refs = warning only (transition period).
+          if trivial:
+              sys.exit(1)
+          EOF
+
+      - name: Claude AC audit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'EOF'
+          import os, json, glob, subprocess, anthropic
+
+          api_key = os.environ.get('ANTHROPIC_API_KEY')
+          if not api_key:
+              print("ANTHROPIC_API_KEY not set — skipping Claude audit")
+              exit(0)
+
+          # Collect test files changed in this PR
+          result = subprocess.run(
+              ['git', 'diff', '--name-only', 'origin/master...HEAD'],
+              capture_output=True, text=True
+          )
+          changed = [f for f in result.stdout.strip().split('\n') if f.startswith('tests/')]
+
+          if not changed:
+              print("No test files changed — skipping Claude audit")
+              with open('claude-audit-report.md', 'w') as f:
+                  f.write("# Claude AC Audit\n\nNo test files changed in this PR.\n")
+              exit(0)
+
+          # Read changed test files
+          test_content = ""
+          for f in changed[:5]:  # limit to 5 files
+              if os.path.exists(f):
+                  test_content += f"\n\n### {f}\n```python\n{open(f).read()}\n```"
+
+          # Read ac-audit-report.json
+          audit_data = {}
+          if os.path.exists('ac-audit-report.json'):
+              audit_data = json.load(open('ac-audit-report.json'))
+
+          prompt = f"""You are an independent QA auditor. You have NO knowledge of how these tests were written.
+
+Audit the following test code against these criteria:
+
+1. Does each test function test ONE specific condition (not multiple things)?
+2. Does each test have a meaningful assertion (not just assert True or checking type)?
+3. For fire-case tests: does the test actually set up the conditions the AC requires?
+4. For anti-case tests: does the test actually violate the condition it claims to test?
+5. Are the fixture data values realistic (real price levels, real RSI ranges, real volumes)?
+
+Tests with missing AC references: {audit_data.get('missing_ac_reference', [])}
+
+Changed test files:
+{test_content}
+
+Output a markdown report with:
+- Overall verdict: PASS / FAIL / NEEDS REVIEW
+- For each test file: list of findings (specific function name + issue found)
+- Summary: count of real tests vs questionable tests
+- Recommendation: what the reviewer must manually verify
+
+Be harsh. This is a trading system. Fake tests cost money."""
+
+          client = anthropic.Anthropic(api_key=api_key)
+          message = client.messages.create(
+              model="claude-sonnet-4-6",
+              max_tokens=2000,
+              messages=[{"role": "user", "content": prompt}]
+          )
+
+          report = message.content[0].text
+          with open('claude-audit-report.md', 'w') as f:
+              f.write("# Claude AC Audit Report\n\n")
+              f.write(f"**PR:** {os.environ.get('GITHUB_REF', 'unknown')}\n\n")
+              f.write(report)
+
+          print(report)
+          EOF
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ac-audit-${{ github.sha }}
+          path: |
+            ac-audit-report.json
+            claude-audit-report.md
