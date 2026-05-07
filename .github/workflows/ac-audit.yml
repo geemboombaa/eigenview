@@ -9,6 +9,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check test AC traceability
         run: |
@@ -28,10 +30,8 @@ jobs:
                       continue
                   if not node.name.startswith('test_'):
                       continue
-                  # Check AC reference in name
                   if 'AC' not in node.name and 'REQ' not in node.name:
                       missing_ac.append(f'{f}::{node.name}')
-                  # Check for trivial body
                   stmts = [s for s in node.body if not isinstance(s, ast.Expr)]
                   if len(node.body) <= 2:
                       for stmt in ast.walk(node):
@@ -56,11 +56,89 @@ jobs:
               for t in trivial:
                   print(f"  {t}")
 
-          # Fail if trivial tests found. Missing AC refs = warning only (transition period).
           if trivial:
               sys.exit(1)
           EOF
 
+      # W2: fetch linked issue body and audit AC format (GIVEN/THEN)
+      - name: Audit GitHub issue ACs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'EOF'
+          import subprocess, re, json, sys
+
+          # Extract issue number from PR body
+          result = subprocess.run(
+              ['gh', 'pr', 'view', '--json', 'body,number'],
+              capture_output=True, text=True
+          )
+          if result.returncode != 0:
+              print("Could not fetch PR body -- skipping issue AC audit")
+              with open('issue-ac-audit.json', 'w') as f:
+                  json.dump({'skipped': True, 'reason': 'could not fetch PR'}, f)
+              sys.exit(0)
+
+          pr_data = json.loads(result.stdout)
+          pr_body = pr_data.get('body', '')
+
+          issue_match = re.search(r'[Cc]loses?\s+#(\d+)', pr_body)
+          if not issue_match:
+              print("No linked issue found in PR body (Closes #N required)")
+              with open('issue-ac-audit.json', 'w') as f:
+                  json.dump({'skipped': False, 'error': 'no linked issue', 'verdict': 'FAIL'}, f, indent=2)
+              sys.exit(1)
+
+          issue_num = issue_match.group(1)
+          result2 = subprocess.run(
+              ['gh', 'issue', 'view', issue_num, '--json', 'title,body'],
+              capture_output=True, text=True
+          )
+          if result2.returncode != 0:
+              print(f"Could not fetch issue #{issue_num}")
+              with open('issue-ac-audit.json', 'w') as f:
+                  json.dump({'skipped': True, 'reason': f'could not fetch issue {issue_num}'}, f)
+              sys.exit(0)
+
+          issue = json.loads(result2.stdout)
+          issue_body = issue.get('body', '')
+
+          # Check for GIVEN/THEN format in ACs
+          has_given = bool(re.search(r'\bGIVEN\b', issue_body, re.IGNORECASE))
+          has_then  = bool(re.search(r'\bTHEN\b',  issue_body, re.IGNORECASE))
+          ac_count  = len(re.findall(r'\bAC\d+\b', issue_body))
+
+          problems = []
+          if not has_given:
+              problems.append("No GIVEN keyword found in issue body")
+          if not has_then:
+              problems.append("No THEN keyword found in issue body")
+          if ac_count == 0:
+              problems.append("No AC1/AC2/... labels found in issue body")
+
+          verdict = 'PASS' if not problems else 'FAIL'
+          report = {
+              'issue': issue_num,
+              'title': issue.get('title', ''),
+              'has_given': has_given,
+              'has_then': has_then,
+              'ac_count': ac_count,
+              'problems': problems,
+              'verdict': verdict
+          }
+
+          with open('issue-ac-audit.json', 'w') as f:
+              json.dump(report, f, indent=2)
+
+          print(f"Issue #{issue_num}: {verdict}")
+          for p in problems:
+              print(f"  PROBLEM: {p}")
+
+          if verdict == 'FAIL':
+              sys.exit(1)
+          EOF
+
+      # W3+W4: Claude API audit with full context — spec + issue body + design + test stubs — posts as PR comment
       - name: Claude AC audit
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -71,7 +149,7 @@ jobs:
 
           api_key = os.environ.get('ANTHROPIC_API_KEY')
           if not api_key:
-              print("ANTHROPIC_API_KEY not set — skipping Claude audit")
+              print("ANTHROPIC_API_KEY not set -- skipping Claude audit")
               exit(0)
 
           # Collect test files changed in this PR
@@ -79,47 +157,88 @@ jobs:
               ['git', 'diff', '--name-only', 'origin/master...HEAD'],
               capture_output=True, text=True
           )
-          changed = [f for f in result.stdout.strip().split('\n') if f.startswith('tests/')]
+          changed_tests = [f for f in result.stdout.strip().split('\n') if f.startswith('tests/')]
 
-          if not changed:
-              print("No test files changed — skipping Claude audit")
+          # W3: also collect spec, design, arch docs from .boss/
+          spec_content = ""
+          for doc_path in ['.boss/spec.md', '.boss/parsed-requirement.md', '.boss/research.md', 'docs/architecture.md']:
+              if os.path.exists(doc_path):
+                  spec_content += f"\n\n### {doc_path}\n{open(doc_path).read()}"
+
+          # W3: fetch linked issue body
+          issue_body_content = ""
+          if os.path.exists('issue-ac-audit.json'):
+              audit_data = json.load(open('issue-ac-audit.json'))
+              issue_num = audit_data.get('issue')
+              if issue_num:
+                  r = subprocess.run(
+                      ['gh', 'issue', 'view', str(issue_num), '--json', 'title,body'],
+                      capture_output=True, text=True
+                  )
+                  if r.returncode == 0:
+                      iss = json.loads(r.stdout)
+                      issue_body_content = f"### GitHub Issue #{issue_num}: {iss.get('title','')}\n{iss.get('body','')}"
+
+          if not changed_tests and not spec_content and not issue_body_content:
+              print("No test files changed and no spec/issue found -- skipping Claude audit")
               with open('claude-audit-report.md', 'w') as f:
-                  f.write("# Claude AC Audit\n\nNo test files changed in this PR.\n")
+                  f.write("# Claude AC Audit\n\nNo changed tests or spec docs found in this PR.\n")
               exit(0)
 
           # Read changed test files
           test_content = ""
-          for f in changed[:5]:  # limit to 5 files
+          for f in changed_tests[:5]:
               if os.path.exists(f):
                   test_content += f"\n\n### {f}\n```python\n{open(f).read()}\n```"
 
           # Read ac-audit-report.json
-          audit_data = {}
+          ac_audit = {}
           if os.path.exists('ac-audit-report.json'):
-              audit_data = json.load(open('ac-audit-report.json'))
+              ac_audit = json.load(open('ac-audit-report.json'))
 
-          prompt = f"""You are an independent QA auditor. You have NO knowledge of how these tests were written.
+          prompt = f"""You are an independent QA auditor. You have NO knowledge of how these tests or specs were written.
 
-Audit the following test code against these criteria:
+Audit against these criteria:
 
-1. Does each test function test ONE specific condition (not multiple things)?
-2. Does each test have a meaningful assertion (not just assert True or checking type)?
-3. For fire-case tests: does the test actually set up the conditions the AC requires?
-4. For anti-case tests: does the test actually violate the condition it claims to test?
-5. Are the fixture data values realistic (real price levels, real RSI ranges, real volumes)?
+1. Do the test stubs map 1:1 to the ACs in the issue? Is there a test for every AC fire case AND anti-case?
+2. Does each test function test ONE specific condition?
+3. Does each test have a meaningful assertion (not assert True or type check)?
+4. For fire-case tests: does the setup actually match the GIVEN conditions?
+5. For anti-case tests: does it actually violate the specific condition it claims to test?
+6. Are fixture values realistic (real price levels, real RSI ranges, real volumes)?
+7. Does the spec have enough detail that an engineer could implement without asking questions?
 
-Tests with missing AC references: {audit_data.get('missing_ac_reference', [])}
+---
 
-Changed test files:
-{test_content}
+## Linked Issue / Requirements
+{issue_body_content if issue_body_content else '(no linked issue found)'}
 
-Output a markdown report with:
+---
+
+## Spec / Design Docs
+{spec_content if spec_content else '(no .boss/ spec docs found)'}
+
+---
+
+## AC Traceability Report
+Tests missing AC reference: {ac_audit.get('missing_ac_reference', [])}
+Trivial tests: {ac_audit.get('trivial_tests', [])}
+
+---
+
+## Changed Test Files
+{test_content if test_content else '(no changed test files)'}
+
+---
+
+Output a markdown report:
 - Overall verdict: PASS / FAIL / NEEDS REVIEW
-- For each test file: list of findings (specific function name + issue found)
-- Summary: count of real tests vs questionable tests
-- Recommendation: what the reviewer must manually verify
+- Requirements quality: is the spec testable? are ACs in GIVEN/THEN format?
+- For each test file: findings (function name + specific issue)
+- Count: real tests vs questionable tests
+- Recommendation: what reviewer must manually verify
 
-Be harsh. This is a trading system. Fake tests cost money."""
+Be harsh. Trading system. Fake tests cost money."""
 
           client = anthropic.Anthropic(api_key=api_key)
           message = client.messages.create(
@@ -129,12 +248,25 @@ Be harsh. This is a trading system. Fake tests cost money."""
           )
 
           report = message.content[0].text
+          pr_ref = os.environ.get('GITHUB_REF', 'unknown')
+
+          full_report = f"# Claude AC Audit Report\n\n**PR:** {pr_ref}\n\n{report}"
+
           with open('claude-audit-report.md', 'w') as f:
-              f.write("# Claude AC Audit Report\n\n")
-              f.write(f"**PR:** {os.environ.get('GITHUB_REF', 'unknown')}\n\n")
-              f.write(report)
+              f.write(full_report)
 
           print(report)
+
+          # W4: post as PR comment
+          pr_num_match = __import__('re').search(r'refs/pull/(\d+)', pr_ref)
+          if pr_num_match:
+              pr_num = pr_num_match.group(1)
+              comment_body = f"## Claude AC Audit\n\n{report}\n\n---\n*Posted by ac-audit.yml — model: claude-sonnet-4-6*"
+              subprocess.run(
+                  ['gh', 'pr', 'comment', pr_num, '--body', comment_body],
+                  capture_output=True, text=True
+              )
+              print(f"Posted audit as comment on PR #{pr_num}")
           EOF
 
       - name: Upload audit artifacts
@@ -144,4 +276,5 @@ Be harsh. This is a trading system. Fake tests cost money."""
           name: ac-audit-${{ github.sha }}
           path: |
             ac-audit-report.json
+            issue-ac-audit.json
             claude-audit-report.md
