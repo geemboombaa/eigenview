@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec
+from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec, ta_scan
 from eigenview.data.storage import create_tables
 
 
@@ -36,6 +36,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(layouts.router, prefix="/api")
 app.include_router(heat.router, prefix="/api")
 app.include_router(spec.router, prefix="/api")
+app.include_router(ta_scan.router, prefix="/api")
 
 
 @app.get("/api/health")

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView · TA Scanner</title>
+<style>
+:root {
+  --bg0: #0d0d0f;
+  --bg1: #141417;
+  --bg2: #1a1a1f;
+  --bg3: #222228;
+  --bg4: #2a2a32;
+  --border: #2e2e38;
+  --text0: #f0f0f4;
+  --text1: #b8b8c8;
+  --text2: #7070a0;
+  --blue: #3b82f6;
+  --blue-dim: #1e3a5f;
+  --green: #22c55e;
+  --green-dim: #14532d;
+  --red: #ef4444;
+  --red-dim: #4c1d1d;
+  --amber: #f59e0b;
+  --amber-dim: #4a3000;
+  --purple: #a855f7;
+  --purple-dim: #3b1a5e;
+  --teal: #14b8a6;
+  --teal-dim: #0a3d38;
+  --gray: #4a4a5a;
+  --radius: 8px;
+  --font: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg0); color: var(--text0); font-family: var(--font); font-size: 13px; }
+
+.app { display: flex; flex-direction: column; height: 100vh; padding: 12px; gap: 10px; }
+
+/* ── HEADER ── */
+.header { display: flex; align-items: center; gap: 14px; }
+.logo { font-size: 17px; font-weight: 700; color: var(--text0); letter-spacing: -0.5px; }
+.logo span { color: var(--blue); }
+.header-sep { flex: 1; }
+.page-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+
+/* ── BENTO GRID ── */
+.bento { display: grid; grid-template-columns: 300px 1fr; grid-template-rows: auto 1fr; gap: 10px; flex: 1; min-height: 0; }
+
+/* ── PANEL ── */
+.panel { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow: hidden; }
+.panel-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 10px; }
+
+/* ── CONTROLS PANEL ── */
+.controls-panel { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 12px; }
+
+.universe-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.universe-btn {
+  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text1); cursor: pointer; font-family: var(--font);
+  font-size: 11px; transition: all 0.15s;
+}
+.universe-btn:hover { border-color: var(--blue); color: var(--text0); }
+.universe-btn.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+
+.ticker-area {
+  flex: 1;
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  color: var(--text0);
+  font-family: var(--font);
+  font-size: 11px;
+  resize: none;
+  min-height: 120px;
+}
+.ticker-area:focus { outline: none; border-color: var(--blue); }
+
+.scan-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  letter-spacing: 0.3px;
+}
+.scan-btn:hover { opacity: 0.88; }
+.scan-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.progress-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; display: none; }
+.progress-bar { height: 100%; background: var(--blue); transition: width 0.3s; border-radius: 2px; }
+
+.status-line { font-size: 11px; color: var(--text2); min-height: 16px; }
+
+/* ── STATS ROW ── */
+.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.stat-card {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px; text-align: center;
+}
+.stat-val { font-size: 22px; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 10px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
+.stat-firing { color: var(--green); }
+.stat-long   { color: var(--blue); }
+.stat-short  { color: var(--red); }
+.stat-total  { color: var(--text0); }
+.stat-time   { color: var(--text2); font-size: 11px; }
+
+/* ── TABLE PANEL ── */
+.table-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.filter-btn {
+  padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); cursor: pointer;
+  font-family: var(--font); font-size: 11px; transition: all 0.15s;
+}
+.filter-btn:hover { color: var(--text1); border-color: var(--text2); }
+.filter-btn.active { background: var(--bg3); color: var(--text0); border-color: var(--text1); }
+.filter-sep { width: 1px; background: var(--border); margin: 0 2px; }
+
+.table-wrap { flex: 1; overflow: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead { position: sticky; top: 0; z-index: 2; background: var(--bg2); }
+thead tr { border-bottom: 1px solid var(--border); }
+th {
+  padding: 6px 10px; text-align: left; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2);
+  white-space: nowrap; user-select: none; cursor: pointer;
+  transition: color 0.1s;
+}
+th:hover { color: var(--text0); }
+th .sort-arrow { margin-left: 4px; opacity: 0.4; }
+th.sorted .sort-arrow { opacity: 1; color: var(--blue); }
+
+td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tr:hover td { background: var(--bg2); }
+tr.firing-row td { }
+
+/* Ticker cell */
+.cell-ticker { font-weight: 700; font-size: 13px; color: var(--text0); }
+
+/* Pattern cell */
+.pattern-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 500;
+}
+.cat-trend     { background: var(--blue-dim);   color: #60a5fa; }
+.cat-breakout  { background: var(--green-dim);  color: #4ade80; }
+.cat-reversal  { background: var(--amber-dim);  color: #fbbf24; }
+.cat-meanrev   { background: var(--purple-dim); color: #c084fc; }
+.cat-none      { background: var(--bg3);        color: var(--text2); }
+.cat-short-mod { opacity: 0.85; }
+
+/* Direction */
+.dir-long  { color: var(--green); font-weight: 600; }
+.dir-short { color: var(--red);   font-weight: 600; }
+
+/* Weekly state */
+.wk-bullish  { color: var(--green); }
+.wk-bearish  { color: var(--red); }
+.wk-neutral  { color: var(--text2); }
+.wk-extended { color: var(--amber); }
+
+/* Firing */
+.firing-yes { color: var(--green); font-weight: 700; }
+.firing-no  { color: var(--gray); }
+
+/* Conf bar */
+.conf-wrap { display: flex; align-items: center; gap: 6px; }
+.conf-bar-bg { width: 50px; height: 4px; background: var(--bg4); border-radius: 2px; }
+.conf-bar    { height: 100%; border-radius: 2px; background: var(--blue); }
+.conf-val    { min-width: 36px; }
+
+/* RSI / ADX cells */
+.rsi-high   { color: var(--red); }
+.rsi-low    { color: var(--green); }
+.rsi-normal { color: var(--text1); }
+.adx-strong { color: var(--amber); }
+.adx-normal { color: var(--text1); }
+
+/* Vol */
+.vol-high   { color: var(--amber); font-weight: 600; }
+.vol-normal { color: var(--text1); }
+
+/* Narrative */
+.cell-narrative { color: var(--text2); font-size: 11px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Spot */
+.cell-spot { color: var(--text1); }
+
+/* Empty state */
+.empty-state { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text2); font-size: 13px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">Eigen<span>View</span></div>
+    <div class="page-label">TA Pattern Scanner</div>
+    <div class="header-sep"></div>
+    <a href="/" style="color:var(--text2);text-decoration:none;font-size:11px;">← Back to Dashboard</a>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val stat-total" id="stat-total">—</div><div class="stat-label">Scanned</div></div>
+    <div class="stat-card"><div class="stat-val stat-firing" id="stat-firing">—</div><div class="stat-label">Firing</div></div>
+    <div class="stat-card"><div class="stat-val stat-long" id="stat-long">—</div><div class="stat-label">Long</div></div>
+    <div class="stat-card"><div class="stat-val stat-short" id="stat-short">—</div><div class="stat-label">Short</div></div>
+    <div class="stat-card"><div class="stat-val stat-time" id="stat-time">—</div><div class="stat-label">Last Scan</div></div>
+  </div>
+
+  <!-- BENTO GRID -->
+  <div class="bento">
+
+    <!-- CONTROLS PANEL -->
+    <div class="panel controls-panel">
+      <div class="panel-title">Universe</div>
+
+      <div class="universe-btns">
+        <button class="universe-btn active" data-u="default">Default 30</button>
+        <button class="universe-btn" data-u="ndx20">NDX 20</button>
+        <button class="universe-btn" data-u="test5">Test 5</button>
+        <button class="universe-btn" data-u="custom">Custom</button>
+      </div>
+
+      <div class="panel-title" style="margin-top:4px;">Tickers</div>
+      <textarea class="ticker-area" id="ticker-input" placeholder="NVDA AAPL TSLA&#10;(space or newline separated)"></textarea>
+
+      <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ Run Scan</button>
+
+      <div class="progress-bar-wrap" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+      <div class="status-line" id="status-line">Ready — select universe or enter tickers</div>
+
+      <div style="margin-top:auto; padding-top:12px; border-top:1px solid var(--border);">
+        <div class="panel-title">Pattern Categories</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pattern-pill cat-trend" style="font-size:10px;">TREND</span>
+            <span style="color:var(--text2);font-size:11px;">pullback, flag, rally</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pattern-pill cat-breakout" style="font-size:10px;">BREAKOUT</span>
+            <span style="color:var(--text2);font-size:11px;">breakout, compression, base</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pattern-pill cat-reversal" style="font-size:10px;">REVERSAL</span>
+            <span style="color:var(--text2);font-size:11px;">reversal, overbought, bounce</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pattern-pill cat-none" style="font-size:10px;">NONE</span>
+            <span style="color:var(--text2);font-size:11px;">no pattern detected</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE PANEL -->
+    <div class="panel table-panel">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="firing">Firing Only</button>
+        <div class="filter-sep"></div>
+        <button class="filter-btn" data-filter="long">Long</button>
+        <button class="filter-btn" data-filter="short">Short</button>
+        <div class="filter-sep"></div>
+        <button class="filter-btn" data-filter="trend">Trend Cont.</button>
+        <button class="filter-btn" data-filter="breakout">Breakout</button>
+        <button class="filter-btn" data-filter="reversal">Reversal</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable('ticker')">Ticker <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('spot')">Spot <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('pattern')">Pattern <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('direction')">Dir <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('weekly_state')">Weekly <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('confidence')">Conf% <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('rsi')">RSI <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('adx')">ADX <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('vol_ratio')">Vol <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable('firing')">Fire <span class="sort-arrow">↕</span></th>
+              <th>Narrative</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <tr><td colspan="11"><div class="empty-state">Run a scan to see results</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let allResults = [];
+let sortKey = 'firing';
+let sortAsc = false;
+let activeFilter = 'all';
+let pollInterval = null;
+
+// ── Universe presets ───────────────────────────────────────────────────────
+const UNIVERSES = {
+  default: 'NVDA AAPL MSFT GOOGL AMZN META TSM AVGO ORCL AMD TSLA NFLX SBUX NKE MCD JPM GS BAC LLY UNH JNJ XOM CVX SPY QQQ IWM GLD TLT PLTR COIN',
+  ndx20:   'NVDA AAPL MSFT GOOGL AMZN META TSLA AVGO ORCL NFLX AMD ADBE QCOM COST AMAT MU LRCX PANW KLAC MRVL',
+  test5:   'NVDA AAPL TSLA META AMD',
+  custom:  '',
+};
+
+// ── Pattern category ───────────────────────────────────────────────────────
+const TREND_PATTERNS = new Set([
+  'pullback_in_trend','pullback_deep','flag_continuation','rally_in_downtrend',
+  'oversold_bounce','failed_breakdown',
+]);
+const BREAKOUT_PATTERNS = new Set([
+  'breakout','compression_break','base_breakout','ema_reclaim',
+  'breakdown','compression_break_down','base_breakdown','ema_rejection',
+  'failed_breakout','bos_bullish','bos_bearish',
+]);
+const REVERSAL_PATTERNS = new Set([
+  'bullish_reversal','bearish_reversal','overbought_reversal','choch_bullish','choch_bearish',
+]);
+
+function patternCategory(p) {
+  if (TREND_PATTERNS.has(p)) return 'trend';
+  if (BREAKOUT_PATTERNS.has(p)) return 'breakout';
+  if (REVERSAL_PATTERNS.has(p)) return 'reversal';
+  return 'none';
+}
+
+function patternCss(p) {
+  const cat = patternCategory(p);
+  return { trend: 'cat-trend', breakout: 'cat-breakout', reversal: 'cat-reversal', none: 'cat-none' }[cat];
+}
+
+// ── Universe button setup ──────────────────────────────────────────────────
+document.querySelectorAll('.universe-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.universe-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const u = btn.dataset.u;
+    if (u !== 'custom') {
+      document.getElementById('ticker-input').value = UNIVERSES[u];
+    }
+  });
+});
+// Set default
+document.getElementById('ticker-input').value = UNIVERSES.default;
+
+// ── Filter buttons ─────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderTable();
+  });
+});
+
+// ── Scan ───────────────────────────────────────────────────────────────────
+async function startScan() {
+  const raw = document.getElementById('ticker-input').value;
+  const tickers = raw.trim().split(/[\s,]+/).map(t => t.toUpperCase()).filter(Boolean);
+  if (!tickers.length) { setStatus('Enter at least one ticker'); return; }
+
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-bar').style.width = '0%';
+  setStatus(`Starting scan for ${tickers.length} ticker(s)…`);
+
+  try {
+    const resp = await fetch('/api/ta-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickers }),
+    });
+    const data = await resp.json();
+    if (data.status === 'already_running') { setStatus('Scan already running…'); return; }
+    if (data.status === 'started') { pollResults(); }
+  } catch (e) {
+    setStatus('Error: ' + e.message);
+    document.getElementById('scan-btn').disabled = false;
+  }
+}
+
+function pollResults() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const resp = await fetch('/api/ta-scan/results');
+      const data = await resp.json();
+      const pct = data.tickers_total > 0
+        ? Math.round((data.tickers_scanned / data.tickers_total) * 100) : 0;
+      document.getElementById('progress-bar').style.width = pct + '%';
+      setStatus(data.message || `Scanning… ${data.tickers_scanned}/${data.tickers_total}`);
+
+      if (!data.running) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+        document.getElementById('scan-btn').disabled = false;
+        document.getElementById('progress-bar').style.width = '100%';
+        setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
+        allResults = data.results || [];
+        updateStats(data);
+        renderTable();
+        setStatus(data.message);
+      }
+    } catch (e) {
+      clearInterval(pollInterval);
+      document.getElementById('scan-btn').disabled = false;
+      setStatus('Poll error: ' + e.message);
+    }
+  }, 1000);
+}
+
+function setStatus(msg) {
+  document.getElementById('status-line').textContent = msg;
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats(data) {
+  const results = data.results || [];
+  const firing = results.filter(r => r.firing).length;
+  const longs  = results.filter(r => r.firing && r.direction === 'long').length;
+  const shorts = results.filter(r => r.firing && r.direction === 'short').length;
+  const t = data.scanned_at ? new Date(data.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  document.getElementById('stat-total').textContent  = results.length;
+  document.getElementById('stat-firing').textContent = firing;
+  document.getElementById('stat-long').textContent   = longs;
+  document.getElementById('stat-short').textContent  = shorts;
+  document.getElementById('stat-time').textContent   = t;
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────
+function sortTable(key) {
+  if (sortKey === key) { sortAsc = !sortAsc; }
+  else { sortKey = key; sortAsc = key === 'ticker' || key === 'pattern'; }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  document.querySelectorAll('th').forEach(th => {
+    if (th.getAttribute('onclick') === `sortTable('${key}')`) th.classList.add('sorted');
+  });
+  renderTable();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function applyFilter(results) {
+  switch (activeFilter) {
+    case 'firing':   return results.filter(r => r.firing);
+    case 'long':     return results.filter(r => r.firing && r.direction === 'long');
+    case 'short':    return results.filter(r => r.firing && r.direction === 'short');
+    case 'trend':    return results.filter(r => patternCategory(r.pattern) === 'trend');
+    case 'breakout': return results.filter(r => patternCategory(r.pattern) === 'breakout');
+    case 'reversal': return results.filter(r => patternCategory(r.pattern) === 'reversal');
+    default:         return results;
+  }
+}
+
+function applySortLocal(results) {
+  return [...results].sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === 'firing') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    if (va == null) va = sortAsc ? Infinity : -Infinity;
+    if (vb == null) vb = sortAsc ? Infinity : -Infinity;
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+}
+
+function renderTable() {
+  const filtered = applyFilter(allResults);
+  const sorted   = applySortLocal(filtered);
+  const tbody = document.getElementById('results-body');
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state">No results match the current filter</div></td></tr>';
+    return;
+  }
+
+  const rows = sorted.map(r => {
+    const cat    = patternCategory(r.pattern);
+    const patCss = patternCss(r.pattern);
+    const patLabel = (r.pattern || 'no_pattern').replace(/_/g, ' ');
+
+    const dirHtml = r.direction === 'short'
+      ? `<span class="dir-short">↓ SHORT</span>`
+      : r.direction === 'long'
+        ? `<span class="dir-long">↑ LONG</span>`
+        : `<span style="color:var(--text2)">—</span>`;
+
+    const wkHtml = (() => {
+      const w = (r.weekly_state || '').toUpperCase();
+      if (w.includes('BULLISH') && !w.includes('EXTENDED')) return `<span class="wk-bullish">${w}</span>`;
+      if (w.includes('EXTENDED')) return `<span class="wk-extended">${w}</span>`;
+      if (w.includes('BEARISH')) return `<span class="wk-bearish">${w}</span>`;
+      return `<span class="wk-neutral">${w || '—'}</span>`;
+    })();
+
+    const conf = r.confidence || 0;
+    const confPct = Math.min(100, conf);
+    const confHtml = `<div class="conf-wrap">
+      <div class="conf-bar-bg"><div class="conf-bar" style="width:${confPct}%"></div></div>
+      <span class="conf-val">${conf.toFixed(1)}%</span>
+    </div>`;
+
+    const rsi = r.rsi != null ? r.rsi.toFixed(1) : '—';
+    const rsiCss = r.rsi == null ? '' : r.rsi > 70 ? 'rsi-high' : r.rsi < 30 ? 'rsi-low' : 'rsi-normal';
+    const adx = r.adx != null ? r.adx.toFixed(1) : '—';
+    const adxCss = r.adx != null && r.adx > 25 ? 'adx-strong' : 'adx-normal';
+
+    const vol = r.vol_ratio != null ? `${r.vol_ratio.toFixed(1)}x` : '—';
+    const volCss = r.vol_ratio != null && r.vol_ratio > 1.5 ? 'vol-high' : 'vol-normal';
+
+    const fireHtml = r.firing
+      ? `<span class="firing-yes">●</span>`
+      : `<span class="firing-no">○</span>`;
+
+    const spot = r.spot != null ? `$${r.spot.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—';
+
+    const narr = (r.narrative || '').substring(0, 80) + (r.narrative && r.narrative.length > 80 ? '…' : '');
+
+    const rowClass = r.firing ? 'firing-row' : '';
+
+    return `<tr class="${rowClass}">
+      <td class="cell-ticker">${r.ticker}</td>
+      <td class="cell-spot">${spot}</td>
+      <td><span class="pattern-pill ${patCss}">${patLabel}</span></td>
+      <td>${dirHtml}</td>
+      <td>${wkHtml}</td>
+      <td>${confHtml}</td>
+      <td class="${rsiCss}">${rsi}</td>
+      <td class="${adxCss}">${adx}</td>
+      <td class="${volCss}">${vol}</td>
+      <td>${fireHtml}</td>
+      <td class="cell-narrative" title="${(r.narrative||'').replace(/"/g,'&quot;')}">${narr}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = rows.join('');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const resp = await fetch('/api/ta-scan/results');
+    const data = await resp.json();
+    if (data.results && data.results.length) {
+      allResults = data.results;
+      updateStats(data);
+      renderTable();
+      setStatus(data.message || 'Showing previous scan results');
+    }
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>
