@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — UX Wireframe v2 (Option A Approved)</title>
+<style>
+  :root {
+    --bg:       #080b10;
+    --bg1:      #0d1117;
+    --bg2:      #111827;
+    --bg3:      #1a2332;
+    --border:   #1e2d3d;
+    --border2:  #2a3f5a;
+    --text:     #e2e8f0;
+    --text2:    #94a3b8;
+    --text3:    #64748b;
+    --green:    #5ee3a1;
+    --green-d:  rgba(94,227,161,0.10);
+    --red:      #f87171;
+    --red-d:    rgba(248,113,113,0.10);
+    --blue:     #60a5fa;
+    --blue-d:   rgba(96,165,250,0.10);
+    --amber:    #fbbf24;
+    --amber-d:  rgba(251,191,36,0.10);
+    --purple:   #a78bfa;
+    --teal:     #2dd4bf;
+    --mono:     'SF Mono','Fira Code','Cascadia Code',monospace;
+    --sans:     -apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:13px; line-height:1.5; }
+
+  /* ── Top nav ── */
+  .top-nav { display:flex; align-items:center; gap:0; padding:0 20px; border-bottom:1px solid var(--border); background:var(--bg1); height:44px; position:sticky; top:0; z-index:100; }
+  .top-nav h1 { font-family:var(--mono); font-size:12px; color:var(--text2); letter-spacing:1.5px; margin-right:32px; }
+  .opt-tab { padding:8px 18px; border-bottom:2px solid transparent; cursor:pointer; font-size:11px; letter-spacing:0.8px; color:var(--text3); transition:all 0.15s; font-family:var(--mono); }
+  .opt-tab:hover { color:var(--text2); }
+  .opt-tab.active { color:var(--text); border-bottom-color:var(--blue); }
+  .note { margin-left:auto; font-size:10px; color:var(--text3); font-family:var(--mono); }
+
+  /* ── Panels ── */
+  .panel { display:none; }
+  .panel.active { display:block; }
+
+  /* ── 3-col layout ── */
+  .layout { display:grid; grid-template-columns:380px 1fr 300px; height:calc(100vh - 44px); overflow:hidden; }
+  .col-left  { border-right:1px solid var(--border); background:var(--bg1); overflow-y:auto; display:flex; flex-direction:column; position:relative; }
+  .col-mid   { background:var(--bg); display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .col-right { border-left:1px solid var(--border); background:var(--bg1); display:flex; flex-direction:column; position:relative; }
+
+  /* Panel drag/resize indicators */
+  .panel-header-drag { display:flex; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid var(--border); font-size:10px; font-family:var(--mono); color:var(--text3); letter-spacing:0.5px; cursor:grab; user-select:none; }
+  .panel-header-drag:hover { background:var(--bg2); }
+  .drag-icon { font-size:13px; color:var(--border2); }
+  .resize-handle { position:absolute; z-index:10; }
+  .resize-right { right:0; top:0; bottom:0; width:4px; cursor:col-resize; background:transparent; }
+  .resize-right:hover { background:rgba(96,165,250,0.3); }
+  .resize-bottom { bottom:0; left:0; right:0; height:4px; cursor:row-resize; background:transparent; }
+  .resize-bottom:hover { background:rgba(96,165,250,0.3); }
+
+  /* ── Left col tabs ── */
+  .left-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .ltab { flex:1; padding:8px 4px; text-align:center; font-size:10px; letter-spacing:1px; color:var(--text3); cursor:pointer; font-family:var(--mono); border-bottom:2px solid transparent; transition:all 0.1s; }
+  .ltab.active { color:var(--text); border-bottom-color:var(--blue); }
+  .ltab:hover { color:var(--text2); }
+
+  /* ── Cards ── */
+  .picks-list { padding:8px; display:flex; flex-direction:column; gap:5px; flex:1; }
+  .pick-card { background:var(--bg2); border:1px solid var(--border); border-left:3px solid transparent; border-radius:6px; padding:10px 12px; cursor:pointer; transition:border-color 0.1s; }
+  .pick-card:hover { border-color:var(--border2); border-left-color:var(--border2); }
+  .pick-card.selected { border-color:var(--border2); border-left-color:var(--blue); background:var(--bg3); }
+  .pick-card.sel-short { border-left-color:var(--red); }
+
+  /* card row 1: ticker + direction + conviction */
+  .card-row1 { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .ticker { font-family:var(--mono); font-size:15px; font-weight:700; color:var(--text); letter-spacing:0.5px; }
+  .dir-tag { font-size:9px; font-family:var(--mono); padding:2px 8px; border-radius:100px; letter-spacing:1px; }
+  .dir-long  { background:var(--green-d); color:var(--green); border:1px solid rgba(94,227,161,0.25); }
+  .dir-short { background:var(--red-d);   color:var(--red);   border:1px solid rgba(248,113,113,0.25); }
+  .conv-dots { display:flex; gap:3px; margin-left:auto; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--border2); }
+  .dot.on { background:var(--green); }
+  .dot.on.s { background:var(--red); }
+
+  /* bucket row */
+  .bucket-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .bucket-tag { font-size:9px; font-family:var(--mono); padding:2px 8px; border-radius:100px; letter-spacing:0.5px; white-space:nowrap; }
+  .b-tr  { background:rgba(96,165,250,0.10);  color:var(--blue);   border:1px solid rgba(96,165,250,0.2); }
+  .b-ts  { background:rgba(94,227,161,0.08);  color:#34d399;       border:1px solid rgba(52,211,153,0.2); }
+  .b-sc  { background:rgba(45,212,191,0.10);  color:var(--teal);   border:1px solid rgba(45,212,191,0.2); }
+  .b-ms  { background:rgba(167,139,250,0.10); color:var(--purple); border:1px solid rgba(167,139,250,0.2); }
+  .b-er  { background:rgba(251,191,36,0.10);  color:var(--amber);  border:1px solid rgba(251,191,36,0.2); }
+  .b-mr  { background:rgba(100,116,139,0.12); color:var(--text2);  border:1px solid var(--border2); }
+  .setup-name { font-size:11px; color:var(--text2); }
+
+  /* factor fire dots */
+  .factor-row { display:flex; gap:8px; margin-bottom:7px; align-items:center; }
+  .factor-dot { display:flex; align-items:center; gap:3px; font-size:9px; color:var(--text3); font-family:var(--mono); }
+  .fdot { width:7px; height:7px; border-radius:50%; border:1px solid var(--border2); background:transparent; }
+  .fdot.full  { background:var(--green); border-color:var(--green); }
+  .fdot.half  { background:linear-gradient(90deg,var(--green) 50%,var(--border2) 50%); border-color:var(--green); }
+  .fdot.short { background:var(--red); border-color:var(--red); }
+
+  /* entry/stop row */
+  .entry-row { display:flex; gap:14px; align-items:center; font-size:11px; color:var(--text2); }
+  .entry-row strong { color:var(--text); font-family:var(--mono); font-size:12px; }
+  .rr-badge { margin-left:auto; font-size:9px; font-family:var(--mono); padding:1px 7px; border-radius:3px; background:var(--blue-d); color:var(--blue); border:1px solid rgba(96,165,250,0.2); }
+  .rr-badge.short { background:var(--red-d); color:var(--red); border-color:rgba(248,113,113,0.2); }
+
+  /* section divider */
+  .section-label { font-size:9px; font-family:var(--mono); letter-spacing:1.5px; color:var(--text3); padding:8px 12px 3px; }
+  .picks-divider { border:none; border-top:1px solid var(--border); margin:2px 0; }
+
+  /* watch rows (compact) */
+  .watch-row { display:flex; align-items:center; gap:7px; padding:6px 12px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .watch-row:hover { background:var(--bg2); }
+  .wr-ticker { font-family:var(--mono); font-size:12px; font-weight:700; min-width:42px; color:var(--text); }
+  .wr-bucket { font-size:9px; font-family:var(--mono); color:var(--text3); }
+  .wr-setup  { font-size:10px; color:var(--text2); flex:1; }
+  .wr-conv   { display:flex; gap:2px; }
+  .wr-price  { font-family:var(--mono); font-size:10px; color:var(--text2); }
+  .wr-rr    { font-size:9px; font-family:var(--mono); color:var(--text3); }
+
+  /* ── CHART PANEL ── */
+  .chart-header { display:flex; align-items:center; gap:8px; padding:7px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .chart-ticker { font-family:var(--mono); font-size:15px; font-weight:700; color:var(--text); }
+  .wk-pill { font-size:9px; font-family:var(--mono); padding:3px 9px; border-radius:100px; letter-spacing:0.5px; }
+  .wk-bull { background:var(--green-d); color:var(--green); border:1px solid rgba(94,227,161,0.25); }
+  .wk-bear { background:var(--red-d);   color:var(--red);   border:1px solid rgba(248,113,113,0.25); }
+  .wk-neut { background:rgba(100,116,139,0.12); color:var(--text2); border:1px solid var(--border2); }
+  .signal-badge { display:flex; align-items:center; gap:5px; font-size:10px; font-family:var(--mono); padding:3px 10px; border-radius:4px; }
+  .sig-buy  { background:var(--green-d); color:var(--green); border:1px solid rgba(94,227,161,0.25); }
+  .sig-sell { background:var(--red-d);   color:var(--red);   border:1px solid rgba(248,113,113,0.25); }
+  .tf-btns { display:flex; gap:3px; margin-left:auto; }
+  .tf-btn { font-size:10px; font-family:var(--mono); padding:2px 8px; border-radius:3px; border:1px solid var(--border); color:var(--text3); cursor:pointer; }
+  .tf-btn.active { color:var(--text); border-color:var(--border2); background:var(--bg2); }
+
+  /* weekly candle note strip — simplified */
+  .weekly-strip { display:flex; align-items:center; gap:10px; padding:4px 12px; border-bottom:1px solid var(--border); font-size:10px; font-family:var(--mono); color:var(--text3); flex-shrink:0; background:var(--bg1); }
+
+  /* toggle bar */
+  .toggle-bar { display:flex; gap:3px; padding:5px 10px; border-bottom:1px solid var(--border); flex-shrink:0; align-items:center; flex-wrap:wrap; }
+  .tog-btn { font-size:9px; font-family:var(--mono); letter-spacing:0.6px; padding:2px 9px; border-radius:3px; border:1px solid var(--border); color:var(--text3); cursor:pointer; transition:all 0.1s; }
+  .tog-btn:hover { border-color:var(--border2); color:var(--text2); }
+  .tog-btn.on { color:var(--text); border-color:var(--border2); background:var(--bg2); }
+  .tog-btn.gex-on { color:var(--amber); border-color:rgba(251,191,36,0.3); background:var(--amber-d); }
+  .tog-sep { width:1px; background:var(--border); margin:0 3px; height:14px; }
+  .tog-btn.alloff { margin-left:auto; font-size:8px; color:var(--text3); }
+
+  /* chart body */
+  .chart-body { flex:1; position:relative; overflow:hidden; }
+  .chart-bg-bull { position:absolute; inset:0; background:linear-gradient(180deg,rgba(94,227,161,0.015) 0%,transparent 50%); pointer-events:none; }
+
+  /* overlay lines */
+  .entry-band { position:absolute; left:8px; right:56px; background:rgba(94,227,161,0.06); border-top:1px dashed rgba(94,227,161,0.5); border-bottom:1px dashed rgba(94,227,161,0.5); display:flex; align-items:center; padding-left:8px; }
+  .entry-band-label { font-size:9px; font-family:var(--mono); color:var(--green); }
+  .stop-line { position:absolute; left:8px; right:56px; border-top:1px dashed rgba(248,113,113,0.6); display:flex; align-items:center; padding-left:8px; }
+  .stop-line-label { font-size:9px; font-family:var(--mono); color:var(--red); margin-top:-11px; }
+  .target-line { position:absolute; left:8px; right:56px; border-top:1px dashed rgba(96,165,250,0.6); display:flex; align-items:center; padding-left:8px; }
+  .target-line-label { font-size:9px; font-family:var(--mono); color:var(--blue); margin-top:-11px; }
+  .gex-line  { position:absolute; left:8px; right:56px; border-top:1px solid rgba(251,191,36,0.5); display:flex; align-items:center; padding-left:8px; }
+  .gex-label { font-size:9px; font-family:var(--mono); color:var(--amber); margin-top:-11px; }
+  .call-wall { position:absolute; left:8px; right:56px; border-top:1px dashed rgba(94,227,161,0.35); display:flex; align-items:center; padding-left:8px; }
+  .call-wall-label { font-size:9px; font-family:var(--mono); color:rgba(94,227,161,0.7); margin-top:-11px; }
+  .put-wall  { position:absolute; left:8px; right:56px; border-top:1px dashed rgba(248,113,113,0.35); display:flex; align-items:center; padding-left:8px; }
+  .put-wall-label { font-size:9px; font-family:var(--mono); color:rgba(248,113,113,0.7); margin-top:-11px; }
+
+  /* candles svg */
+  .candles-svg { width:100%; height:100%; }
+
+  /* vol pane */
+  .vol-pane { height:54px; border-top:1px solid var(--border); flex-shrink:0; padding:4px 8px; display:flex; align-items:flex-end; gap:2px; }
+  .vbar { background:rgba(94,227,161,0.3); border-radius:1px 1px 0 0; }
+  .vbar.r { background:rgba(248,113,113,0.3); }
+
+  /* factor strip */
+  .strip { border-top:1px solid var(--border); flex-shrink:0; }
+  .strip-tabs { display:flex; padding:0 8px; border-bottom:1px solid var(--border); }
+  .stab { font-size:9px; font-family:var(--mono); letter-spacing:1px; padding:6px 12px; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; }
+  .stab.active { color:var(--text); border-bottom-color:var(--blue); }
+  .strip-body { padding:10px 14px; font-size:11px; }
+  .strip-status { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  .status-fired { font-size:9px; font-family:var(--mono); padding:2px 8px; border-radius:3px; background:var(--green-d); color:var(--green); border:1px solid rgba(94,227,161,0.25); }
+  .status-tier { font-size:9px; font-family:var(--mono); color:var(--amber); }
+  .checklist { display:flex; flex-direction:column; gap:4px; }
+  .ci { display:flex; align-items:center; gap:6px; font-size:11px; }
+  .ci-check { font-size:11px; }
+  .ci.pass .ci-check { color:var(--green); }
+  .ci.fail .ci-check { color:var(--red); }
+  .ci.pass { color:var(--text2); }
+  .ci.fail { color:var(--text3); }
+  .ci-val { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--text3); }
+  .candle-confirm { display:flex; align-items:center; gap:8px; margin-top:7px; padding-top:7px; border-top:1px solid var(--border); font-size:11px; }
+  .cc-label { color:var(--text2); }
+  .cc-val { margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--green); }
+  .weekly-state-row { display:flex; gap:12px; margin-bottom:7px; flex-wrap:wrap; }
+  .ws-item { display:flex; flex-direction:column; gap:1px; }
+  .ws-key { font-size:9px; font-family:var(--mono); color:var(--text3); }
+  .ws-val { font-size:11px; font-family:var(--mono); color:var(--text); }
+
+  /* ── RIGHT: AI chat ── */
+  .chat-header { padding:9px 14px; border-bottom:1px solid var(--border); font-size:11px; color:var(--text2); flex-shrink:0; font-family:var(--mono); letter-spacing:0.5px; }
+  .chat-messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .chat-bubble { padding:8px 11px; border-radius:6px; font-size:11px; line-height:1.5; max-width:92%; }
+  .cb-ai   { background:var(--bg2); border:1px solid var(--border); color:var(--text2); align-self:flex-start; }
+  .cb-user { background:rgba(96,165,250,0.10); border:1px solid rgba(96,165,250,0.2); color:var(--text); align-self:flex-end; }
+  .chat-input-row { border-top:1px solid var(--border); padding:10px; flex-shrink:0; display:flex; gap:8px; }
+  .chat-input { flex:1; background:var(--bg2); border:1px solid var(--border); border-radius:5px; padding:7px 10px; font-size:11px; color:var(--text); font-family:var(--sans); }
+  .chat-send { background:var(--blue-d); color:var(--blue); border:1px solid rgba(96,165,250,0.3); border-radius:5px; padding:7px 12px; font-size:10px; font-family:var(--mono); cursor:pointer; }
+  .chip { display:inline-flex; padding:3px 8px; border-radius:100px; background:var(--bg3); border:1px solid var(--border2); font-size:10px; font-family:var(--mono); color:var(--text2); cursor:pointer; margin:2px; }
+  .chips { padding:0 10px 8px; display:flex; flex-wrap:wrap; }
+
+  /* ── MATRIX ── */
+  .matrix-outer { overflow:auto; flex:1; }
+  table.matrix { width:100%; border-collapse:collapse; font-size:11px; min-width:620px; }
+  table.matrix th { background:var(--bg2); border:1px solid var(--border); padding:6px 10px; font-family:var(--mono); font-size:9px; letter-spacing:0.8px; color:var(--text3); text-align:left; position:sticky; top:0; cursor:pointer; white-space:nowrap; user-select:none; }
+  table.matrix th:hover { color:var(--text2); background:var(--bg3); }
+  table.matrix th .sort-arrow { margin-left:4px; color:var(--text3); font-size:9px; }
+  table.matrix th.sort-asc  .sort-arrow::after { content:'↑'; color:var(--blue); }
+  table.matrix th.sort-desc .sort-arrow::after { content:'↓'; color:var(--blue); }
+  table.matrix th:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content:'↕'; }
+  table.matrix td { border:1px solid var(--border); padding:7px 10px; vertical-align:middle; }
+  table.matrix tr:hover td { background:rgba(255,255,255,0.02); }
+  .mx-ticker { font-family:var(--mono); font-weight:700; font-size:12px; color:var(--text); }
+  .mx-setup  { font-size:10px; color:var(--text2); white-space:nowrap; }
+  .mx-bucket { display:flex; align-items:center; gap:4px; margin-top:2px; }
+  .mx-bdot   { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .mx-blabel { font-size:9px; font-family:var(--mono); color:var(--text3); }
+  .fcell { display:flex; align-items:center; justify-content:center; }
+  .fdot2 { width:9px; height:9px; border-radius:50%; }
+  .fd-full { background:var(--green); }
+  .fd-half { background:var(--amber); }
+  .fd-none { background:var(--border2); }
+  .fd-red  { background:var(--red); }
+  .conv-num { font-family:var(--mono); font-size:12px; font-weight:700; }
+  .legend { display:flex; gap:14px; padding:7px 12px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+  .leg-item { display:flex; align-items:center; gap:5px; font-size:9px; font-family:var(--mono); color:var(--text3); }
+  .leg-dot { width:8px; height:8px; border-radius:50%; }
+
+  /* ── FACTOR STRIP DETAIL PAGE ── */
+  .factor-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:20px; max-width:920px; margin:0 auto; }
+  .factor-box { background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .factor-box-header { display:flex; align-items:center; gap:8px; padding:8px 14px; border-bottom:1px solid var(--border); }
+  .factor-box-title { font-family:var(--mono); font-size:10px; letter-spacing:1px; color:var(--text2); }
+  .factor-box-body { padding:12px 14px; font-size:11px; }
+
+  /* ── SCAN LOGIC PAGE ── */
+  .scan-page { padding:20px; max-width:840px; margin:0 auto; }
+  .scan-section { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:14px; }
+  .scan-title { font-family:var(--mono); font-size:10px; letter-spacing:1px; color:var(--text2); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .cfg-badge { font-size:8px; font-family:var(--mono); padding:1px 6px; border-radius:3px; background:var(--amber-d); color:var(--amber); border:1px solid rgba(251,191,36,0.2); }
+  .scan-row { display:flex; align-items:center; gap:10px; padding:5px 0; border-bottom:1px solid var(--border); font-size:11px; }
+  .scan-row:last-child { border-bottom:none; }
+  .scan-key { color:var(--text3); font-family:var(--mono); font-size:10px; min-width:160px; }
+  .scan-val { color:var(--text); font-family:var(--mono); }
+  .scan-default { color:var(--text3); font-size:10px; }
+  .scan-env { font-size:9px; font-family:var(--mono); color:var(--blue); margin-left:auto; }
+  .scan-filter-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:4px; margin-bottom:4px; font-size:11px; }
+  .sf-primary { background:rgba(94,227,161,0.05); border:1px solid rgba(94,227,161,0.15); }
+  .sf-watch   { background:rgba(251,191,36,0.05);  border:1px solid rgba(251,191,36,0.15); }
+  .sf-hidden  { opacity:0.5; }
+  .output-pill { font-size:9px; font-family:var(--mono); padding:2px 7px; border-radius:3px; white-space:nowrap; }
+  .op-primary { background:rgba(94,227,161,0.12); color:var(--green); border:1px solid rgba(94,227,161,0.25); }
+  .op-watch   { background:rgba(251,191,36,0.10);  color:var(--amber); border:1px solid rgba(251,191,36,0.2); }
+  .op-hidden  { background:var(--border); color:var(--text3); border:1px solid var(--border); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="top-nav">
+  <h1>EIGENVIEW</h1>
+  <div class="opt-tab active" onclick="showPanel('optA')">OPTION A — APPROVED</div>
+  <div class="opt-tab" onclick="showPanel('matrix')">MATRIX VIEW</div>
+  <div class="opt-tab" onclick="showPanel('strip')">FACTOR STRIP</div>
+  <div class="opt-tab" onclick="showPanel('scan')">SCAN LOGIC</div>
+  <span class="note">Wireframe v2 · 2026-05-07 · Approved design</span>
+</div>
+
+<!-- ═══════════════════ OPTION A (approved) ═══════════════════ -->
+<div class="panel active" id="panel-optA">
+  <div class="layout">
+
+    <!-- LEFT: pick cards -->
+    <div class="col-left">
+      <div class="resize-handle resize-right"></div>
+      <div class="panel-header-drag">
+        <span class="drag-icon">⠿</span> PICKS
+        <span style="margin-left:auto;font-size:9px;color:var(--text3)">drag to move · drag edge to resize</span>
+      </div>
+      <div class="left-tabs">
+        <div class="ltab active">TODAY</div>
+        <div class="ltab">MATRIX</div>
+        <div class="ltab">WATCH</div>
+      </div>
+
+      <div class="picks-list">
+        <div class="section-label">PRIMARY — HIGH CONFIDENCE</div>
+
+        <!-- Card 1: NVDA long (selected) -->
+        <div class="pick-card selected">
+          <div class="card-row1">
+            <span class="ticker">NVDA</span>
+            <span class="dir-tag dir-long">▲ LONG</span>
+            <div class="conv-dots">
+              <div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot"></div>
+            </div>
+          </div>
+          <div class="bucket-row">
+            <span class="bucket-tag b-tr">TREND RESTART</span>
+            <span class="setup-name">Pullback in Trend</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-dot"><span class="fdot full"></span>TA</span>
+            <span class="factor-dot"><span class="fdot full"></span>GEX</span>
+            <span class="factor-dot"><span class="fdot full"></span>FLOW</span>
+            <span class="factor-dot"><span class="fdot"></span>DORM</span>
+            <span class="factor-dot"><span class="fdot"></span>SENT</span>
+          </div>
+          <div class="entry-row">
+            <span>Entry <strong>$134–$137</strong></span>
+            <span>Stop <strong>$129</strong></span>
+            <span class="rr-badge">R:R 3.2</span>
+          </div>
+        </div>
+
+        <!-- Card 2: AAPL long -->
+        <div class="pick-card">
+          <div class="card-row1">
+            <span class="ticker">AAPL</span>
+            <span class="dir-tag dir-long">▲ LONG</span>
+            <div class="conv-dots">
+              <div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div>
+            </div>
+          </div>
+          <div class="bucket-row">
+            <span class="bucket-tag b-ms">MOMENTUM SURGE</span>
+            <span class="setup-name">Base Breakout</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-dot"><span class="fdot full"></span>TA</span>
+            <span class="factor-dot"><span class="fdot full"></span>GEX</span>
+            <span class="factor-dot"><span class="fdot full"></span>FLOW</span>
+            <span class="factor-dot"><span class="fdot full"></span>DORM</span>
+            <span class="factor-dot"><span class="fdot"></span>SENT</span>
+          </div>
+          <div class="entry-row">
+            <span>Entry <strong>$213–$216</strong></span>
+            <span>Stop <strong>$206</strong></span>
+            <span class="rr-badge">R:R 2.8</span>
+          </div>
+        </div>
+
+        <!-- Card 3: TSLA short -->
+        <div class="pick-card sel-short">
+          <div class="card-row1">
+            <span class="ticker">TSLA</span>
+            <span class="dir-tag dir-short">▼ SHORT</span>
+            <div class="conv-dots">
+              <div class="dot on s"></div><div class="dot on s"></div><div class="dot on s"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+          </div>
+          <div class="bucket-row">
+            <span class="bucket-tag b-er">EXHAUSTION REV</span>
+            <span class="setup-name">CHoCH Bearish</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-dot"><span class="fdot short"></span>TA</span>
+            <span class="factor-dot"><span class="fdot short"></span>GEX</span>
+            <span class="factor-dot"><span class="fdot"></span>FLOW</span>
+            <span class="factor-dot"><span class="fdot"></span>DORM</span>
+            <span class="factor-dot"><span class="fdot short"></span>SENT</span>
+          </div>
+          <div class="entry-row">
+            <span>Entry <strong>$176–$179</strong></span>
+            <span>Stop <strong>$185</strong></span>
+            <span class="rr-badge short">R:R 2.6</span>
+          </div>
+        </div>
+
+        <hr class="picks-divider">
+        <div class="section-label">WATCH — LOWER CONVICTION</div>
+
+        <div class="watch-row">
+          <span class="wr-ticker">META</span>
+          <span class="dir-tag dir-long" style="font-size:8px;padding:1px 6px">▲</span>
+          <span class="wr-setup"><span style="color:var(--blue)">TREND RESTART</span> · EMA Reclaim</span>
+          <div class="wr-conv">
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot"    style="width:5px;height:5px"></div>
+            <div class="dot"    style="width:5px;height:5px"></div>
+          </div>
+          <span class="wr-price">$482</span>
+          <span class="wr-rr">2.4</span>
+        </div>
+        <div class="watch-row">
+          <span class="wr-ticker">AMD</span>
+          <span class="dir-tag dir-long" style="font-size:8px;padding:1px 6px">▲</span>
+          <span class="wr-setup"><span style="color:var(--purple)">MOMENTUM</span> · Flag Cont.</span>
+          <div class="wr-conv">
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot on" style="width:5px;height:5px"></div>
+            <div class="dot"    style="width:5px;height:5px"></div>
+          </div>
+          <span class="wr-price">$178</span>
+          <span class="wr-rr">2.1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: chart -->
+    <div class="col-mid">
+      <div class="resize-handle resize-right"></div>
+      <!-- Chart header: TICKER · WEEKLY STATE · SIGNAL BADGE -->
+      <div class="chart-header">
+        <span class="chart-ticker">NVDA</span>
+        <span class="wk-pill wk-bull">● BULLISH</span>
+        <div class="signal-badge sig-buy">▲ BUY · Pullback in Trend</div>
+        <div class="tf-btns">
+          <div class="tf-btn active">1D</div>
+          <div class="tf-btn">1W</div>
+          <div class="tf-btn">3M</div>
+          <div class="tf-btn">1Y</div>
+        </div>
+      </div>
+      <!-- Weekly strip: candle confirmation only, no indicator text -->
+      <div class="weekly-strip">
+        <span>WEEKLY CONTEXT</span>
+        <span style="color:var(--text2)">🔨 Hammer at EMA50 · confidence 0.82</span>
+        <span style="margin-left:auto;font-size:9px">★★★★★ VERY HIGH PROB</span>
+      </div>
+      <!-- Toggle bar — entry/stop/target always visible; GEX group optional -->
+      <div class="toggle-bar">
+        <button class="tog-btn on">EMA21</button>
+        <button class="tog-btn on">EMA50</button>
+        <button class="tog-btn">EMA200</button>
+        <button class="tog-btn">BB</button>
+        <button class="tog-btn on">VOL</button>
+        <button class="tog-btn on">SIGNALS</button>
+        <span class="tog-sep"></span>
+        <button class="tog-btn gex-on">GEX FLIP</button>
+        <button class="tog-btn gex-on">CALL WALL</button>
+        <button class="tog-btn gex-on">PUT WALL</button>
+        <button class="tog-btn alloff">ALL OFF</button>
+      </div>
+      <!-- Chart body -->
+      <div class="chart-body" style="position:relative">
+        <div class="chart-bg-bull"></div>
+        <!-- Candles SVG mock -->
+        <svg class="candles-svg" viewBox="0 0 800 300" preserveAspectRatio="none" style="position:absolute;inset:8px 60px 70px 8px;">
+          <!-- EMA50 -->
+          <polyline points="0,220 100,210 200,202 300,195 400,190 500,188 600,185 700,182 800,178" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.6"/>
+          <!-- EMA21 -->
+          <polyline points="0,205 100,192 200,180 300,172 400,165 500,162 600,158 700,154 800,150" fill="none" stroke="#f59e0b" stroke-width="1.2" opacity="0.6"/>
+          <!-- Bullish candles -->
+          <g fill="#5ee3a1" stroke="#5ee3a1" stroke-width="1">
+            <rect x="10"  y="178" width="10" height="40"/><line x1="15"  y1="168" x2="15"  y2="222"/>
+            <rect x="32"  y="168" width="10" height="35"/><line x1="37"  y1="158" x2="37"  y2="207"/>
+            <rect x="54"  y="172" width="10" height="30"/><line x1="59"  y1="162" x2="59"  y2="206"/>
+            <rect x="76"  y="158" width="10" height="28"/><line x1="81"  y1="148" x2="81"  y2="190"/>
+            <rect x="98"  y="152" width="10" height="32"/><line x1="103" y1="142" x2="103" y2="188"/>
+          </g>
+          <!-- Bearish pullback -->
+          <g fill="#f87171" stroke="#f87171" stroke-width="1">
+            <rect x="120" y="162" width="10" height="28"/><line x1="125" y1="156" x2="125" y2="195"/>
+            <rect x="142" y="168" width="10" height="24"/><line x1="147" y1="162" x2="147" y2="198"/>
+            <rect x="164" y="164" width="10" height="20"/><line x1="169" y1="158" x2="169" y2="190"/>
+          </g>
+          <g fill="#5ee3a1" stroke="#5ee3a1" stroke-width="1">
+            <rect x="186" y="155" width="10" height="20"/><line x1="191" y1="147" x2="191" y2="180"/>
+            <rect x="208" y="150" width="10" height="18"/><line x1="213" y1="142" x2="213" y2="173"/>
+            <rect x="230" y="146" width="10" height="22"/><line x1="235" y1="136" x2="235" y2="172"/>
+          </g>
+          <g fill="#f87171" stroke="#f87171" stroke-width="1">
+            <rect x="252" y="152" width="10" height="18"/><line x1="257" y1="146" x2="257" y2="176"/>
+            <rect x="274" y="156" width="10" height="16"/><line x1="279" y1="150" x2="279" y2="178"/>
+          </g>
+          <g fill="#5ee3a1" stroke="#5ee3a1" stroke-width="1">
+            <rect x="296" y="148" width="10" height="16"/><line x1="301" y1="140" x2="301" y2="168"/>
+            <rect x="318" y="144" width="10" height="15"/><line x1="323" y1="136" x2="323" y2="163"/>
+          </g>
+          <!-- Pullback to EMA50 (red candles) -->
+          <g fill="#f87171" stroke="#f87171" stroke-width="1">
+            <rect x="350" y="155" width="10" height="16"/><line x1="355" y1="148" x2="355" y2="175"/>
+            <rect x="372" y="162" width="10" height="14"/><line x1="377" y1="156" x2="377" y2="180"/>
+            <rect x="394" y="168" width="10" height="12"/><line x1="399" y1="162" x2="399" y2="184"/>
+            <rect x="416" y="172" width="10" height="10"/><line x1="421" y1="167" x2="421" y2="186"/>
+          </g>
+          <!-- Hammer candle at EMA50 -->
+          <g fill="#5ee3a1" stroke="#5ee3a1">
+            <rect x="438" y="174" width="10" height="6" fill="#5ee3a1"/>
+            <line x1="443" y1="180" x2="443" y2="200" stroke-width="1.5"/>
+            <line x1="443" y1="171" x2="443" y2="174" stroke-width="1"/>
+          </g>
+          <circle cx="443" cy="174" r="4" fill="none" stroke="#5ee3a1" stroke-width="1.5" opacity="0.8"/>
+          <!-- Historical signal markers (SIGNALS toggle ON) -->
+          <text x="83"  y="143" fill="#60a5fa" font-size="11" text-anchor="middle">▲</text>
+          <text x="213" y="136" fill="#60a5fa" font-size="11" text-anchor="middle">▲</text>
+        </svg>
+
+        <!-- Entry zone (visible by default) -->
+        <div class="entry-band" style="top:37%;height:11%;">
+          <span class="entry-band-label">ENTRY $134–$137</span>
+        </div>
+        <!-- Stop line -->
+        <div class="stop-line" style="top:56%;">
+          <span class="stop-line-label">STOP $129</span>
+        </div>
+        <!-- Target line -->
+        <div class="target-line" style="top:18%;">
+          <span class="target-line-label">TARGET $152 · R:R 3.2</span>
+        </div>
+        <!-- GEX flip level (default ON) -->
+        <div class="gex-line" style="top:44%;">
+          <span class="gex-label">GEX FLIP $131</span>
+        </div>
+        <!-- Call wall (default ON) -->
+        <div class="call-wall" style="top:14%;">
+          <span class="call-wall-label">CALL WALL $155</span>
+        </div>
+        <!-- Put wall (default ON) -->
+        <div class="put-wall" style="top:62%;">
+          <span class="put-wall-label">PUT WALL $125</span>
+        </div>
+
+        <!-- Price axis (right) -->
+        <div style="position:absolute;right:0;top:0;bottom:0;width:56px;display:flex;flex-direction:column;justify-content:space-between;padding:14px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);">
+          <span style="color:var(--green)">155←CW</span>
+          <span style="color:var(--blue)">152←T</span>
+          <span>148</span>
+          <span>144</span>
+          <span>140</span>
+          <span style="color:var(--green)">137←E</span>
+          <span style="color:var(--green)">134←e</span>
+          <span style="color:var(--amber)">131←GX</span>
+          <span style="color:var(--red)">129←S</span>
+          <span style="color:var(--red)">125←PW</span>
+        </div>
+      </div>
+
+      <!-- Vol pane -->
+      <div class="vol-pane">
+        <div class="vbar"   style="height:28px"></div>
+        <div class="vbar"   style="height:42px"></div>
+        <div class="vbar r" style="height:24px"></div>
+        <div class="vbar r" style="height:18px"></div>
+        <div class="vbar"   style="height:35px"></div>
+        <div class="vbar r" style="height:16px"></div>
+        <div class="vbar r" style="height:13px"></div>
+        <div class="vbar"   style="height:32px"></div>
+        <div class="vbar"   style="height:48px"></div>
+        <div class="vbar r" style="height:20px"></div>
+        <div class="vbar r" style="height:15px"></div>
+        <div class="vbar"   style="height:26px"></div>
+        <div class="vbar r" style="height:12px"></div>
+        <div class="vbar r" style="height:10px"></div>
+        <div class="vbar"   style="height:52px"></div>
+      </div>
+
+      <!-- Factor strip -->
+      <div class="strip">
+        <div class="strip-tabs">
+          <div class="stab active">TA</div>
+          <div class="stab">GEX</div>
+          <div class="stab">FLOW</div>
+          <div class="stab">DORM</div>
+          <div class="stab">SENT</div>
+        </div>
+        <div class="strip-body">
+          <div class="strip-status">
+            <span class="status-fired">● FIRED</span>
+            <span style="color:var(--text2);font-size:11px">Pullback in Trend</span>
+            <span class="status-tier">★★★★★ · TREND RESTART</span>
+          </div>
+          <div class="weekly-state-row">
+            <div class="ws-item"><span class="ws-key">WEEKLY</span><span class="ws-val" style="color:var(--green)">BULLISH</span></div>
+            <div class="ws-item"><span class="ws-key">W·RSI</span><span class="ws-val">52</span></div>
+            <div class="ws-item"><span class="ws-key">W·ADX</span><span class="ws-val">24</span></div>
+            <div class="ws-item"><span class="ws-key">CONFIDENCE</span><span class="ws-val" style="color:var(--green)">0.82</span></div>
+          </div>
+          <div class="checklist">
+            <div class="ci pass"><span class="ci-check">✓</span>EMA stack bullish (21&gt;50&gt;200)<span class="ci-val">21=145 50=131 200=118</span></div>
+            <div class="ci pass"><span class="ci-check">✓</span>RSI in dip zone (p40=44)<span class="ci-val">RSI 47</span></div>
+            <div class="ci pass"><span class="ci-check">✓</span>ADX trending (p65=21)<span class="ci-val">ADX 24</span></div>
+            <div class="ci pass"><span class="ci-check">✓</span>Volume declining on pullback<span class="ci-val">0.62× avg</span></div>
+            <div class="ci pass"><span class="ci-check">✓</span>Price between EMA21 and EMA50<span class="ci-val">$135 ∈ [131,145]</span></div>
+          </div>
+          <div class="candle-confirm">
+            <span>🔨</span>
+            <span class="cc-label">Candlestick confirmation</span>
+            <span class="cc-val">HAMMER · wick 3.8× body · close top 28%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: AI chat -->
+    <div class="col-right">
+      <div class="resize-handle resize-right"></div>
+      <div class="resize-handle resize-bottom"></div>
+      <div class="panel-header-drag">
+        <span class="drag-icon">⠿</span> AI ANALYST — NVDA
+      </div>
+      <div class="chat-messages">
+        <div class="chat-bubble cb-ai">NVDA pulling back to EMA50 on declining volume. Hammer candle confirms buyers. Entry $134–137, stop $129, target $152 (R:R 3.2). GEX call wall at $155 — above target. Dormant data accumulating (day 8 of 30).</div>
+        <div class="chat-bubble cb-user">What if it breaks $131 GEX flip?</div>
+        <div class="chat-bubble cb-ai">GEX flip at $131 is the early warning. If NVDA closes below $131, dealer positioning turns net short gamma — path clears to $125 put wall. Stop at $129 is inside that zone intentionally. Close below $131 intraday = watch closely. Close below $129 = full exit.</div>
+      </div>
+      <div class="chips">
+        <span class="chip">Why this pick?</span>
+        <span class="chip">GEX levels</span>
+        <span class="chip">Flow activity</span>
+        <span class="chip">Risk/reward</span>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" placeholder="Ask about NVDA...">
+        <button class="chat-send">SEND</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MATRIX VIEW ═══════════════════ -->
+<div class="panel" id="panel-matrix">
+  <div class="layout">
+    <div class="col-left" style="grid-column:1/-1;border-right:none">
+      <div class="panel-header-drag">
+        <span class="drag-icon">⠿</span> MATRIX — all tickers · click column to sort
+        <span style="margin-left:auto;font-size:9px">⠿ drag · ↔ resize</span>
+      </div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-dot" style="background:var(--green)"></span>firing strong</span>
+        <span class="leg-item"><span class="leg-dot" style="background:var(--amber)"></span>firing weak</span>
+        <span class="leg-item"><span class="leg-dot" style="background:var(--border2)"></span>not firing</span>
+        <span class="leg-item"><span class="leg-dot" style="background:var(--red)"></span>short signal</span>
+        <span style="margin-left:auto;font-size:9px;font-family:var(--mono);color:var(--text3)">click row → loads chart</span>
+      </div>
+      <div class="matrix-outer">
+        <table class="matrix" id="matrixTable">
+          <thead>
+            <tr>
+              <th onclick="sortMatrix(0)" class="sort-desc">TICKER<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(1)">TA / BUCKET<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(2)">TA<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(3)">GEX<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(4)">FLW<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(5)">DRM<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(6)">SNT<span class="sort-arrow"></span></th>
+              <th onclick="sortMatrix(7)" class="sort-desc">CV<span class="sort-arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody id="matrixBody">
+            <!-- NVDA -->
+            <tr>
+              <td><span class="mx-ticker">NVDA</span> <span class="dir-tag dir-long" style="font-size:8px;padding:1px 5px">▲</span></td>
+              <td>
+                <div class="mx-setup">Pullback in Trend</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--blue)"></span>
+                  <span class="mx-blabel">TREND RESTART</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><span class="conv-num" style="color:var(--green)">4</span></td>
+            </tr>
+            <!-- AAPL -->
+            <tr>
+              <td><span class="mx-ticker">AAPL</span> <span class="dir-tag dir-long" style="font-size:8px;padding:1px 5px">▲</span></td>
+              <td>
+                <div class="mx-setup">Base Breakout</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--purple)"></span>
+                  <span class="mx-blabel">MOMENTUM SURGE</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><span class="conv-num" style="color:var(--green)">5</span></td>
+            </tr>
+            <!-- TSLA short -->
+            <tr>
+              <td><span class="mx-ticker">TSLA</span> <span class="dir-tag dir-short" style="font-size:8px;padding:1px 5px">▼</span></td>
+              <td>
+                <div class="mx-setup">CHoCH Bearish</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--amber)"></span>
+                  <span class="mx-blabel">EXHAUSTION REV</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-red"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-red"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-red"></div></div></td>
+              <td><span class="conv-num" style="color:var(--red)">3</span></td>
+            </tr>
+            <!-- META -->
+            <tr>
+              <td><span class="mx-ticker">META</span> <span class="dir-tag dir-long" style="font-size:8px;padding:1px 5px">▲</span></td>
+              <td>
+                <div class="mx-setup">EMA Reclaim</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--blue)"></span>
+                  <span class="mx-blabel">TREND RESTART</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-half"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><span class="conv-num" style="color:var(--green)">4</span></td>
+            </tr>
+            <!-- AMD -->
+            <tr>
+              <td><span class="mx-ticker">AMD</span> <span class="dir-tag dir-long" style="font-size:8px;padding:1px 5px">▲</span></td>
+              <td>
+                <div class="mx-setup">Flag Continuation</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--purple)"></span>
+                  <span class="mx-blabel">MOMENTUM SURGE</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-half"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><span class="conv-num" style="color:var(--amber)">3</span></td>
+            </tr>
+            <!-- MSFT — low conviction, dimmed -->
+            <tr style="opacity:0.45">
+              <td><span class="mx-ticker">MSFT</span> <span class="dir-tag dir-long" style="font-size:8px;padding:1px 5px">▲</span></td>
+              <td>
+                <div class="mx-setup">BB Mean Rev Long</div>
+                <div class="mx-bucket">
+                  <span class="mx-bdot" style="background:var(--text3)"></span>
+                  <span class="mx-blabel">MEAN REVERSION</span>
+                </div>
+              </td>
+              <td><div class="fcell"><div class="fdot2 fd-full"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><div class="fcell"><div class="fdot2 fd-none"></div></div></td>
+              <td><span class="conv-num" style="color:var(--text3)">1</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ FACTOR STRIP DETAIL ═══════════════════ -->
+<div class="panel" id="panel-strip">
+  <div class="factor-detail-grid">
+    <h2 style="font-family:var(--mono);font-size:12px;color:var(--text2);grid-column:1/-1;letter-spacing:1px">FACTOR STRIP — ALL 5 TABS · NVDA · blank when no data</h2>
+
+    <!-- TA Tab -->
+    <div class="factor-box">
+      <div class="factor-box-header">
+        <span class="status-fired">● FIRED</span>
+        <span class="factor-box-title">TA — Pullback in Trend ★★★★★</span>
+      </div>
+      <div class="factor-box-body">
+        <div class="weekly-state-row" style="margin-bottom:8px">
+          <div class="ws-item"><span class="ws-key">WEEKLY</span><span class="ws-val" style="color:var(--green)">BULLISH</span></div>
+          <div class="ws-item"><span class="ws-key">W·RSI</span><span class="ws-val">52</span></div>
+          <div class="ws-item"><span class="ws-key">W·ADX</span><span class="ws-val">24</span></div>
+          <div class="ws-item"><span class="ws-key">CONF</span><span class="ws-val" style="color:var(--green)">0.82</span></div>
+        </div>
+        <div class="checklist">
+          <div class="ci pass"><span class="ci-check">✓</span>EMA stack bullish<span class="ci-val">21=145 50=131 200=118</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>RSI dip zone (p40=44)<span class="ci-val">47</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>ADX trending (p65=21)<span class="ci-val">24</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Volume declining<span class="ci-val">0.62×</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Price EMA21–EMA50<span class="ci-val">$135</span></div>
+        </div>
+        <div class="candle-confirm">
+          <span>🔨</span><span class="cc-label">Hammer · wick 3.8× body</span>
+          <span class="cc-val">+1 conviction</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GEX Tab -->
+    <div class="factor-box">
+      <div class="factor-box-header">
+        <span class="status-fired">● FIRED</span>
+        <span class="factor-box-title">GEX — Dealer Positioning</span>
+      </div>
+      <div class="factor-box-body">
+        <div class="checklist">
+          <div class="ci pass"><span class="ci-check">✓</span>Regime: LONG GAMMA<span class="ci-val">net GEX +$4.2B</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Price above GEX flip<span class="ci-val">$135 &gt; $131</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Call wall above target<span class="ci-val">$155 &gt; $152</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Put wall below stop<span class="ci-val">$125 &lt; $129</span></div>
+          <div class="ci fail"><span class="ci-check">✗</span>Large notional shift<span class="ci-val">+$0.8B (moderate)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW Tab -->
+    <div class="factor-box">
+      <div class="factor-box-header">
+        <span class="status-fired">● FIRED</span>
+        <span class="factor-box-title">FLOW — Options Activity</span>
+      </div>
+      <div class="factor-box-body">
+        <div class="checklist">
+          <div class="ci pass"><span class="ci-check">✓</span>Qualifying sweep<span class="ci-val">$136C May17 · $1.4M</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>V/OI ratio<span class="ci-val">4.2× (new position)</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>Aggressive side<span class="ci-val">ASK · bullish</span></div>
+          <div class="ci fail"><span class="ci-check">✗</span>Dark pool cluster<span class="ci-val">no cluster ±0.5%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DORM Tab — BLANK (less than 30 days data) -->
+    <div class="factor-box">
+      <div class="factor-box-header">
+        <span style="font-size:9px;font-family:var(--mono);padding:2px 8px;border-radius:3px;background:var(--border);color:var(--text3);border:1px solid var(--border2)">— NO DATA</span>
+        <span class="factor-box-title">DORM — Dormant Bets</span>
+      </div>
+      <div class="factor-box-body" style="min-height:80px">
+        <!-- intentionally empty — less than 30 days of chain data -->
+      </div>
+    </div>
+
+    <!-- SENT Tab -->
+    <div class="factor-box" style="grid-column:1/-1">
+      <div class="factor-box-header">
+        <span class="status-fired" style="background:var(--amber-d);color:var(--amber);border-color:rgba(251,191,36,0.25)">◑ PARTIAL</span>
+        <span class="factor-box-title">SENT — News &amp; Sentiment</span>
+      </div>
+      <div class="factor-box-body">
+        <div class="checklist">
+          <div class="ci pass"><span class="ci-check">✓</span>Top headline: "Nvidia GPU demand surge continues — analyst raises PT to $175"<span class="ci-val">FinBERT +0.82</span></div>
+          <div class="ci pass"><span class="ci-check">✓</span>LLM classification<span class="ci-val">MATERIAL</span></div>
+          <div class="ci fail"><span class="ci-check">✗</span>Novelty z-score<span class="ci-val">1.2 (below threshold 1.8)</span></div>
+          <div class="ci fail"><span class="ci-check">✗</span>Catalyst proximity<span class="ci-val">no earnings within 14d</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ SCAN LOGIC ═══════════════════ -->
+<div class="panel" id="panel-scan">
+  <div class="scan-page">
+    <h2 style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:16px;letter-spacing:1px">
+      SCAN OUTPUT LOGIC — all thresholds configurable via .env
+    </h2>
+
+    <!-- Gate cascade -->
+    <div class="scan-section">
+      <div class="scan-title">GATE CASCADE (runs in order · all must pass for PRIMARY)</div>
+      <div class="scan-row">
+        <span class="scan-key">Gate 0 · Macro Regime</span>
+        <span class="scan-val">GREEN ≥7 → normal · YELLOW 4–6 → caution · RED ≤3 → no longs</span>
+        <span class="cfg-badge">CONFIGURABLE</span>
+        <span class="scan-env">MACRO_GREEN_THRESHOLD, MACRO_RED_THRESHOLD</span>
+      </div>
+      <div class="scan-row">
+        <span class="scan-key">Gate 1 · TA pattern</span>
+        <span class="scan-val">confidence ≥ 0.6 AND weekly state not contradicting daily</span>
+        <span class="cfg-badge">CONFIGURABLE</span>
+        <span class="scan-env">TA_MIN_CONFIDENCE</span>
+      </div>
+      <div class="scan-row">
+        <span class="scan-key">Gate 2 · GEX</span>
+        <span class="scan-val">long_gamma regime AND price not pinned at wall</span>
+        <span class="scan-default">(binary pass/fail)</span>
+      </div>
+    </div>
+
+    <!-- Output classification -->
+    <div class="scan-section">
+      <div class="scan-title">OUTPUT CLASSIFICATION <span class="cfg-badge">ALL THRESHOLDS CONFIGURABLE</span></div>
+
+      <div class="scan-filter-row sf-primary">
+        <span class="output-pill op-primary">PRIMARY</span>
+        <span style="font-size:11px;color:var(--text2)">conviction ≥ 4 AND R:R ≥ 2.5 AND tier ≥ 3</span>
+        <span class="scan-env">PRIMARY_MIN_CONVICTION=4 · RR_MIN_RATIO=2.5 · MIN_TIER=3</span>
+      </div>
+      <div class="scan-filter-row sf-watch">
+        <span class="output-pill op-watch">WATCH</span>
+        <span style="font-size:11px;color:var(--text2)">conviction ≥ 2 AND R:R ≥ 1.5 AND tier ≥ 2</span>
+        <span class="scan-env">WATCH_MIN_CONVICTION=2 · WATCH_RR_MIN=1.5</span>
+      </div>
+      <div class="scan-filter-row sf-hidden" style="padding:6px 8px;font-size:11px;color:var(--text3)">
+        <span class="output-pill op-hidden">HIDDEN</span>
+        <span style="margin-left:8px">everything else — logged to DB but not shown</span>
+      </div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="scan-section">
+      <div class="scan-title">RANKING WITHIN PRIMARY / WATCH</div>
+      <div class="scan-row">
+        <span class="scan-key">Sort order</span>
+        <span class="scan-val">1. conviction DESC · 2. R:R DESC · 3. dormant bonus · 4. IV rank ASC</span>
+      </div>
+      <div class="scan-row">
+        <span class="scan-key">Max picks shown</span>
+        <span class="scan-val">10 primary · 20 watch</span>
+        <span class="cfg-badge">CONFIGURABLE</span>
+        <span class="scan-env">MAX_PRIMARY_PICKS=10 · MAX_WATCH_PICKS=20</span>
+      </div>
+    </div>
+
+    <!-- Signal validity -->
+    <div class="scan-section">
+      <div class="scan-title">SIGNAL VALIDITY WINDOW <span class="cfg-badge">CONFIGURABLE</span></div>
+      <div class="scan-row">
+        <span class="scan-key">Default valid_until</span>
+        <span class="scan-val">next earnings date if within 60d · else scan_date + SIGNAL_VALID_DAYS</span>
+        <span class="scan-env">SIGNAL_VALID_DAYS=10</span>
+      </div>
+      <div class="scan-row">
+        <span class="scan-key">Stale signal handling</span>
+        <span class="scan-val">expired signals stay in DB · not re-shown unless re-detected on new scan</span>
+      </div>
+      <div class="scan-row" style="color:var(--text3);font-size:10px;font-style:italic">
+        <span>Note: scan logic thresholds are starting points and will be tuned after live runs. Configurable via .env — no code changes required.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.opt-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Matrix sort
+let sortState = { col: -1, asc: true };
+function sortMatrix(colIdx) {
+  const ths = document.querySelectorAll('#matrixTable thead th');
+  ths.forEach((th, i) => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (i === colIdx) {
+      if (sortState.col === colIdx) {
+        sortState.asc = !sortState.asc;
+      } else {
+        sortState.col = colIdx;
+        sortState.asc = true;
+      }
+      th.classList.add(sortState.asc ? 'sort-asc' : 'sort-desc');
+    }
+  });
+  const tbody = document.getElementById('matrixBody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const aCell = a.cells[colIdx] ? a.cells[colIdx].textContent.trim() : '';
+    const bCell = b.cells[colIdx] ? b.cells[colIdx].textContent.trim() : '';
+    const aNum = parseFloat(aCell);
+    const bNum = parseFloat(bCell);
+    const cmp = isNaN(aNum) || isNaN(bNum)
+      ? aCell.localeCompare(bCell)
+      : aNum - bNum;
+    return sortState.asc ? cmp : -cmp;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+// Default sort by CV desc
+window.onload = () => {
+  sortState.col = 7; sortState.asc = false;
+  const ths = document.querySelectorAll('#matrixTable thead th');
+  ths[7].classList.add('sort-desc');
+};
+</script>
+</body>
+</html>

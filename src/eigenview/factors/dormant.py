@@ -106,7 +106,14 @@ async def score_dormant(
     bets = rows.scalars().all()
 
     if not bets:
-        return FactorResult.no_data(_FACTOR_ID, "no dormant bets tracked yet")
+        return FactorResult(
+            factor_id=_FACTOR_ID,
+            firing=False,
+            strength=0.0,
+            label="ACCUMULATING",
+            detail={},
+            narrative="No dormant bets tracked yet. Accumulating chain history.",
+        )
 
     chain_index = _build_chain_index(current_chains)
     catalyst_near = await _has_catalyst_near(ticker, session)

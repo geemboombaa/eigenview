@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from eigenview.data.calendar import get_catalysts
 from eigenview.data.chains import get_chain
+from eigenview.data.news import fetch_news
 from eigenview.data.prices import get_prices
-from eigenview.data.storage import Chain
+from eigenview.data.storage import Chain, DormantBet
 from eigenview.factors.dormant import score_dormant
 from eigenview.factors.flow import score_flow
 from eigenview.factors.gex import score_gex
@@ -20,6 +22,48 @@ from eigenview.synthesis.gate import TickerScorecard
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
+
+_DORMANT_MIN_PREMIUM = 300_000  # $300K notional
+_DORMANT_MIN_DTE = 60           # minimum days to expiry
+
+
+async def _identify_dormant_bets(
+    ticker: str,
+    chains: list,
+    today: date,
+    session: AsyncSession,
+) -> None:
+    """Upsert qualifying large long-dated positions into dormant_bets table."""
+    for c in chains:
+        dte = (c.expiry - today).days if hasattr(c, "expiry") and c.expiry else 0
+        if dte < _DORMANT_MIN_DTE:
+            continue
+        mid = ((c.bid or 0) + (c.ask or 0)) / 2
+        oi = c.oi or 0
+        premium = mid * oi * 100
+        if premium < _DORMANT_MIN_PREMIUM:
+            continue
+        contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
+        existing = await session.execute(
+            select(DormantBet).where(
+                DormantBet.ticker == ticker,
+                DormantBet.contract == contract,
+                DormantBet.original_date == today,
+            )
+        )
+        if existing.scalar_one_or_none() is None:
+            session.add(DormantBet(
+                ticker=ticker,
+                contract=contract,
+                original_date=today,
+                strike=c.strike,
+                expiry=c.expiry,
+                call_put=c.call_put,
+                original_premium=premium,
+                original_oi=oi,
+                current_oi=oi,
+                updated_at=datetime.utcnow(),
+            ))
 
 
 async def _score_ticker(
