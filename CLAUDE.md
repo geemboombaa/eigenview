@@ -442,6 +442,61 @@ MACRO_REGIME_RED_THRESHOLD=3
 
 ---
 
+## 29-STEP ENGINEERING PROCESS — MANDATORY FOR ALL WORK
+
+Every non-trivial change follows this sequence. No deviations. No skipping steps.
+
+### Phase 0 — Research & Proposal (steps 1–4)
+1. User describes need in conversation
+2. Claude reads codebase + docs + git log — deep research, NO code written yet
+3. Claude writes proposal in chat: what, how, what's out of scope
+4. **[MANUAL GATE]** User approves or sends back. Do not proceed to step 5 without approval.
+
+### Phase 1 — Lock Requirements (steps 5–8)
+5. Claude writes `spec.md`, ACs in GIVEN/THEN format, `design.md` → committed to `.boss/`
+6. `pre-build-gate.ps1` activates — blocks ALL `src/` edits unless on feature branch with open PR
+7. Claude creates GitHub issue: full GIVEN/THEN ACs, `AC1`/`AC2` labels
+8. Claude opens draft PR linking the issue (`gh pr create --draft`)
+
+### Phase 2 — Test Stubs, Red (steps 9–12)
+9. Claude writes test stubs ONLY — function names must contain `AC1`/`AC2`/`REQ` — no implementation
+10. `git commit` fires `.git/hooks/pre-commit` — stubs must FAIL (red = correct at this stage)
+11. `stop-gate.ps1` blocks turn if any `src/` file is dirty — Claude must commit before claiming done
+12. `auto-push.ps1` pushes to GitHub automatically after commit
+
+### Phase 3 — Design Review (steps 13–14)
+13. Claude writes full arch/UI/design review doc — confirms has everything for implementation A-Z, lists gaps
+14. Commit + push → hooks run → CI triggers
+
+### Phase 4 — Pre-Implementation CI Audit (steps 15–21)
+15. GitHub Actions (`ac-audit.yml`) triggers on push — separate machine
+16. CI: AST scan checks test function names for `AC`/`REQ` refs; trivial test detection
+17. CI: fetches GitHub issue body via `gh api`; fails if no GIVEN/THEN/AC labels
+18. CI: Claude API call (zero project context) audits spec + issue ACs + design doc + test stubs
+19. CI: posts audit report as inline PR comment; uploads `ac-audit-report.json`, `claude-audit-report.md`
+20. **[MANUAL GATE]** User reads PR comment. Approves or sends back with specific gaps to fix.
+21. **[MANUAL GATE]** If approved: implementation begins. If sent back: return to step 5.
+
+### Phase 5 — Implementation (steps 22–29)
+22. Claude implements `src/` code — pre-build-gate confirms PR open — edits allowed
+23. `git commit` fires pre-commit — tests must PASS, coverage ≥75%
+24. `stop-gate.ps1` blocks turn if `src/` dirty — must commit before turn ends
+25. `auto-push.ps1` pushes → GitHub Actions (`test.yml`) runs full suite: pytest + coverage + Playwright
+26. `ac-audit.yml` also runs — post-implementation Claude audit of test quality vs spec ACs
+27. **[MANUAL GATE]** User reviews: green CI badge + clean audit report + AC coverage complete
+28. **[MANUAL GATE]** User merges PR. Branch protection requires ≥1 approval + CI green. No self-merge.
+29. CI re-runs on master post-merge — final verification
+
+### Process rules
+- Steps 1–4 and 9–14 are Claude's responsibility to execute in order without skipping
+- Steps 6, 10, 11, 12, 15–19, 25–26 are mechanically enforced — cannot be bypassed
+- Manual gates (4, 20, 21, 27, 28) require explicit human approval before proceeding
+- Never use `git commit --no-verify`
+- Never edit `src/` on master branch
+- Never claim a step done without the enforcing mechanism having fired
+
+---
+
 ## CRITICAL RULES — NEVER BREAK
 
 1. **Wireframe v2 is the visual source of truth.** When building UI, match it. Don't redesign.

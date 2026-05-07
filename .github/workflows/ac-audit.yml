@@ -2,6 +2,8 @@ name: AC Audit
 
 on:
   pull_request:
+  push:
+    branches: [master, main]
 
 jobs:
   audit:
