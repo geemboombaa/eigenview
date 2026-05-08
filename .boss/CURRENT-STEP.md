@@ -1,41 +1,34 @@
 # EigenView — Per-Feature Step Tracker
 
 ## Feature
-enforcement-w1-w4 — stop-gate, pre-build-gate, phase-aware pre-commit, gate:awaiting-step21
+integration-e2e-suite — live nightly integration CI, A-Z condition coverage, Suite A/B Playwright, BOSS auto-fix mechanism, pre-commit enforcement
 
 ## GitHub Issue
 TBD — creating at step 7
 
 ## PR
-#68 (DRAFT)
+TBD — opening at step 8
 
 ## Branch
-feature/enforcement-w1-w4
+feature/integration-e2e-suite
 
 ## Tier
-feature (full 29 steps — bootstrap exception: implemented before process existed)
+feature (full 29 steps)
 
 ## Current Step
-Waiting for user approval — Step 19 (human CI review)
+Step 7 — creating GitHub issue with GIVEN/THEN ACs
 
 ## Next Step
-Step 19 — user reads PR comment + CI audit, approves or sends back
+Step 8 — open draft PR linking the issue
 
 ## Blocked On
-Human approval at step 19 (CI audit review)
+None
 
 ## Steps Completed
-1, 2, 3, 4, 5 (spec.md written), 6 (pre-build-gate active), 8 (PR #68 open), 9 (stubs written), 10 (RED commit), 11, 12 (auto-push), 13-18 (CI jobs fired), 22-26 (implementation done — bootstrap)
-
-## Completed This Session
-- pre-build-gate fix/ bypass removed: now label-only check (no branch-prefix bypass)
-- docs v1.2: process HTML + CLAUDE.md updated with 3 new bypass vectors documented
-- CLAUDE.md process rules section updated with fix/ prefix restriction
-- test_init_db_runs fix: module-ref patch so monkeypatch target works correctly
-- Integration testing proposal drafted and approved by user (separate feature PRs to be created)
+1, 2, 3, 4 (user approved), 5 (spec.md written)
 
 ## Steps Remaining
-19 (human CI review), 20 (design-review.md), 21 (human removes gate:awaiting-step21 label), 27 (human approves PR), 28 (human merges), 29 (CI on master)
+7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 (human review CI), 20, 21 (human removes gate), 22-26, 27 (human approves PR), 28 (human merges), 29 (CI on master)
 
 ## Note
-This feature bootstrapped the process before the process existed. Steps 9-10 were retroactively completed. Implementation already exists — stubs test against real hooks via subprocess. Integration testing proposal approved — to be built as separate feature PRs after this PR merges.
+Branched from feature/enforcement-w1-w4 (not master) so ac-audit.yml is available for CI steps 13-18. Depends on PR #68 merging before this can merge to master.

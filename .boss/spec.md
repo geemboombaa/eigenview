@@ -1,120 +1,112 @@
-# Enforcement System — Requirements Spec
+# Integration E2E Suite — Requirements Spec
 
 ## Feature
-W1-W4 enforcement: stop-gate, pre-build-gate, phase-aware pre-commit, verify-red-phase CI job, gate:awaiting-step21 label mechanism.
+integration-e2e-suite: live nightly integration CI, A-Z condition coverage tests,
+Suite A Playwright functional, Suite B Playwright data validation, BOSS auto-fix
+mechanism, pre-commit enforcement of integration test presence.
 
 ## Acceptance Criteria
 
-### AC1 — stop-gate: dirty src/ blocks instantly
-GIVEN a Claude turn ends
-AND `git diff --name-only HEAD` shows at least one file under `src/`
-THEN stop-gate output JSON has `decision = "block"`
-AND reason text mentions "src/ file(s) changed but not committed"
-AND block fires in under 10 seconds (no pytest run occurs)
+### AC1 — integration-live.yml: nightly cron + manual dispatch trigger
+GIVEN `.github/workflows/integration-live.yml` exists
+THEN it has a `schedule:` trigger with a cron expression
+AND it has a `workflow_dispatch:` trigger
+AND the schedule fires at a time that allows markets to close (post-market)
 
-### AC2 — stop-gate: clean src/ + passing tests → allow
-GIVEN a Claude turn ends
-AND `git diff --name-only HEAD` shows no files under `src/`
-AND all tests in the project pass
-THEN stop-gate does not output a block decision
-AND exit code is 0
+### AC2 — workflow uses real API secrets, not placeholders
+GIVEN the integration-live.yml workflow runs
+THEN it reads `ALPHA_VANTAGE_KEY`, `FINNHUB_KEY` from `secrets.*`
+AND it does NOT contain the string "placeholder" in any env var value
+AND it fails fast with a clear message if secrets are absent
 
-### AC3 — stop-gate: clean src/ + failing tests → block
-GIVEN a Claude turn ends
-AND `git diff --name-only HEAD` shows no files under `src/`
-AND at least one test fails
-THEN stop-gate output JSON has `decision = "block"`
-AND reason text contains test failure output
+### AC3 — NEVER_FIRED detection: fails when a required pattern is absent
+GIVEN a scan output JSON where `pullback_in_trend` fired 0 times across all scanned tickers
+WHEN the condition_coverage checker runs against that output
+THEN it reports `pullback_in_trend: NEVER_FIRED`
+AND exits with a non-zero code
 
-### AC4 — pre-build-gate: master branch blocks all writes
-GIVEN tool_name is "Write" or "Edit"
-AND current git branch is "master" or "main"
-WHEN pre-build-gate fires
-THEN output JSON has `decision = "block"`
-AND reason mentions the branch name
+### AC4 — condition_coverage passes when all required patterns fire
+GIVEN a scan output JSON where every required TA pattern fires at least once
+WHEN the condition_coverage checker runs
+THEN all rows show FIRED
+AND exits with code 0
 
-### AC5 — pre-build-gate: no open PR blocks
-GIVEN tool_name is "Write" or "Edit"
-AND current branch is not master/main
-AND `gh pr list --head <branch> --state open` returns 0 results
-WHEN pre-build-gate fires
-THEN output JSON has `decision = "block"`
-AND reason mentions "no open PR"
+### AC5 — YELLOW flag: data_dependent test failure posts BOSS_YELLOW_FLAGS to PR
+GIVEN a CI run where a test marked `@pytest.mark.data_dependent` fails
+WHEN the integration-live.yml post-run step executes
+THEN a comment is posted to the PR containing `BOSS_YELLOW_FLAGS`
+AND the label `status:yellow-flags-pending` is set on the PR (via GITHUB_TOKEN)
+AND the build is NOT marked as failed
 
-### AC6 — pre-build-gate: gate:awaiting-step21 on feature/ blocks
-GIVEN tool_name is "Write" or "Edit"
-AND current branch starts with "feature/"
-AND an open PR exists for the branch
-AND the PR has label "gate:awaiting-step21"
-WHEN pre-build-gate fires
-THEN output JSON has `decision = "block"`
-AND reason mentions "gate:awaiting-step21"
+### AC6 — RED failure: BOSS_FIX_REQUEST posted + status:ci-failing set
+GIVEN a CI run where a test WITHOUT `@pytest.mark.data_dependent` fails
+WHEN the integration-live.yml post-run step executes
+THEN a comment containing `BOSS_FIX_REQUEST` JSON is posted to the PR
+AND the label `status:ci-failing` is set on the PR (via GITHUB_TOKEN)
+AND the build IS marked as failed (non-zero exit)
 
-### AC7 — pre-build-gate: fix/ branch bypasses gate label
-GIVEN tool_name is "Write" or "Edit"
-AND current branch starts with "fix/"
-AND an open PR exists for the branch
-AND the PR has label "gate:awaiting-step21"
-WHEN pre-build-gate fires
-THEN output does NOT have `decision = "block"` (allow)
+### AC7 — 3 consecutive RED failures sets status:needs-human-debug
+GIVEN the BOSS_FIX_REQUEST comment contains `"attempt": 3`
+AND the CI run still fails after that attempt
+THEN the label `status:needs-human-debug` is set
+AND the label `status:ci-failing` is removed
+AND the comment body contains `BOSS_ESCALATE`
 
-### AC8 — pre-build-gate: .boss/ writes always allowed
-GIVEN tool_name is "Write" or "Edit"
-AND file_path resolves inside the `.boss/` directory
-AND current branch is "master"
-WHEN pre-build-gate fires
-THEN output does NOT have `decision = "block"` (allow)
-
-### AC9 — pre-commit RED phase: stubs fail + no regression → allow commit
-GIVEN only `tests/` files are staged (no `src/` staged)
-AND new test stub files are staged (--diff-filter=A)
-AND existing tests pass when stubs are excluded
-AND new stub tests fail (non-zero pytest exit on stub files)
-WHEN pre-commit hook executes
-THEN exit code is 0 (commit allowed)
-
-### AC10 — pre-commit RED phase: existing test regression → block commit
-GIVEN only `tests/` files are staged
-AND at least one existing (non-stub) test fails
-WHEN pre-commit hook executes
-THEN exit code is 1 (commit blocked)
-AND output contains "COMMIT BLOCKED: existing tests regressed"
-
-### AC11 — pre-commit RED phase: stubs pass → block commit
-GIVEN only `tests/` files are staged
-AND new stub tests are staged
-AND stub tests pass (implementation already exists)
-WHEN pre-commit hook executes
-THEN exit code is 1 (commit blocked)
-AND output contains "COMMIT BLOCKED: stubs PASSED"
-
-### AC12 — pre-commit GREEN phase: all tests pass → allow commit
-GIVEN `src/` files are staged
+### AC8 — Suite A Playwright: all UI functional paths covered
+GIVEN the server is running with mocked API responses
+WHEN Suite A Playwright tests run (`tests/ui/functional/`)
+THEN tests exist and execute for:
+  - 4 themes (dark, light, glass, bento) with CSS var verification
+  - 5 templates (STANDARD, MINIMAL, PRO, RESEARCH, FOCUS) with 1-5 key binding
+  - Keyboard shortcuts: Ctrl+K, /, E, ?, H, arrow navigation
+  - Favorites: pin card → appears in Mine tab → persists localStorage
+  - Edit mode: drag, resize, close, color palette
+  - Category nav: filter by setup type
+  - Factor strip: collapse/expand, dot click opens detail panel
+  - Help page: all 11 tabs render
 AND all tests pass
-WHEN pre-commit hook executes
-THEN exit code is 0 (commit allowed)
 
-### AC13 — pre-commit GREEN phase: any test fails → block commit
-GIVEN `src/` files are staged
-AND at least one test fails
-WHEN pre-commit hook executes
-THEN exit code is 1 (commit blocked)
-AND output contains "COMMIT BLOCKED: tests failed"
+### AC9 — Suite B Playwright: pick card UI fields match DB values
+GIVEN the server is running with real picks in DB from fixture scan
+WHEN Suite B Playwright data validation tests run (`tests/ui/data/`)
+THEN for each pick card rendered:
+  - ticker text = DB pick.ticker
+  - conviction dot count = DB pick.conviction (integer)
+  - entry zone text = formatted DB pick.entry_low / pick.entry_high
+  - stop text = formatted DB pick.stop
+  - direction badge text = DB pick.direction
+  - factor strip dots: green = factors_json.{factor}.firing == True, gray = False
+AND all fields match with zero mismatches
 
-### AC14 — pre-commit DOCS phase: no src/ no tests/ → regression check only
-GIVEN no `src/` files are staged
-AND no `tests/` files are staged
-AND existing tests pass
-WHEN pre-commit hook executes
-THEN exit code is 0 (commit allowed)
-AND output contains "docs-only commit"
+### AC10 — integration-live.yml uploads artifacts after every run
+GIVEN integration-live.yml completes (pass or fail)
+THEN GitHub Actions artifacts include:
+  - `playwright-report/` (HTML report with screenshots)
+  - `condition-coverage.json` (FIRED/NEVER_FIRED for all required patterns)
+  - `results/junit-integration.xml` (pytest results)
+AND artifacts are retained for 30 days
+
+### AC11 — pre-commit GREEN: blocks if src/ changed but no integration + playwright tests added
+GIVEN files under `src/` are staged for commit
+AND no new file is staged under `tests/integration/`
+AND no new file is staged under `tests/ui/`
+WHEN the pre-commit GREEN phase runs
+THEN exit code is 1
+AND output contains "COMMIT BLOCKED: src/ change requires integration test"
 
 ## Out of Scope
-- Testing verify-red-phase CI job (requires GitHub Actions environment)
-- Testing auto-push hook (requires real remote)
-- Testing gate:awaiting-step21 label creation (requires GitHub API credentials)
+- Running integration-live against full S&P 500 (NDX100 subset = 100 stocks, sufficient)
+- Storing historical scan results long-term (DB cleared between nightly runs)
+- Playwright video recording (screenshots only in v1)
+- The synthetic fixture approach (deferred — see GitHub issue #123)
 
 ## Dependencies
-- `.git/hooks/pre-commit` — bash script, tested via subprocess in temp git repos
-- `~/.claude/boss/hooks/pre-build-gate.ps1` — PowerShell, tested via subprocess with mock JSON payloads
-- `~/.claude/boss/hooks/stop-gate.ps1` — PowerShell, tested via subprocess with mock JSON payloads
+- `.github/workflows/integration-live.yml` — new workflow
+- `tests/integration/test_condition_coverage.py` — NEVER_FIRED checker
+- `tests/integration/test_api_full.py` — field-by-field API validation
+- `tests/integration/test_scan_e2e.py` — full scanner A-Z
+- `tests/ui/functional/` — Suite A (new directory)
+- `tests/ui/data/` — Suite B (new directory)
+- `.git/hooks/pre-commit` — GREEN phase updated with integration test check
+- `conftest.py` — `data_dependent` pytest marker registration
+- GitHub Secrets: `ALPHA_VANTAGE_KEY`, `FINNHUB_KEY`, `ANTHROPIC_API_KEY`
