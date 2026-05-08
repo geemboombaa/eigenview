@@ -382,13 +382,30 @@ Be harsh. Trading system. Fake tests cost money."""
         if: steps.phase.outputs.verdict == 'PASS' && steps.phase.outputs.phase != 'docs'
         run: |
           PHASE="${{ steps.phase.outputs.phase }}"
+          PR="${{ github.event.pull_request.number }}"
+          BRANCH="${{ github.head_ref }}"
+
           # Remove old phase labels first
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "phase:red" 2>/dev/null || true
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "phase:green" 2>/dev/null || true
+          gh pr edit $PR --remove-label "phase:red" 2>/dev/null || true
+          gh pr edit $PR --remove-label "phase:green" 2>/dev/null || true
           # Add current phase label (create if missing)
           gh label create "phase:$PHASE" --color "0075ca" 2>/dev/null || true
-          gh pr edit ${{ github.event.pull_request.number }} --add-label "phase:$PHASE"
+          gh pr edit $PR --add-label "phase:$PHASE"
           echo "Labeled PR with phase:$PHASE"
+
+          # Red phase: set gate:awaiting-step21 (blocks implementation until human approves)
+          # Human removes this label at step 21 to unblock src/ edits.
+          # fix/ branches are exempt (lightweight path, no spec/stub phases).
+          if [ "$PHASE" = "red" ] && [[ "$BRANCH" != fix/* ]]; then
+            gh label create "gate:awaiting-step21" --color "e4e669" 2>/dev/null || true
+            gh pr edit $PR --add-label "gate:awaiting-step21"
+            echo "Set gate:awaiting-step21 — implementation blocked until human step 21 approval"
+          fi
+
+          # Green phase: remove gate:awaiting-step21 if still present (shouldn't be, but clean up)
+          if [ "$PHASE" = "green" ]; then
+            gh pr edit $PR --remove-label "gate:awaiting-step21" 2>/dev/null || true
+          fi
 
       - name: Post step-trigger comment
         if: steps.phase.outputs.verdict == 'PASS'
@@ -401,7 +418,7 @@ Be harsh. Trading system. Fake tests cost money."""
           if [ "$PHASE" = "red" ]; then
             NEXT_STEP="13"
             NEXT_ACTION="Write design review doc (.boss/design-review.md) — architecture review, implementation checklist, gaps."
-            HUMAN_ACTION="**No action needed.** Claude can continue to step 13 automatically in next turn."
+            HUMAN_ACTION="**No action needed.** Claude can continue to step 13 automatically in next turn.\n\n> **Implementation is blocked** by \`gate:awaiting-step21\` label. Remove this label at step 21 after reviewing the CI audit report."
           elif [ "$PHASE" = "green" ]; then
             NEXT_STEP="27"
             NEXT_ACTION="Review CI results and approve PR if everything looks good."

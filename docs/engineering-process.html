@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>EigenView Engineering Process — Master Table</title>
+<title>EigenView Engineering Process — Master Table v1.1</title>
 <style>
   body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; margin: 2cm; color: #1a1a1a; }
   h1 { font-size: 16pt; color: #1f3864; border-bottom: 2px solid #1f3864; padding-bottom: 6px; }
@@ -16,20 +16,50 @@
   .no { color: #2e7d32; font-weight: bold; }
   .yes { color: #c62828; font-weight: bold; }
   .novel { background: #e8f5e9; }
+  .changed { background: #fff8e1; }
   p.note { font-size: 9.5pt; color: #555; font-style: italic; margin-top: 4px; }
   .legend { display: flex; gap: 24px; margin: 12px 0; font-size: 9.5pt; }
   .legend span { display: inline-block; padding: 3px 10px; border-radius: 3px; }
+  code { background: #f0f0f0; padding: 1px 4px; font-size: 9.5pt; border-radius: 2px; }
 </style>
 </head>
 <body>
 
 <h1>EigenView — Master Engineering Process Table (A→Z)</h1>
-<p>Version 1.0 &nbsp;|&nbsp; 2026-05-07 &nbsp;|&nbsp; All steps numbered. Manual gates highlighted.</p>
+<p>Version 1.1 &nbsp;|&nbsp; 2026-05-08 &nbsp;|&nbsp; All steps numbered. Manual gates highlighted. Changes from v1.0 marked ★.</p>
 
 <div class="legend">
   <span style="background:#fff3cd;border:1px solid #ccc">&#9654; Manual gate</span>
   <span style="background:#e8f5e9;border:1px solid #ccc">&#9733; Novel (non-standard)</span>
+  <span style="background:#fff8e1;border:1px solid #ccc">★ Changed in v1.1</span>
 </div>
+
+<h2>PR Lifecycle — Two-Tier System ★</h2>
+<table>
+<tr><th>Tier</th><th>Branch prefix</th><th>When to use</th><th>Phases required</th><th>PR lifecycle</th></tr>
+<tr class="novel">
+  <td><strong>Feature</strong></td>
+  <td><code>feature/</code></td>
+  <td>New behavior, new factor, new UI module, any non-trivial change</td>
+  <td>All 29 steps: research → spec → issue → stub → CI → design review → human gate → implement → merge</td>
+  <td>Open as DRAFT at step 8. Ready-for-review at step 22. Human merges at step 28. One PR per feature, never reuse.</td>
+</tr>
+<tr class="changed">
+  <td><strong>Fix</strong></td>
+  <td><code>fix/</code></td>
+  <td>Confirmed bug with known fix, typo, config update, dependency bump</td>
+  <td>Lightweight: skip steps 5–14. Create branch → open PR → implement → tests pass → human merges.</td>
+  <td>Pre-build-gate recognizes <code>fix/</code> prefix and skips <code>gate:awaiting-step21</code> check. Still requires open PR. Human still merges (no self-merge).</td>
+</tr>
+</table>
+
+<h2>Label System ★</h2>
+<table>
+<tr><th>Label</th><th>Set by</th><th>Removed by</th><th>Meaning</th><th>Gate effect</th></tr>
+<tr class="novel"><td><code>phase:red</code></td><td>CI (verify-red-phase job, GITHUB_TOKEN)</td><td>CI on next push (replaced by phase:green)</td><td>Test stubs committed, no implementation yet. Red phase verified.</td><td>None — informational</td></tr>
+<tr class="novel"><td><code>phase:green</code></td><td>CI (verify-red-phase job, GITHUB_TOKEN)</td><td>Next push</td><td>Implementation committed, all tests pass.</td><td>None — informational</td></tr>
+<tr class="changed novel"><td><code>gate:awaiting-step21</code></td><td>CI (verify-red-phase job, after red phase, GITHUB_TOKEN)</td><td>Human (step 21) — manual label removal</td><td>Spec and stubs are in CI. Waiting for human approval before implementation can start.</td><td><strong>Blocks all src/ edits</strong> via pre-build-gate.ps1. Cannot be faked — only GITHUB_TOKEN or human can set/remove.</td></tr>
+</table>
 
 <h2>Phase 0 — Research &amp; Proposal</h2>
 <table>
@@ -43,8 +73,8 @@
 <h2>Phase 1 — Lock Requirements</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>What happens</th><th>Who triggers</th><th>Auto?</th><th>Enforced by</th><th>Claude bypass?</th></tr>
-<tr class="novel"><td>5</td><td>Claude writes spec, ACs, design, arch docs → .boss/</td><td>spec.md, parsed-requirement.md, design.md written to .boss/ before any code</td><td>Claude (on "go")</td><td>Auto</td><td>pre-build-gate exempts .boss/ writes</td><td>Low — human reviews at step 20</td></tr>
-<tr class="novel"><td>6</td><td>pre-build-gate activates on src/ edits</td><td>Hook fires before every Edit/Write. Checks: on master? → block. No open PR? → block. Calls GitHub API.</td><td>Claude Code PreToolUse hook</td><td>Auto enforced</td><td>Claude Code runtime + GitHub API</td><td>No — cannot fake open PR</td></tr>
+<tr class="novel"><td>5</td><td>Claude writes spec, ACs, design, arch docs → .boss/</td><td>spec.md, parsed-requirement.md, design.md written to .boss/ before any code. <em>pre-build-gate exempts .boss/ writes.</em></td><td>Claude (on "go")</td><td>Auto</td><td>pre-build-gate exempts .boss/ writes</td><td>Low — human reviews at step 20</td></tr>
+<tr class="novel"><td>6</td><td>pre-build-gate activates on src/ + tests/ edits</td><td>Hook fires before every Edit/Write. Checks: on master? → block. No open PR? → block. gate:awaiting-step21 label? → block. .boss/ and .github/ exempt.</td><td>Claude Code PreToolUse hook</td><td>Auto enforced</td><td>Claude Code runtime + GitHub API</td><td>No — cannot fake open PR or labels</td></tr>
 <tr><td>7</td><td>Claude creates GitHub issue with full ACs</td><td>gh issue create with GIVEN/THEN format ACs, AC1/AC2 labels</td><td>Claude</td><td>Auto</td><td>GitHub stores it — immutable</td><td>No</td></tr>
 <tr><td>8</td><td>Claude opens draft PR</td><td>gh pr create --draft linking the issue. Required by gate to unblock src/ edits.</td><td>Claude</td><td>Auto</td><td>Gate checks open PR via GitHub API</td><td>No</td></tr>
 </table>
@@ -52,37 +82,37 @@
 <h2>Phase 2 — Test Stubs (Red)</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>What happens</th><th>Who triggers</th><th>Auto?</th><th>Enforced by</th><th>Claude bypass?</th></tr>
-<tr class="novel"><td>9</td><td>Claude writes test stubs — no implementation</td><td>Failing tests only. All function names contain AC1/AC2/REQ ref. No implementation code.</td><td>Claude</td><td>Auto</td><td>pre-build-gate: PR must be open</td><td>Low</td></tr>
-<tr><td>10</td><td>git commit fires pre-commit hook</td><td>Hook runs pytest. Tests MUST FAIL here — red phase is correct. Hook blocks commit if tests pass (stubs can't pass without implementation).</td><td>git process</td><td>Auto</td><td>git pre-commit hook — not Claude Code</td><td>--no-verify blocked by CLAUDE.md rule</td></tr>
-<tr class="novel"><td>11</td><td>stop-gate checks for uncommitted src/ changes</td><td>At end of Claude's turn: git diff --name-only HEAD. If src/ files dirty → block turn. Claude cannot claim done with uncommitted edits.</td><td>Claude Code PostToolUse hook</td><td>Auto enforced</td><td>stop-gate.ps1 (W1)</td><td>No</td></tr>
+<tr class="novel"><td>9</td><td>Claude writes test stubs — no implementation</td><td>Failing tests only. All function names contain AC1/AC2/REQ ref. No implementation code. Tests must fail at this step.</td><td>Claude</td><td>Auto</td><td>pre-build-gate: PR must be open</td><td>Low</td></tr>
+<tr class="changed"><td>10</td><td>git commit fires pre-commit hook (RED phase)</td><td>Hook detects phase from git staging area: only tests/ staged → RED phase. Runs existing tests (must pass) + new stubs (must FAIL). Blocks commit if stubs pass (implementation would already exist). Also blocks if existing tests regress.</td><td>git process</td><td>Auto</td><td>git pre-commit hook — not Claude Code</td><td>--no-verify blocked by CLAUDE.md rule</td></tr>
+<tr class="changed novel"><td>11</td><td>stop-gate checks dirty src/ FIRST, then tests</td><td>★ Order fixed: (1) instant dirty src/ check — if dirty, block with exact commit commands. (2) only if src/ clean, run test suite. No more 90s test run on every turn when src/ is dirty.</td><td>Claude Code PostToolUse hook</td><td>Auto enforced</td><td>stop-gate.ps1 (W1)</td><td>No</td></tr>
 <tr><td>12</td><td>auto-push fires after commit</td><td>Pushes branch to GitHub automatically after git commit</td><td>PostToolUse hook on git commit</td><td>Auto</td><td>auto-push.ps1</td><td>No</td></tr>
 </table>
 
-<h2>Phase 3 — Design Review</h2>
+<h2>Phase 3 — Pre-Implementation CI Audit</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>What happens</th><th>Who triggers</th><th>Auto?</th><th>Enforced by</th><th>Claude bypass?</th></tr>
-<tr class="novel"><td>13</td><td>Claude writes full arch/UI/design review doc</td><td>Confirms it has everything needed for implementation A-Z. Gaps listed. Doc committed to .boss/.</td><td>Claude</td><td>Auto</td><td>—</td><td>Human reviews at step 20</td></tr>
-<tr><td>14</td><td>Commit + push design doc</td><td>git commit → pre-commit → auto-push. Triggers CI.</td><td>Claude + hooks</td><td>Auto</td><td>Same as steps 10–12</td><td>No</td></tr>
+<tr><td>13</td><td>GitHub Actions triggers on push</td><td>ac-audit.yml runs on PR push — separate machine, no Claude context. Two jobs: audit (AC check + Claude API audit) and verify-red-phase.</td><td>GitHub (auto on push)</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
+<tr><td>14</td><td>CI: AC reference check</td><td>Python AST scan of test names for AC/REQ refs. Trivial test detection (assert True / pass).</td><td>CI job</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
+<tr class="novel"><td>15</td><td>CI: fetch GitHub issue body, audit AC format</td><td>gh api fetches issue body. Checks GIVEN/THEN keywords, AC1/AC2 labels. Fails CI if missing.</td><td>CI job (W2)</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
+<tr class="novel"><td>16</td><td>CI: Claude API audit — zero context</td><td>Separate Claude API call. Receives: spec.md + issue body + design doc + test stubs. No project memory. Audits requirements quality + AC coverage + test stub quality.</td><td>CI job (W3)</td><td>Auto</td><td>Different process, no file system access</td><td>No — separate API call</td></tr>
+<tr class="novel"><td>17</td><td>CI posts audit report as PR comment</td><td>Claude audit result posted inline on GitHub PR. Artifacts uploaded: ac-audit-report.json, issue-ac-audit.json, claude-audit-report.md</td><td>CI job (W4)</td><td>Auto</td><td>GitHub artifact storage + PR comment</td><td>No</td></tr>
+<tr class="changed novel"><td>18</td><td>CI verify-red-phase: detect phase + set labels + post comment ★</td><td>Separate CI job. Detects phase from git diff vs base branch. Sets phase:red or phase:green label (GITHUB_TOKEN — unfakeable). <strong>Also sets gate:awaiting-step21 label for feature/ branches in red phase</strong> — blocks implementation until human step 21 approval. Posts structured step-trigger comment with next step number. fix/ branches exempt from gate:awaiting-step21.</td><td>CI job (verify-red-phase)</td><td>Auto</td><td>Separate machine, GITHUB_TOKEN</td><td>No — labels set via API, not by Claude</td></tr>
+<tr class="manual-gate"><td>19</td><td>&#9654; Human reviews CI audit report</td><td>Reads PR comment. Checks: ACs complete? Spec testable? Stubs trace to ACs? Claude audit result?</td><td>Human</td><td>MANUAL GATE</td><td>Branch protection: no merge without approval</td><td>No</td></tr>
 </table>
 
-<h2>Phase 4 — Pre-Implementation CI Audit</h2>
+<h2>Phase 4 — Design Review</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>What happens</th><th>Who triggers</th><th>Auto?</th><th>Enforced by</th><th>Claude bypass?</th></tr>
-<tr><td>15</td><td>GitHub Actions triggers on push</td><td>ac-audit.yml runs on PR push — separate machine, no Claude context</td><td>GitHub (auto on push)</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
-<tr><td>16</td><td>CI: AC reference check</td><td>Python AST scan of test names for AC/REQ refs. Trivial test detection (assert True / pass).</td><td>CI job</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
-<tr class="novel"><td>17</td><td>CI: fetch GitHub issue body, audit AC format</td><td>gh api fetches issue body. Checks GIVEN/THEN keywords, AC1/AC2 labels. Fails CI if missing.</td><td>CI job (W2)</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
-<tr class="novel"><td>18</td><td>CI: Claude API audit — zero context</td><td>Separate Claude API call. Receives: spec.md + issue body + design doc + test stubs. No project memory. Audits requirements quality + AC coverage + test stub quality.</td><td>CI job (W3)</td><td>Auto</td><td>Different process, no file system access</td><td>No — separate API call</td></tr>
-<tr class="novel"><td>19</td><td>CI posts audit report as PR comment</td><td>Claude audit result posted inline on GitHub PR. Artifacts uploaded: ac-audit-report.json, issue-ac-audit.json, claude-audit-report.md</td><td>CI job (W4)</td><td>Auto</td><td>GitHub artifact storage + PR comment</td><td>No</td></tr>
-<tr class="manual-gate"><td>20</td><td>&#9654; Human reviews CI audit report</td><td>Reads PR comment. Checks: ACs complete? Spec testable? Stubs trace to ACs?</td><td>Human</td><td>MANUAL GATE</td><td>Branch protection: no merge without approval</td><td>No</td></tr>
-<tr class="manual-gate"><td>21</td><td>&#9654; Human approves or sends back</td><td>Approves → implementation begins. Sends back → Claude fixes spec/ACs, repeats from step 5.</td><td>Human</td><td>MANUAL GATE</td><td>Human</td><td>No</td></tr>
+<tr class="novel"><td>20</td><td>Claude writes full arch/UI/design review doc</td><td>Confirms it has everything needed for implementation A-Z. Gaps listed. Doc committed to .boss/design-review.md. Triggered by step-trigger PR comment from step 18.</td><td>Claude (triggered by CI PR comment)</td><td>Auto</td><td>—</td><td>Human reviews at step 21</td></tr>
+<tr><td>21&#9654;</td><td>Human approves: removes gate:awaiting-step21 label ★</td><td>Human reviews CI audit + design doc. Approves → removes gate:awaiting-step21 label from PR. This is the step 21 gate. Removing the label unblocks pre-build-gate for src/ edits. Sends back → Claude fixes spec/ACs, repeats from step 5.</td><td>Human</td><td>MANUAL GATE</td><td>Human removes label via GitHub UI. pre-build-gate enforces.</td><td>No — cannot fake label removal</td></tr>
 </table>
 
 <h2>Phase 5 — Implementation</h2>
 <table>
 <tr><th>#</th><th>Step</th><th>What happens</th><th>Who triggers</th><th>Auto?</th><th>Enforced by</th><th>Claude bypass?</th></tr>
-<tr><td>22</td><td>Implementation begins (only after step 21)</td><td>Claude writes src/ code. pre-build-gate confirmed open PR — edits allowed.</td><td>Claude</td><td>Auto</td><td>pre-build-gate: PR open = src/ edits allowed</td><td>Low</td></tr>
-<tr><td>23</td><td>git commit fires pre-commit hook</td><td>Tests must PASS now. Coverage ≥75%. Hook blocks commit if red or below threshold.</td><td>git process</td><td>Auto enforced</td><td>git pre-commit hook</td><td>--no-verify blocked</td></tr>
-<tr><td>24</td><td>stop-gate checks no dirty src/</td><td>Blocks turn completion if uncommitted src/ changes exist</td><td>PostToolUse hook</td><td>Auto enforced</td><td>stop-gate.ps1 (W1)</td><td>No</td></tr>
+<tr><td>22</td><td>Implementation begins (only after step 21)</td><td>Claude writes src/ code. pre-build-gate confirms: open PR + no gate:awaiting-step21 label → edits allowed.</td><td>Claude</td><td>Auto</td><td>pre-build-gate: PR open + no step21 gate</td><td>Low</td></tr>
+<tr class="changed"><td>23</td><td>git commit fires pre-commit hook (GREEN phase)</td><td>Hook detects phase: src/ staged → GREEN phase. All tests must PASS. Coverage ≥75%. Hook blocks commit if any test fails.</td><td>git process</td><td>Auto enforced</td><td>git pre-commit hook</td><td>--no-verify blocked</td></tr>
+<tr class="changed"><td>24</td><td>stop-gate: dirty src/ check first, then tests ★</td><td>Order: (1) instant dirty check → block if src/ uncommitted. (2) full test suite if src/ clean. No 90s penalty on docs-only turns.</td><td>PostToolUse hook</td><td>Auto enforced</td><td>stop-gate.ps1 (W1)</td><td>No</td></tr>
 <tr><td>25</td><td>auto-push → CI triggers full suite</td><td>pytest + coverage + trivial check + Playwright UI tests</td><td>GitHub Actions</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
 <tr class="novel"><td>26</td><td>CI: post-implementation Claude audit</td><td>Same zero-context Claude API audit. Now audits implementation test quality vs spec ACs.</td><td>CI job</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
 <tr class="manual-gate"><td>27</td><td>&#9654; Human reviews CI, approves PR</td><td>Checks: green badge, audit clean, AC coverage complete, Playwright passing</td><td>Human</td><td>MANUAL GATE</td><td>Branch protection: ≥1 approval + CI green required</td><td>No</td></tr>
@@ -90,12 +120,27 @@
 <tr><td>29</td><td>CI re-runs on master post-merge</td><td>Final full suite verification on master</td><td>GitHub Actions</td><td>Auto</td><td>Separate machine</td><td>No</td></tr>
 </table>
 
+<h2>Per-Feature Step Tracker ★</h2>
+<p>Claude fills in <code>.boss/CURRENT-STEP.md</code> at the start of every feature. This file is the ground truth for current step — updated after every step completes.</p>
+<table>
+<tr><th>Field</th><th>Content</th></tr>
+<tr><td>Feature</td><td>Short name (e.g. "dormant-bet-v2")</td></tr>
+<tr><td>GitHub Issue</td><td>#123</td></tr>
+<tr><td>PR</td><td>#124</td></tr>
+<tr><td>Branch</td><td>feature/dormant-bet-v2</td></tr>
+<tr><td>Current Step</td><td>Step 9 (test stubs)</td></tr>
+<tr><td>Next Step</td><td>Step 10 (commit stubs → pre-commit fires)</td></tr>
+<tr><td>Blocked on</td><td>— or human action required</td></tr>
+<tr><td>Steps completed</td><td>1, 2, 3, 4, 5, 6, 7, 8</td></tr>
+</table>
+<p class="note">Template at <code>.boss/PROCESS-TEMPLATE.md</code>. Copy to <code>.boss/CURRENT-STEP.md</code> at start of each feature. Commit it with the .boss/ docs at step 5.</p>
+
 <h2>Summary — Manual Gates vs Automated Steps</h2>
 <table>
 <tr><th>Category</th><th>Steps</th><th>Count</th></tr>
-<tr><td>Manual gates (human decision required)</td><td>4, 20, 21, 27, 28</td><td>5</td></tr>
-<tr><td>Fully automated</td><td>1–3, 5–19, 22–26, 29</td><td>24</td></tr>
-<tr><td>Novel (non-standard practice)</td><td>2, 3, 5, 6, 11, 13, 17, 18, 19, 26</td><td>10</td></tr>
+<tr><td>Manual gates (human decision required)</td><td>4, 19, 21, 27, 28</td><td>5</td></tr>
+<tr><td>Fully automated</td><td>1–3, 5–18, 20, 22–26, 29</td><td>24</td></tr>
+<tr><td>Novel (non-standard practice)</td><td>2, 3, 5, 6, 11, 15, 16, 17, 18, 26</td><td>10</td></tr>
 </table>
 
 <h2>Novel Elements — Why They Were Critical</h2>
@@ -103,13 +148,26 @@
 <tr><th>Element</th><th>Steps</th><th>Standard practice</th><th>What was added</th><th>Why critical</th></tr>
 <tr class="novel"><td>Pre-implementation spec lock</td><td>5–8</td><td>Spec in a doc, no enforcement</td><td>Spec written to .boss/ BEFORE branch opens. Gate blocks src/ edits until PR exists.</td><td>Without this, implementation starts before requirements are agreed. Review happens after code exists — too late to catch design problems.</td></tr>
 <tr class="novel"><td>pre-build-gate (GitHub API check)</td><td>6</td><td>No equivalent</td><td>Hook calls gh pr list before every file edit. Cannot be faked by Claude — GitHub API is the source of truth.</td><td>Claude was editing master directly, bypassing all branch/PR controls. This closes the gap at the file-write level.</td></tr>
-<tr class="novel"><td>stop-gate dirty-file check</td><td>11, 24</td><td>No equivalent</td><td>End-of-turn hook checks git diff. Blocks turn if src/ has uncommitted changes.</td><td>Claude could write files and never commit — pre-commit never fires, CI never runs, changes invisible. This forces commit before claiming done.</td></tr>
-<tr class="novel"><td>Pre-implementation CI audit</td><td>15–19</td><td>Post-implementation review only</td><td>CI runs full audit of spec + ACs + stubs BEFORE implementation. Human approves before code is written.</td><td>Finding a bad requirement after implementation = wasted work. Finding it at step 19 = zero code written yet.</td></tr>
-<tr class="novel"><td>Zero-context Claude-in-CI audit</td><td>18, 26</td><td>No equivalent</td><td>Separate Claude API call with no project memory audits the same artifacts the builder Claude wrote.</td><td>If Claude writes tests AND verifies them in same session, it rationalizes its own bad tests. Zero-context = adversarial by construction.</td></tr>
-<tr class="novel"><td>Issue body AC format enforcement</td><td>17</td><td>ACs are guidance only</td><td>CI fetches issue body via gh api. Fails build if GIVEN/THEN/AC1/AC2 not present.</td><td>Weak ACs (one-liner descriptions) produce untestable requirements. This makes GIVEN/THEN format a hard gate, not a suggestion.</td></tr>
+<tr class="changed novel"><td>gate:awaiting-step21 label ★</td><td>18, 21, 22</td><td>No equivalent</td><td>CI sets this label (GITHUB_TOKEN) after red phase verified. pre-build-gate reads label — blocks src/ edits until human removes it. Human removing = step 21 approval. Unfakeable.</td><td>H9: Implementation could start before human approval. "Open PR" check wasn't enough — Claude could start coding immediately after opening the PR. The label creates a hard gate between stub commit and implementation.</td></tr>
+<tr class="changed novel"><td>stop-gate: dirty check first ★</td><td>11, 24</td><td>No equivalent</td><td>★ Order fixed: dirty src/ check runs INSTANTLY before test suite. Block fires in &lt;1s if uncommitted. Tests only run (90s) when src/ is clean.</td><td>Prior order ran 90s test suite on every turn, even when the real issue was uncommitted src/ files. Now: dirty = instant block. Clean = run tests.</td></tr>
+<tr class="novel"><td>Pre-implementation CI audit</td><td>13–17</td><td>Post-implementation review only</td><td>CI runs full audit of spec + ACs + stubs BEFORE implementation. Human approves before code is written.</td><td>Finding a bad requirement after implementation = wasted work. Finding it at step 17 = zero code written yet.</td></tr>
+<tr class="novel"><td>Zero-context Claude-in-CI audit</td><td>16, 26</td><td>No equivalent</td><td>Separate Claude API call with no project memory audits the same artifacts the builder Claude wrote.</td><td>If Claude writes tests AND verifies them in same session, it rationalizes its own bad tests. Zero-context = adversarial by construction.</td></tr>
+<tr class="novel"><td>Issue body AC format enforcement</td><td>15</td><td>ACs are guidance only</td><td>CI fetches issue body via gh api. Fails build if GIVEN/THEN/AC1/AC2 not present.</td><td>Weak ACs (one-liner descriptions) produce untestable requirements. This makes GIVEN/THEN format a hard gate, not a suggestion.</td></tr>
+<tr class="changed novel"><td>Two-tier PR system ★</td><td>All</td><td>One-size-fits-all PRs</td><td>feature/ = full 29 steps. fix/ = lightweight (skips spec/stub phases, gate:awaiting-step21 exempt). Detection by branch prefix.</td><td>Bug fixes shouldn't require full spec/stub cycle. But they still need a branch, PR, and human merge — no direct master commits.</td></tr>
+<tr class="novel"><td>Phase-aware pre-commit hook</td><td>10, 23</td><td>All-or-nothing: tests must pass</td><td>Hook detects phase from git staging area. RED: stubs must FAIL. GREEN: all tests must pass. Wrong phase = commit blocked.</td><td>Standard pre-commit blocks red phase (stubs fail = block). Need to invert: stubs failing is correct in red phase. Phase detection from staging area is unfakeable by Claude.</td></tr>
+<tr class="changed novel"><td>Per-feature step tracker ★</td><td>All</td><td>No step tracking</td><td>.boss/CURRENT-STEP.md updated after every step. GitHub labels as external source of truth. Claude fills template at step 5.</td><td>Without tracking, Claude loses step state across turns. External labels (set by CI/human, not Claude) are the authoritative step state.</td></tr>
 </table>
 
-<p class="note">Generated: 2026-05-07. Project: EigenView. This document applies to any software project — all mechanisms are project-agnostic except ac-audit.yml (per-repo) and .boss/ (per-project). Global hooks (pre-build-gate, stop-gate, auto-push) apply to all Claude Code sessions.</p>
+<h2>Known Bypass Vectors (audit log)</h2>
+<table>
+<tr><th>Vector</th><th>Risk</th><th>Mitigation</th><th>Status</th></tr>
+<tr><td><code>git commit --no-verify</code></td><td>Skips pre-commit hook entirely</td><td>CLAUDE.md rule: "Never use --no-verify". No automated enforcement.</td><td>Policy only — not mechanically blocked</td></tr>
+<tr><td>.boss/ exempt from pre-build-gate</td><td>Claude could edit .boss/hooks/pre-commit.sh without PR</td><td>Real gate is .git/hooks/pre-commit (untracked). Editing tracked copy doesn't affect running hook.</td><td>Low risk — .git/ is not editable via Write tool</td></tr>
+<tr><td>--ignore=tests/integration in pre-commit</td><td>Failing tests hidden if moved to tests/integration/</td><td>Integration tests genuinely need real network/DB. CI runs full suite including integration.</td><td>Accepted risk, documented</td></tr>
+<tr><td>Claude cannot remove gate:awaiting-step21</td><td>Label set by CI, only human or GITHUB_TOKEN can remove</td><td>Human must go to GitHub PR and manually remove label. Claude explicitly told "Do NOT remove this label yourself."</td><td>Mechanically enforced</td></tr>
+</table>
+
+<p class="note">Generated: 2026-05-08. Version 1.1. Project: EigenView. Changes from v1.0: stop-gate order fixed (dirty check first), gate:awaiting-step21 label mechanism added, two-tier PR system (feature/ vs fix/), per-feature step tracker, known bypass vectors documented, phase numbering adjusted.</p>
 
 </body>
 </html>
