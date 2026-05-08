@@ -49,6 +49,7 @@ _SCAN_COOLDOWN_SECS = 4 * 3600  # 4 hours
 _scan_state: dict = {
     "running": False, "message": "idle", "picks": 0, "error": None, "last_scan_at": None
 }
+_scan_bg_tasks: set = set()
 
 
 @app.get("/api/scan/status")
@@ -77,15 +78,14 @@ async def trigger_scan(universe: str = "ndx100") -> dict:
         global _scan_state
         _scan_state = {"running": True, "message": "Fetching data…", "picks": 0, "error": None, "last_scan_at": _scan_state.get("last_scan_at")}
         try:
-            from eigenview.cli import NDX100, SP500, TEST5, _SP500_NDX100
+            from eigenview.cli import NDX100, TEST5
+            from eigenview.api.routes.ta_scan import _SP500 as SP500
             from eigenview.data.storage import AsyncSessionLocal
             from eigenview.synthesis.scanner import run_daily_scan
             if universe == "ndx100":
                 tickers = NDX100
-            elif universe == "sp500":
+            elif universe in ("sp500", "full"):
                 tickers = SP500
-            elif universe == "full":
-                tickers = _SP500_NDX100
             else:
                 tickers = TEST5
             _scan_state["message"] = f"Scanning {len(tickers)} tickers…"
@@ -106,7 +106,9 @@ async def trigger_scan(universe: str = "ndx100") -> dict:
                 "error": str(exc), "last_scan_at": _scan_state.get("last_scan_at"),
             }
 
-    asyncio.create_task(_do_scan())
+    task = asyncio.create_task(_do_scan())
+    _scan_bg_tasks.add(task)
+    task.add_done_callback(_scan_bg_tasks.discard)
     return {"status": "started"}
 
 

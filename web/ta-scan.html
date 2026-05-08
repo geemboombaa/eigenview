@@ -83,6 +83,26 @@ html, body { height: 100%; background: var(--bg); color: var(--W); font-family: 
 .vol-input:focus { outline: none; border-color: var(--Y); }
 .vol-unit { font-family: var(--font-mono); font-size: 10px; color: var(--W3); }
 
+/* Analyzed row dimming */
+tr.analyzed td { opacity: 0.35; }
+tr.analyzed td.cb-col { opacity: 1; }
+
+/* Checkbox col */
+.cb-col { width: 28px; text-align: center; }
+.cb-col input[type=checkbox] { accent-color: var(--G); cursor: pointer; width: 13px; height: 13px; }
+
+/* Editable narrative */
+td.narr[contenteditable] { cursor: text; outline: none; }
+td.narr[contenteditable]:focus { background: var(--c3); border-radius: 3px; }
+
+/* Select input */
+.select-input {
+  background: var(--c3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 5px 8px; color: var(--W); font-family: var(--font-mono); font-size: 12px;
+  cursor: pointer;
+}
+.select-input:focus { outline: none; border-color: var(--Y); }
+
 /* Options toggle */
 .toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .toggle-cb { width: 14px; height: 14px; accent-color: var(--G); cursor: pointer; }
@@ -292,6 +312,19 @@ tr:hover td { background: rgba(14,24,37,0.8); }
     </div>
 
     <div class="ctrl-group">
+      <div class="ctrl-label">Lookback Bars</div>
+      <select class="select-input" id="lookback-bars">
+        <option value="1">1 bar</option>
+        <option value="3">3 bars</option>
+        <option value="5">5 bars</option>
+        <option value="10" selected>10 bars</option>
+        <option value="15">15 bars</option>
+        <option value="20">20 bars</option>
+        <option value="30">30 bars</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
       <div class="ctrl-label">Options</div>
       <label class="toggle-wrap">
         <input class="toggle-cb" type="checkbox" id="fetch-opts" checked>
@@ -383,6 +416,36 @@ tr:hover td { background: rgba(14,24,37,0.8); }
       </div>
     </div>
 
+    <!-- Vol character filter -->
+    <div class="multi-select" id="ms-vc">
+      <div class="ms-btn" onclick="toggleDropdown('ms-vc')">
+        <span id="ms-vc-label">Vol Char</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-vc-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"       checked onchange="updateFilter('vc',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="declining" onchange="updateFilter('vc',this)"> Declining (pullbacks)</div>
+        <div class="ms-opt"><input type="checkbox" value="expanding" onchange="updateFilter('vc',this)"> Expanding (breakouts)</div>
+        <div class="ms-opt"><input type="checkbox" value="neutral"   onchange="updateFilter('vc',this)"> Neutral</div>
+      </div>
+    </div>
+
+    <!-- Conf min filter -->
+    <div class="multi-select" id="ms-conf">
+      <div class="ms-btn" onclick="toggleDropdown('ms-conf')">
+        <span id="ms-conf-label">Conf</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-conf-dd">
+        <div class="ms-opt"><input type="radio" name="conf-r" value="0"  checked onchange="updateConfFilter(this)"> All</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="50" onchange="updateConfFilter(this)"> ≥ 50%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="60" onchange="updateConfFilter(this)"> ≥ 60%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="70" onchange="updateConfFilter(this)"> ≥ 70%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="80" onchange="updateConfFilter(this)"> ≥ 80%</div>
+      </div>
+    </div>
+
     <button class="filter-clear" onclick="clearFilters()">✕ Clear</button>
     <div class="filter-count" id="filter-count"></div>
   </div>
@@ -393,6 +456,7 @@ tr:hover td { background: rgba(14,24,37,0.8); }
     <table>
       <thead>
         <tr>
+          <th class="cb-col"></th>
           <th onclick="sortCol('ticker')">Ticker<span class="sa">↕</span></th>
           <th onclick="sortCol('spot')">Spot<span class="sa">↕</span></th>
           <th onclick="sortCol('avg_vol_m')">Avg Vol<span class="sa">↕</span></th>
@@ -407,6 +471,8 @@ tr:hover td { background: rgba(14,24,37,0.8); }
           <th onclick="sortCol('put_vol')">Puts<span class="sa">↕</span></th>
           <th onclick="sortCol('pcr')">P/C<span class="sa">↕</span></th>
           <th onclick="sortCol('firing')">Fire<span class="sa">↕</span></th>
+          <th onclick="sortCol('signal_age')">Age<span class="sa">↕</span></th>
+          <th onclick="sortCol('rs_vs_spy')">RS/SPY<span class="sa">↕</span></th>
           <th>Narrative</th>
         </tr>
       </thead>
@@ -423,7 +489,7 @@ let sortKey   = 'firing';
 let sortAsc   = false;
 let pollTimer = null;
 
-const filters = { firing: 'all', dir: 'all', cat: 'all', wk: 'all' };
+const filters = { firing: 'all', dir: 'all', cat: 'all', wk: 'all', vc: 'all', conf_min: 0 };
 
 // ── Pattern categories ────────────────────────────────────────────────────
 const TREND = new Set(['pullback_in_trend','pullback_deep','flag_continuation',
@@ -506,8 +572,9 @@ function updateFilterLabels() {
     cat:    { all:'Pattern', trend:'Trend', breakout:'Breakout', reversal:'Reversal', none:'No Pattern' },
     wk:     { all:'Weekly', BULLISH:'Bullish', BULLISH_EXTENDED:'Bull Ext', NEUTRAL:'Neutral',
                BEARISH_WEAK:'Bear Weak', BEARISH_STRONG:'Bear Strong' },
+    vc:     { all:'Vol Char', declining:'Declining', expanding:'Expanding', neutral:'Neutral' },
   };
-  ['firing','dir','cat','wk'].forEach(key => {
+  ['firing','dir','cat','wk','vc'].forEach(key => {
     const fv = filters[key];
     const el = document.getElementById(`ms-${key}-label`);
     if (!el) return;
@@ -517,6 +584,13 @@ function updateFilterLabels() {
   });
 }
 
+function updateConfFilter(radio) {
+  filters.conf_min = parseInt(radio.value, 10);
+  const el = document.getElementById('ms-conf-label');
+  el.textContent = filters.conf_min === 0 ? 'Conf' : `Conf ≥${filters.conf_min}%`;
+  renderTable();
+}
+
 function clearFilters() {
   ['firing','dir','cat','wk'].forEach(key => {
     filters[key] = 'all';
@@ -524,6 +598,11 @@ function clearFilters() {
       cb.checked = cb.value === 'all';
     });
   });
+  filters.vc = 'all';
+  document.querySelectorAll('#ms-vc-dd input').forEach(cb => { cb.checked = cb.value === 'all'; });
+  filters.conf_min = 0;
+  document.querySelector('#ms-conf-dd input[value="0"]').checked = true;
+  document.getElementById('ms-conf-label').textContent = 'Conf';
   updateFilterLabels();
   renderTable();
 }
@@ -533,8 +612,9 @@ async function startScan() {
   const btn = document.getElementById('scan-btn');
   const minVol = parseFloat(document.getElementById('vol-filter').value) || 0;
   const fetchOpts = document.getElementById('fetch-opts').checked;
+  const lookbackBars = parseInt(document.getElementById('lookback-bars').value, 10) || 10;
 
-  let body = { min_volume_m: minVol, fetch_options: fetchOpts };
+  let body = { min_volume_m: minVol, fetch_options: fetchOpts, lookback_bars: lookbackBars };
 
   if (selectedUniverse === 'custom') {
     const raw = document.getElementById('ticker-input').value;
@@ -686,6 +766,14 @@ function applyFilters(rows) {
       const want = Array.isArray(wv) ? wv : [wv];
       if (!want.includes(r.weekly_state)) return false;
     }
+    // vol character
+    const vcv = filters.vc;
+    if (vcv !== 'all') {
+      const want = Array.isArray(vcv) ? vcv : [vcv];
+      if (!want.includes(r.vol_character)) return false;
+    }
+    // confidence min
+    if (filters.conf_min > 0 && (r.confidence || 0) < filters.conf_min) return false;
     return true;
   });
 }
@@ -700,6 +788,25 @@ function applySort(rows) {
     if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     return sortAsc ? va - vb : vb - va;
   });
+}
+
+// ── localStorage persistence ──────────────────────────────────────────────
+function getStore(ticker) {
+  try { return JSON.parse(localStorage.getItem('ev_ta_' + ticker) || '{}'); } catch { return {}; }
+}
+function setStore(ticker, updates) {
+  const cur = getStore(ticker);
+  localStorage.setItem('ev_ta_' + ticker, JSON.stringify({...cur, ...updates}));
+}
+function saveNote(ticker, el) {
+  setStore(ticker, { note: el.innerText.trim() });
+}
+function toggleAnalyzed(ticker, cb) {
+  setStore(ticker, { checked: cb.checked });
+  cb.closest('tr').classList.toggle('analyzed', cb.checked);
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ── Render ────────────────────────────────────────────────────────────────
@@ -721,7 +828,7 @@ function renderTable() {
     filtered.length < total ? `${filtered.length} / ${total} shown` : `${total} rows`;
 
   if (!sorted.length) {
-    tbody.innerHTML = '<tr class="no-data-row"><td colspan="15">No results — run a scan or adjust filters</td></tr>';
+    tbody.innerHTML = '<tr class="no-data-row"><td colspan="19">No results — run a scan or adjust filters</td></tr>';
     return;
   }
 
@@ -787,10 +894,28 @@ function renderTable() {
       ? `<span class="fire-yes">●</span>`
       : `<span class="fire-no">○</span>`;
 
-    // Narrative
-    const narr = (r.narrative || '').substring(0, 72) + (r.narrative && r.narrative.length > 72 ? '…' : '');
+    // Signal age
+    const age = r.signal_age;
+    const ageHtml = age == null
+      ? '<span style="color:var(--W3)">—</span>'
+      : age === 0
+        ? '<span style="color:var(--G);font-weight:600">Today</span>'
+        : `<span style="color:var(--Y)">${age}d ago</span>`;
 
-    return `<tr>
+    // RS vs SPY
+    const rs = r.rs_vs_spy;
+    const rsHtml = rs == null ? '—'
+      : rs > 0 ? `<span style="color:var(--G)">+${rs.toFixed(1)}%</span>`
+      : `<span style="color:var(--R)">${rs.toFixed(1)}%</span>`;
+
+    // Checkbox + localStorage
+    const stored  = getStore(r.ticker);
+    const checked = stored.checked ? 'checked' : '';
+    const analyzed = stored.checked ? 'analyzed' : '';
+    const narrDisplay = escHtml(stored.note || (r.narrative || '').substring(0, 120));
+
+    return `<tr class="${analyzed}">
+      <td class="cb-col"><input type="checkbox" ${checked} onchange="toggleAnalyzed('${r.ticker}',this)"></td>
       <td class="cell-ticker">${r.ticker}</td>
       <td class="cell-spot">${spotHtml}</td>
       <td>${avHtml}</td>
@@ -805,7 +930,9 @@ function renderTable() {
       <td class="opt-val">${putHtml}</td>
       <td>${pcrHtml}</td>
       <td>${fireHtml}</td>
-      <td class="narr" title="${(r.narrative||'').replace(/"/g,'&quot;')}">${narr}</td>
+      <td>${ageHtml}</td>
+      <td>${rsHtml}</td>
+      <td class="narr" contenteditable="true" title="${escHtml(r.narrative||'')}" onblur="saveNote('${r.ticker}',this)">${narrDisplay}</td>
     </tr>`;
   }).join('');
 }
