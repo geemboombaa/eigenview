@@ -66,6 +66,51 @@ async def _identify_dormant_bets(
             ))
 
 
+_DORMANT_MIN_PREMIUM = 300_000.0
+_DORMANT_MIN_DTE = 60
+
+
+async def _identify_dormant_bets(
+    ticker: str,
+    chains: list,
+    today: date,
+    session: AsyncSession,
+) -> None:
+    for c in chains:
+        dte = (c.expiry - today).days if hasattr(c.expiry, '__sub__') else 0
+        if dte < _DORMANT_MIN_DTE:
+            continue
+        mid = (c.bid + c.ask) / 2
+        premium = mid * (c.oi or 0) * 100
+        if premium < _DORMANT_MIN_PREMIUM:
+            continue
+        contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
+        existing = await session.execute(
+            select(DormantBet).where(
+                DormantBet.ticker == ticker,
+                DormantBet.contract == contract,
+                DormantBet.original_date == today,
+            )
+        )
+        row = existing.scalars().first()
+        if row is None:
+            session.add(DormantBet(
+                ticker=ticker,
+                contract=contract,
+                original_date=today,
+                strike=c.strike,
+                expiry=c.expiry,
+                call_put=c.call_put,
+                original_premium=round(premium, 2),
+                current_oi=c.oi,
+                original_oi=c.oi,
+                updated_at=datetime.utcnow(),
+            ))
+        else:
+            row.current_oi = c.oi
+            row.updated_at = datetime.utcnow()
+
+
 async def _score_ticker(
     ticker: str,
     macro_result,

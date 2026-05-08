@@ -20,7 +20,14 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests with coverage
-        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=75 --cov-report=term-missing:skip-covered
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SECRET_KEY: placeholder-secret
+          ALPHA_VANTAGE_KEY: placeholder
+          FINNHUB_KEY: placeholder
+          ANTHROPIC_API_KEY: placeholder
+        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=75 --cov-report=term-missing:skip-covered --ignore=tests/integration
 
       - name: Check no trivial tests
         run: |
@@ -38,7 +45,12 @@ jobs:
       - name: Start server
         run: uv run eigenview serve &
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SECRET_KEY: placeholder-secret
+          ALPHA_VANTAGE_KEY: placeholder
+          FINNHUB_KEY: placeholder
+          ANTHROPIC_API_KEY: placeholder
 
       - name: Wait for server
         run: npx wait-on http://localhost:8000 --timeout 30000
