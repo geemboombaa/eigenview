@@ -198,49 +198,38 @@ jobs:
           if os.path.exists('ac-audit-report.json'):
               ac_audit = json.load(open('ac-audit-report.json'))
 
-          prompt = f"""You are an independent QA auditor. You have NO knowledge of how these tests or specs were written.
-
-Audit against these criteria:
-
-1. Do the test stubs map 1:1 to the ACs in the issue? Is there a test for every AC fire case AND anti-case?
-2. Does each test function test ONE specific condition?
-3. Does each test have a meaningful assertion (not assert True or type check)?
-4. For fire-case tests: does the setup actually match the GIVEN conditions?
-5. For anti-case tests: does it actually violate the specific condition it claims to test?
-6. Are fixture values realistic (real price levels, real RSI ranges, real volumes)?
-7. Does the spec have enough detail that an engineer could implement without asking questions?
-
----
-
-## Linked Issue / Requirements
-{issue_body_content if issue_body_content else '(no linked issue found)'}
-
----
-
-## Spec / Design Docs
-{spec_content if spec_content else '(no .boss/ spec docs found)'}
-
----
-
-## AC Traceability Report
-Tests missing AC reference: {ac_audit.get('missing_ac_reference', [])}
-Trivial tests: {ac_audit.get('trivial_tests', [])}
-
----
-
-## Changed Test Files
-{test_content if test_content else '(no changed test files)'}
-
----
-
-Output a markdown report:
-- Overall verdict: PASS / FAIL / NEEDS REVIEW
-- Requirements quality: is the spec testable? are ACs in GIVEN/THEN format?
-- For each test file: findings (function name + specific issue)
-- Count: real tests vs questionable tests
-- Recommendation: what reviewer must manually verify
-
-Be harsh. Trading system. Fake tests cost money."""
+          criteria = "\n".join([
+              "1. Do the test stubs map 1:1 to the ACs in the issue? Fire case AND anti-case?",
+              "2. Does each test function test ONE specific condition?",
+              "3. Does each test have a meaningful assertion (not assert True or type check)?",
+              "4. For fire-case tests: does the setup actually match the GIVEN conditions?",
+              "5. For anti-case tests: does it actually violate the specific condition it claims to test?",
+              "6. Are fixture values realistic (real price levels, real RSI ranges, real volumes)?",
+              "7. Does the spec have enough detail that an engineer could implement without asking questions?",
+          ])
+          issue_section = issue_body_content if issue_body_content else "(no linked issue found)"
+          spec_section = spec_content if spec_content else "(no .boss/ spec docs found)"
+          test_section = test_content if test_content else "(no changed test files)"
+          missing_ac = ac_audit.get("missing_ac_reference", [])
+          trivial = ac_audit.get("trivial_tests", [])
+          prompt = (
+              "You are an independent QA auditor. You have NO knowledge of how these tests or specs were written.\n\n"
+              "Audit against these criteria:\n\n" + criteria + "\n\n"
+              "---\n\n## Linked Issue / Requirements\n" + issue_section + "\n\n"
+              "---\n\n## Spec / Design Docs\n" + spec_section + "\n\n"
+              "---\n\n## AC Traceability Report\n"
+              "Tests missing AC reference: " + str(missing_ac) + "\n"
+              "Trivial tests: " + str(trivial) + "\n\n"
+              "---\n\n## Changed Test Files\n" + test_section + "\n\n"
+              "---\n\n"
+              "Output a markdown report:\n"
+              "- Overall verdict: PASS / FAIL / NEEDS REVIEW\n"
+              "- Requirements quality: is the spec testable? are ACs in GIVEN/THEN format?\n"
+              "- For each test file: findings (function name + specific issue)\n"
+              "- Count: real tests vs questionable tests\n"
+              "- Recommendation: what reviewer must manually verify\n\n"
+              "Be harsh. Trading system. Fake tests cost money."
+          )
 
           client = anthropic.Anthropic(api_key=api_key)
           message = client.messages.create(
