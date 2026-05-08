@@ -4,573 +4,831 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EigenView · TA Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg0: #0d0d0f;
-  --bg1: #141417;
-  --bg2: #1a1a1f;
-  --bg3: #222228;
-  --bg4: #2a2a32;
-  --border: #2e2e38;
-  --text0: #f0f0f4;
-  --text1: #b8b8c8;
-  --text2: #7070a0;
-  --blue: #3b82f6;
-  --blue-dim: #1e3a5f;
-  --green: #22c55e;
-  --green-dim: #14532d;
-  --red: #ef4444;
-  --red-dim: #4c1d1d;
-  --amber: #f59e0b;
-  --amber-dim: #4a3000;
-  --purple: #a855f7;
-  --purple-dim: #3b1a5e;
-  --teal: #14b8a6;
-  --teal-dim: #0a3d38;
-  --gray: #4a4a5a;
+  --bg:     #000308;
+  --c1:     #0a0f1a;
+  --c2:     #0f1825;
+  --c3:     #162030;
+  --border: #1e2d40;
+  --G:      #00ff88;
+  --R:      #ff3355;
+  --B:      #00aaff;
+  --Y:      #ffcc00;
+  --P:      #cc66ff;
+  --O:      #ff7700;
+  --W:      #ffffff;
+  --W2:     #e0eaff;
+  --W3:     #7090b0;
+  --G-dim:  rgba(0,255,136,0.12);
+  --R-dim:  rgba(255,51,85,0.12);
+  --B-dim:  rgba(0,170,255,0.12);
+  --Y-dim:  rgba(255,204,0,0.12);
+  --P-dim:  rgba(204,102,255,0.12);
+  --font-ui:   'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
   --radius: 8px;
-  --font: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  --radius-sm: 4px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg0); color: var(--text0); font-family: var(--font); font-size: 13px; }
+html, body { height: 100%; background: var(--bg); color: var(--W); font-family: var(--font-ui); font-size: 13px; overflow: hidden; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--c1); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-.app { display: flex; flex-direction: column; height: 100vh; padding: 12px; gap: 10px; }
+/* ── LAYOUT ── */
+.app { display: flex; flex-direction: column; height: 100vh; padding: 10px 12px; gap: 8px; }
 
-/* ── HEADER ── */
-.header { display: flex; align-items: center; gap: 14px; }
-.logo { font-size: 17px; font-weight: 700; color: var(--text0); letter-spacing: -0.5px; }
-.logo span { color: var(--blue); }
-.header-sep { flex: 1; }
-.page-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
+/* ── TOPBAR ── */
+.topbar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.logo { font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--W); letter-spacing: -0.5px; }
+.logo em { color: var(--G); font-style: normal; }
+.page-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); padding: 3px 8px; border: 1px solid var(--border); border-radius: 20px; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.back-link { font-family: var(--font-mono); font-size: 11px; color: var(--W3); text-decoration: none; }
+.back-link:hover { color: var(--B); }
 
-/* ── BENTO GRID ── */
-.bento { display: grid; grid-template-columns: 300px 1fr; grid-template-rows: auto 1fr; gap: 10px; flex: 1; min-height: 0; }
+/* ── SCAN CONTROLS ── */
+.controls-row { display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0; padding: 10px 12px; background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius); flex-wrap: wrap; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
 
-/* ── PANEL ── */
-.panel { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow: hidden; }
-.panel-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-bottom: 10px; }
-
-/* ── CONTROLS PANEL ── */
-.controls-panel { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 12px; }
-
-.universe-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-.universe-btn {
-  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
-  background: var(--bg3); color: var(--text1); cursor: pointer; font-family: var(--font);
-  font-size: 11px; transition: all 0.15s;
+/* Universe tabs */
+.universe-tabs { display: flex; gap: 2px; }
+.utab {
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: transparent; color: var(--W3); cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; transition: all 0.15s; white-space: nowrap;
 }
-.universe-btn:hover { border-color: var(--blue); color: var(--text0); }
-.universe-btn.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+.utab:hover { color: var(--W2); border-color: var(--B); }
+.utab.active { background: var(--B-dim); border-color: var(--B); color: var(--B); }
 
+/* Ticker textarea */
 .ticker-area {
-  flex: 1;
-  width: 100%;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px;
-  color: var(--text0);
-  font-family: var(--font);
-  font-size: 11px;
-  resize: none;
-  min-height: 120px;
+  width: 280px; height: 52px; background: var(--c3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 6px 8px; color: var(--W);
+  font-family: var(--font-mono); font-size: 11px; resize: none;
 }
-.ticker-area:focus { outline: none; border-color: var(--blue); }
+.ticker-area:focus { outline: none; border-color: var(--B); }
 
+/* Vol filter */
+.vol-input-wrap { display: flex; align-items: center; gap: 6px; }
+.vol-input {
+  width: 70px; background: var(--c3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 5px 8px; color: var(--W);
+  font-family: var(--font-mono); font-size: 12px; text-align: right;
+}
+.vol-input:focus { outline: none; border-color: var(--Y); }
+.vol-unit { font-family: var(--font-mono); font-size: 10px; color: var(--W3); }
+
+/* Options toggle */
+.toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.toggle-cb { width: 14px; height: 14px; accent-color: var(--G); cursor: pointer; }
+.toggle-label { font-family: var(--font-mono); font-size: 11px; color: var(--W3); }
+
+/* Scan button */
 .scan-btn {
-  width: 100%;
-  padding: 10px;
-  border-radius: var(--radius);
-  border: none;
-  background: var(--blue);
-  color: #fff;
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  letter-spacing: 0.3px;
+  padding: 8px 24px; border: none; border-radius: var(--radius-sm);
+  background: var(--G); color: #000; font-family: var(--font-ui); font-size: 13px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.3px; white-space: nowrap;
+  transition: opacity 0.15s; align-self: flex-end;
 }
-.scan-btn:hover { opacity: 0.88; }
-.scan-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.scan-btn:hover { opacity: 0.85; }
+.scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.scan-btn.running { background: var(--Y); animation: pulse-btn 1s ease-in-out infinite; }
+@keyframes pulse-btn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
-.progress-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; display: none; }
-.progress-bar { height: 100%; background: var(--blue); transition: width 0.3s; border-radius: 2px; }
+/* Status + progress */
+.status-wrap { display: flex; flex-direction: column; gap: 4px; align-self: flex-end; min-width: 200px; }
+.status-line { font-family: var(--font-mono); font-size: 10px; color: var(--W3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prog-track { height: 2px; background: var(--c3); border-radius: 2px; overflow: hidden; }
+.prog-bar { height: 100%; width: 0%; background: var(--G); border-radius: 2px; transition: width 0.4s ease; }
+.prog-bar.indeterminate { animation: indeterminate 1.5s linear infinite; width: 30%; }
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(430%); }
+}
 
-.status-line { font-size: 11px; color: var(--text2); min-height: 16px; }
+/* Scan running overlay on table */
+.scan-running-badge {
+  display: none; position: absolute; top: 12px; right: 12px; z-index: 10;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--Y); padding: 4px 10px;
+  background: var(--Y-dim); border: 1px solid var(--Y); border-radius: 20px;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 /* ── STATS ROW ── */
-.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.stat-card {
-  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 10px 12px; text-align: center;
+.stats-row { display: flex; gap: 8px; flex-shrink: 0; }
+.stat-tile {
+  background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 100px;
 }
-.stat-val { font-size: 22px; font-weight: 700; line-height: 1; }
-.stat-label { font-size: 10px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
-.stat-firing { color: var(--green); }
-.stat-long   { color: var(--blue); }
-.stat-short  { color: var(--red); }
-.stat-total  { color: var(--text0); }
-.stat-time   { color: var(--text2); font-size: 11px; }
+.stat-val { font-family: var(--font-mono); font-size: 20px; font-weight: 600; line-height: 1; }
+.stat-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
+.sv-total   { color: var(--W); }
+.sv-fire    { color: var(--G); }
+.sv-long    { color: var(--B); }
+.sv-short   { color: var(--R); }
+.sv-vol     { color: var(--W3); }
+.sv-time    { color: var(--W3); font-size: 12px; }
 
-/* ── TABLE PANEL ── */
-.table-panel { display: flex; flex-direction: column; overflow: hidden; }
-
-.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.filter-btn {
-  padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border);
-  background: transparent; color: var(--text2); cursor: pointer;
-  font-family: var(--font); font-size: 11px; transition: all 0.15s;
+/* ── FILTER ROW ── */
+.filter-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.filter-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
+.multi-select { position: relative; }
+.ms-btn {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  background: var(--c2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--W2); font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  white-space: nowrap; min-width: 100px; user-select: none;
 }
-.filter-btn:hover { color: var(--text1); border-color: var(--text2); }
-.filter-btn.active { background: var(--bg3); color: var(--text0); border-color: var(--text1); }
-.filter-sep { width: 1px; background: var(--border); margin: 0 2px; }
+.ms-btn:hover { border-color: var(--B); }
+.ms-btn.active { border-color: var(--B); }
+.ms-caret { margin-left: auto; color: var(--W3); }
+.ms-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--c2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  z-index: 100; min-width: 160px; max-height: 240px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+.ms-dropdown.open { display: block; }
+.ms-opt {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--W2); white-space: nowrap;
+}
+.ms-opt:hover { background: var(--c3); color: var(--W); }
+.ms-opt input[type=checkbox] { accent-color: var(--G); width: 12px; height: 12px; }
+.ms-divider { border-top: 1px solid var(--border); margin: 4px 0; }
+.ms-actions { display: flex; gap: 0; border-top: 1px solid var(--border); }
+.ms-action {
+  flex: 1; padding: 5px; text-align: center; cursor: pointer; font-family: var(--font-mono);
+  font-size: 10px; color: var(--W3); background: none; border: none;
+}
+.ms-action:hover { color: var(--B); }
+.filter-clear { padding: 4px 10px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--W3); font-family: var(--font-mono); font-size: 10px; cursor: pointer; }
+.filter-clear:hover { color: var(--R); border-color: var(--R); }
+.filter-count { font-family: var(--font-mono); font-size: 10px; color: var(--W3); margin-left: auto; }
 
-.table-wrap { flex: 1; overflow: auto; }
-table { width: 100%; border-collapse: collapse; }
-thead { position: sticky; top: 0; z-index: 2; background: var(--bg2); }
-thead tr { border-bottom: 1px solid var(--border); }
+/* ── TABLE ── */
+.table-wrap { flex: 1; overflow: auto; background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius); position: relative; min-height: 0; }
+table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); }
+thead { position: sticky; top: 0; z-index: 5; }
+thead tr { background: var(--c2); border-bottom: 1px solid var(--border); }
 th {
-  padding: 6px 10px; text-align: left; font-size: 10px;
-  text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2);
-  white-space: nowrap; user-select: none; cursor: pointer;
-  transition: color 0.1s;
+  padding: 7px 10px; text-align: left; font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--W3); white-space: nowrap; user-select: none;
+  cursor: pointer; transition: color 0.1s; font-weight: 500;
 }
-th:hover { color: var(--text0); }
-th .sort-arrow { margin-left: 4px; opacity: 0.4; }
-th.sorted .sort-arrow { opacity: 1; color: var(--blue); }
+th:hover { color: var(--W2); }
+th.sorted { color: var(--B); }
+th .sa { font-size: 8px; margin-left: 3px; opacity: 0.5; }
+th.sorted .sa { opacity: 1; }
+td { padding: 6px 10px; border-bottom: 1px solid rgba(30,45,64,0.6); vertical-align: middle; white-space: nowrap; font-size: 12px; }
+tr:hover td { background: rgba(14,24,37,0.8); }
+.no-data-row td { text-align: center; padding: 60px; color: var(--W3); font-size: 13px; }
 
-td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-tr:hover td { background: var(--bg2); }
-tr.firing-row td { }
+/* ── CELLS ── */
+.cell-ticker { font-weight: 600; font-size: 13px; color: var(--W); letter-spacing: 0.5px; }
+.cell-spot { color: var(--W2); }
+.cell-vol { color: var(--W3); }
+.cell-vol.vol-ok { color: var(--W2); }
+.cell-vol.vol-high { color: var(--O); font-weight: 600; }
 
-/* Ticker cell */
-.cell-ticker { font-weight: 700; font-size: 13px; color: var(--text0); }
-
-/* Pattern cell */
-.pattern-pill {
-  display: inline-block; padding: 2px 8px; border-radius: 4px;
-  font-size: 11px; font-weight: 500;
-}
-.cat-trend     { background: var(--blue-dim);   color: #60a5fa; }
-.cat-breakout  { background: var(--green-dim);  color: #4ade80; }
-.cat-reversal  { background: var(--amber-dim);  color: #fbbf24; }
-.cat-meanrev   { background: var(--purple-dim); color: #c084fc; }
-.cat-none      { background: var(--bg3);        color: var(--text2); }
-.cat-short-mod { opacity: 0.85; }
+/* Pattern pill */
+.pill { display: inline-block; padding: 2px 7px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 500; }
+.pill-green  { background: var(--G-dim); color: var(--G); }   /* trend */
+.pill-blue   { background: var(--B-dim); color: var(--B); }   /* breakout */
+.pill-yellow { background: var(--Y-dim); color: var(--Y); }   /* reversal */
+.pill-gray   { background: rgba(112,144,176,0.12); color: var(--W3); }  /* none/error */
 
 /* Direction */
-.dir-long  { color: var(--green); font-weight: 600; }
-.dir-short { color: var(--red);   font-weight: 600; }
+.dir-long  { color: var(--G); font-weight: 600; }
+.dir-short { color: var(--R); font-weight: 600; }
 
 /* Weekly state */
-.wk-bullish  { color: var(--green); }
-.wk-bearish  { color: var(--red); }
-.wk-neutral  { color: var(--text2); }
-.wk-extended { color: var(--amber); }
+.wk-bull { color: var(--G); }
+.wk-bull-ext { color: var(--Y); }
+.wk-bear { color: var(--R); }
+.wk-neutral { color: var(--W3); }
 
-/* Firing */
-.firing-yes { color: var(--green); font-weight: 700; }
-.firing-no  { color: var(--gray); }
+/* Confidence bar */
+.conf-cell { display: flex; align-items: center; gap: 6px; }
+.conf-track { width: 44px; height: 3px; background: var(--c3); border-radius: 2px; flex-shrink: 0; }
+.conf-fill { height: 100%; border-radius: 2px; }
+.conf-val { min-width: 40px; color: var(--W2); }
+.conf-hi { background: var(--G); }
+.conf-mid { background: var(--B); }
+.conf-lo { background: var(--W3); }
 
-/* Conf bar */
-.conf-wrap { display: flex; align-items: center; gap: 6px; }
-.conf-bar-bg { width: 50px; height: 4px; background: var(--bg4); border-radius: 2px; }
-.conf-bar    { height: 100%; border-radius: 2px; background: var(--blue); }
-.conf-val    { min-width: 36px; }
+/* RSI / ADX */
+.rsi-ob { color: var(--R); }
+.rsi-os { color: var(--G); }
+.rsi-ok { color: var(--W2); }
+.adx-strong { color: var(--Y); font-weight: 600; }
+.adx-ok { color: var(--W2); }
 
-/* RSI / ADX cells */
-.rsi-high   { color: var(--red); }
-.rsi-low    { color: var(--green); }
-.rsi-normal { color: var(--text1); }
-.adx-strong { color: var(--amber); }
-.adx-normal { color: var(--text1); }
+/* Vol ratio */
+.vr-spike { color: var(--O); font-weight: 600; }
+.vr-ok { color: var(--W2); }
+.vr-low { color: var(--W3); }
 
-/* Vol */
-.vol-high   { color: var(--amber); font-weight: 600; }
-.vol-normal { color: var(--text1); }
+/* Firing badge */
+.fire-yes { color: var(--G); font-weight: 700; font-size: 14px; }
+.fire-no  { color: var(--c3); font-size: 14px; }
+
+/* Options */
+.opt-val { color: var(--W2); }
+.opt-pcr-high { color: var(--R); }
+.opt-pcr-low  { color: var(--G); }
+.opt-pcr-ok   { color: var(--W2); }
 
 /* Narrative */
-.cell-narrative { color: var(--text2); font-size: 11px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
-
-/* Spot */
-.cell-spot { color: var(--text1); }
-
-/* Empty state */
-.empty-state { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text2); font-size: 13px; }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg1); }
-::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border); }
+.narr { color: var(--W3); font-size: 10px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="logo">Eigen<span>View</span></div>
-    <div class="page-label">TA Pattern Scanner</div>
-    <div class="header-sep"></div>
-    <a href="/" style="color:var(--text2);text-decoration:none;font-size:11px;">← Back to Dashboard</a>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">Eigen<em>View</em></div>
+    <div class="page-tag">TA Scanner</div>
+    <div class="topbar-right">
+      <a href="/" class="back-link">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- SCAN CONTROLS -->
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <div class="ctrl-label">Universe</div>
+      <div class="universe-tabs">
+        <button class="utab active" data-u="default">Default 30</button>
+        <button class="utab" data-u="ndx100">NDX 100</button>
+        <button class="utab" data-u="sp500">S&amp;P 500+</button>
+        <button class="utab" data-u="test5">Test 5</button>
+        <button class="utab" data-u="custom">Custom ▸</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group" id="custom-ticker-group" style="display:none">
+      <div class="ctrl-label">Tickers (space/comma separated)</div>
+      <textarea class="ticker-area" id="ticker-input" placeholder="NVDA AAPL TSLA&#10;META AMD ..."></textarea>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Min Vol (M/day)</div>
+      <div class="vol-input-wrap">
+        <input class="vol-input" type="number" id="vol-filter" value="1" min="0" step="0.5">
+        <span class="vol-unit">M shares</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Options</div>
+      <label class="toggle-wrap">
+        <input class="toggle-cb" type="checkbox" id="fetch-opts" checked>
+        <span class="toggle-label">Fetch call/put vol</span>
+      </label>
+    </div>
+
+    <div class="ctrl-group" style="margin-left:auto;">
+      <div class="ctrl-label">&nbsp;</div>
+      <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ RUN SCAN</button>
+    </div>
+
+    <div class="status-wrap">
+      <div class="status-line" id="status-line">Ready</div>
+      <div class="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
+    </div>
   </div>
 
   <!-- STATS ROW -->
   <div class="stats-row">
-    <div class="stat-card"><div class="stat-val stat-total" id="stat-total">—</div><div class="stat-label">Scanned</div></div>
-    <div class="stat-card"><div class="stat-val stat-firing" id="stat-firing">—</div><div class="stat-label">Firing</div></div>
-    <div class="stat-card"><div class="stat-val stat-long" id="stat-long">—</div><div class="stat-label">Long</div></div>
-    <div class="stat-card"><div class="stat-val stat-short" id="stat-short">—</div><div class="stat-label">Short</div></div>
-    <div class="stat-card"><div class="stat-val stat-time" id="stat-time">—</div><div class="stat-label">Last Scan</div></div>
+    <div class="stat-tile"><div class="stat-val sv-total" id="s-total">—</div><div class="stat-lbl">Scanned</div></div>
+    <div class="stat-tile"><div class="stat-val sv-fire"  id="s-fire">—</div><div class="stat-lbl">Firing</div></div>
+    <div class="stat-tile"><div class="stat-val sv-long"  id="s-long">—</div><div class="stat-lbl">Long</div></div>
+    <div class="stat-tile"><div class="stat-val sv-short" id="s-short">—</div><div class="stat-lbl">Short</div></div>
+    <div class="stat-tile"><div class="stat-val sv-vol"   id="s-nodata">—</div><div class="stat-lbl">No Pattern</div></div>
+    <div class="stat-tile" style="margin-left:auto;"><div class="stat-val sv-time" id="s-time">—</div><div class="stat-lbl">Last Scan</div></div>
   </div>
 
-  <!-- BENTO GRID -->
-  <div class="bento">
+  <!-- FILTER ROW -->
+  <div class="filter-row">
+    <div class="filter-label">Filter:</div>
 
-    <!-- CONTROLS PANEL -->
-    <div class="panel controls-panel">
-      <div class="panel-title">Universe</div>
-
-      <div class="universe-btns">
-        <button class="universe-btn active" data-u="default">Default 30</button>
-        <button class="universe-btn" data-u="ndx20">NDX 20</button>
-        <button class="universe-btn" data-u="test5">Test 5</button>
-        <button class="universe-btn" data-u="custom">Custom</button>
+    <!-- Firing filter -->
+    <div class="multi-select" id="ms-firing">
+      <div class="ms-btn" onclick="toggleDropdown('ms-firing')">
+        <span id="ms-firing-label">Firing</span>
+        <span class="ms-caret">▾</span>
       </div>
-
-      <div class="panel-title" style="margin-top:4px;">Tickers</div>
-      <textarea class="ticker-area" id="ticker-input" placeholder="NVDA AAPL TSLA&#10;(space or newline separated)"></textarea>
-
-      <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ Run Scan</button>
-
-      <div class="progress-bar-wrap" id="progress-wrap">
-        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
-      </div>
-      <div class="status-line" id="status-line">Ready — select universe or enter tickers</div>
-
-      <div style="margin-top:auto; padding-top:12px; border-top:1px solid var(--border);">
-        <div class="panel-title">Pattern Categories</div>
-        <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="pattern-pill cat-trend" style="font-size:10px;">TREND</span>
-            <span style="color:var(--text2);font-size:11px;">pullback, flag, rally</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="pattern-pill cat-breakout" style="font-size:10px;">BREAKOUT</span>
-            <span style="color:var(--text2);font-size:11px;">breakout, compression, base</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="pattern-pill cat-reversal" style="font-size:10px;">REVERSAL</span>
-            <span style="color:var(--text2);font-size:11px;">reversal, overbought, bounce</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span class="pattern-pill cat-none" style="font-size:10px;">NONE</span>
-            <span style="color:var(--text2);font-size:11px;">no pattern detected</span>
-          </div>
-        </div>
+      <div class="ms-dropdown" id="ms-firing-dd">
+        <div class="ms-opt"><input type="checkbox" value="all" checked onchange="updateFilter('firing',this)"> All</div>
+        <div class="ms-opt"><input type="checkbox" value="yes" onchange="updateFilter('firing',this)"> Firing only</div>
+        <div class="ms-opt"><input type="checkbox" value="no"  onchange="updateFilter('firing',this)"> Not firing</div>
       </div>
     </div>
 
-    <!-- TABLE PANEL -->
-    <div class="panel table-panel">
-      <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="firing">Firing Only</button>
-        <div class="filter-sep"></div>
-        <button class="filter-btn" data-filter="long">Long</button>
-        <button class="filter-btn" data-filter="short">Short</button>
-        <div class="filter-sep"></div>
-        <button class="filter-btn" data-filter="trend">Trend Cont.</button>
-        <button class="filter-btn" data-filter="breakout">Breakout</button>
-        <button class="filter-btn" data-filter="reversal">Reversal</button>
+    <!-- Direction filter -->
+    <div class="multi-select" id="ms-dir">
+      <div class="ms-btn" onclick="toggleDropdown('ms-dir')">
+        <span id="ms-dir-label">Direction</span>
+        <span class="ms-caret">▾</span>
       </div>
-
-      <div class="table-wrap">
-        <table id="results-table">
-          <thead>
-            <tr>
-              <th onclick="sortTable('ticker')">Ticker <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('spot')">Spot <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('pattern')">Pattern <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('direction')">Dir <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('weekly_state')">Weekly <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('confidence')">Conf% <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('rsi')">RSI <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('adx')">ADX <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('vol_ratio')">Vol <span class="sort-arrow">↕</span></th>
-              <th onclick="sortTable('firing')">Fire <span class="sort-arrow">↕</span></th>
-              <th>Narrative</th>
-            </tr>
-          </thead>
-          <tbody id="results-body">
-            <tr><td colspan="11"><div class="empty-state">Run a scan to see results</div></td></tr>
-          </tbody>
-        </table>
+      <div class="ms-dropdown" id="ms-dir-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"   checked onchange="updateFilter('dir',this)"> All</div>
+        <div class="ms-opt"><input type="checkbox" value="long"  onchange="updateFilter('dir',this)"> Long only</div>
+        <div class="ms-opt"><input type="checkbox" value="short" onchange="updateFilter('dir',this)"> Short only</div>
       </div>
     </div>
 
+    <!-- Pattern category filter -->
+    <div class="multi-select" id="ms-cat">
+      <div class="ms-btn" onclick="toggleDropdown('ms-cat')">
+        <span id="ms-cat-label">Pattern</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-cat-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"      checked onchange="updateFilter('cat',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="trend"    onchange="updateFilter('cat',this)"> Trend Continuation</div>
+        <div class="ms-opt"><input type="checkbox" value="breakout" onchange="updateFilter('cat',this)"> Breakout / Breakdown</div>
+        <div class="ms-opt"><input type="checkbox" value="reversal" onchange="updateFilter('cat',this)"> Reversal</div>
+        <div class="ms-opt"><input type="checkbox" value="none"     onchange="updateFilter('cat',this)"> No Pattern</div>
+      </div>
+    </div>
+
+    <!-- Weekly state filter -->
+    <div class="multi-select" id="ms-wk">
+      <div class="ms-btn" onclick="toggleDropdown('ms-wk')">
+        <span id="ms-wk-label">Weekly</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-wk-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"            checked onchange="updateFilter('wk',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="BULLISH"        onchange="updateFilter('wk',this)"> Bullish</div>
+        <div class="ms-opt"><input type="checkbox" value="BULLISH_EXTENDED" onchange="updateFilter('wk',this)"> Bullish Extended</div>
+        <div class="ms-opt"><input type="checkbox" value="NEUTRAL"        onchange="updateFilter('wk',this)"> Neutral</div>
+        <div class="ms-opt"><input type="checkbox" value="BEARISH_WEAK"   onchange="updateFilter('wk',this)"> Bearish Weak</div>
+        <div class="ms-opt"><input type="checkbox" value="BEARISH_STRONG" onchange="updateFilter('wk',this)"> Bearish Strong</div>
+      </div>
+    </div>
+
+    <button class="filter-clear" onclick="clearFilters()">✕ Clear</button>
+    <div class="filter-count" id="filter-count"></div>
   </div>
-</div>
+
+  <!-- TABLE -->
+  <div class="table-wrap" id="table-wrap">
+    <div class="scan-running-badge" id="running-badge">● SCANNING</div>
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortCol('ticker')">Ticker<span class="sa">↕</span></th>
+          <th onclick="sortCol('spot')">Spot<span class="sa">↕</span></th>
+          <th onclick="sortCol('avg_vol_m')">Avg Vol<span class="sa">↕</span></th>
+          <th onclick="sortCol('pattern')">Pattern<span class="sa">↕</span></th>
+          <th onclick="sortCol('direction')">Dir<span class="sa">↕</span></th>
+          <th onclick="sortCol('weekly_state')">Weekly<span class="sa">↕</span></th>
+          <th onclick="sortCol('confidence')">Conf<span class="sa">↕</span></th>
+          <th onclick="sortCol('rsi')">RSI<span class="sa">↕</span></th>
+          <th onclick="sortCol('adx')">ADX<span class="sa">↕</span></th>
+          <th onclick="sortCol('vol_ratio')">Vol×<span class="sa">↕</span></th>
+          <th onclick="sortCol('call_vol')">Calls<span class="sa">↕</span></th>
+          <th onclick="sortCol('put_vol')">Puts<span class="sa">↕</span></th>
+          <th onclick="sortCol('pcr')">P/C<span class="sa">↕</span></th>
+          <th onclick="sortCol('firing')">Fire<span class="sa">↕</span></th>
+          <th>Narrative</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</div><!-- .app -->
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-let allResults = [];
-let sortKey = 'firing';
-let sortAsc = false;
-let activeFilter = 'all';
-let pollInterval = null;
+let allRows   = [];
+let sortKey   = 'firing';
+let sortAsc   = false;
+let pollTimer = null;
 
-// ── Universe presets ───────────────────────────────────────────────────────
-const UNIVERSES = {
-  default: 'NVDA AAPL MSFT GOOGL AMZN META TSM AVGO ORCL AMD TSLA NFLX SBUX NKE MCD JPM GS BAC LLY UNH JNJ XOM CVX SPY QQQ IWM GLD TLT PLTR COIN',
-  ndx20:   'NVDA AAPL MSFT GOOGL AMZN META TSLA AVGO ORCL NFLX AMD ADBE QCOM COST AMAT MU LRCX PANW KLAC MRVL',
-  test5:   'NVDA AAPL TSLA META AMD',
-  custom:  '',
-};
+const filters = { firing: 'all', dir: 'all', cat: 'all', wk: 'all' };
 
-// ── Pattern category ───────────────────────────────────────────────────────
-const TREND_PATTERNS = new Set([
-  'pullback_in_trend','pullback_deep','flag_continuation','rally_in_downtrend',
-  'oversold_bounce','failed_breakdown',
-]);
-const BREAKOUT_PATTERNS = new Set([
-  'breakout','compression_break','base_breakout','ema_reclaim',
+// ── Pattern categories ────────────────────────────────────────────────────
+const TREND = new Set(['pullback_in_trend','pullback_deep','flag_continuation',
+  'rally_in_downtrend','oversold_bounce','failed_breakdown']);
+const BREAK = new Set(['breakout','compression_break','base_breakout','ema_reclaim',
   'breakdown','compression_break_down','base_breakdown','ema_rejection',
-  'failed_breakout','bos_bullish','bos_bearish',
-]);
-const REVERSAL_PATTERNS = new Set([
-  'bullish_reversal','bearish_reversal','overbought_reversal','choch_bullish','choch_bearish',
-]);
+  'failed_breakout','bos_bullish','bos_bearish']);
+const REVER = new Set(['bullish_reversal','bearish_reversal','overbought_reversal',
+  'choch_bullish','choch_bearish']);
 
-function patternCategory(p) {
-  if (TREND_PATTERNS.has(p)) return 'trend';
-  if (BREAKOUT_PATTERNS.has(p)) return 'breakout';
-  if (REVERSAL_PATTERNS.has(p)) return 'reversal';
+function patCat(p) {
+  if (TREND.has(p)) return 'trend';
+  if (BREAK.has(p)) return 'breakout';
+  if (REVER.has(p)) return 'reversal';
+  if (!p || p === 'no_pattern' || p === 'NO DATA' || p === 'ERROR') return 'none';
   return 'none';
 }
 
-function patternCss(p) {
-  const cat = patternCategory(p);
-  return { trend: 'cat-trend', breakout: 'cat-breakout', reversal: 'cat-reversal', none: 'cat-none' }[cat];
+function patPillClass(p) {
+  const c = patCat(p);
+  return {trend:'pill-green', breakout:'pill-blue', reversal:'pill-yellow', none:'pill-gray'}[c];
 }
 
-// ── Universe button setup ──────────────────────────────────────────────────
-document.querySelectorAll('.universe-btn').forEach(btn => {
+// ── Universe selector ─────────────────────────────────────────────────────
+let selectedUniverse = 'default';
+document.querySelectorAll('.utab').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.universe-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.utab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const u = btn.dataset.u;
-    if (u !== 'custom') {
-      document.getElementById('ticker-input').value = UNIVERSES[u];
+    selectedUniverse = btn.dataset.u;
+    const custom = document.getElementById('custom-ticker-group');
+    custom.style.display = selectedUniverse === 'custom' ? 'flex' : 'none';
+  });
+});
+
+// ── Multi-select dropdowns ────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('.multi-select')) {
+    document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+
+function toggleDropdown(id) {
+  const dd = document.getElementById(id + '-dd');
+  const wasOpen = dd.classList.contains('open');
+  document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+  if (!wasOpen) dd.classList.add('open');
+}
+
+function updateFilter(key, checkbox) {
+  const val = checkbox.value;
+  const dd  = checkbox.closest('.ms-dropdown');
+  const allCb = dd.querySelector('[value="all"]');
+
+  if (val === 'all') {
+    // checking "all" → uncheck everything else
+    dd.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = cb.value === 'all'; });
+    filters[key] = 'all';
+  } else {
+    // unchecked specific → ensure 'all' is off
+    allCb.checked = false;
+    // collect checked non-all values
+    const checked = [...dd.querySelectorAll('input[type=checkbox]:checked')]
+      .map(cb => cb.value).filter(v => v !== 'all');
+    if (checked.length === 0) {
+      allCb.checked = true;
+      filters[key] = 'all';
+    } else {
+      filters[key] = checked; // array
     }
-  });
-});
-// Set default
-document.getElementById('ticker-input').value = UNIVERSES.default;
+  }
+  updateFilterLabels();
+  renderTable();
+}
 
-// ── Filter buttons ─────────────────────────────────────────────────────────
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeFilter = btn.dataset.filter;
-    renderTable();
+function updateFilterLabels() {
+  const labels = {
+    firing: { all:'Firing', yes:'Firing ✓', no:'Not Firing' },
+    dir:    { all:'Direction', long:'Long ↑', short:'Short ↓' },
+    cat:    { all:'Pattern', trend:'Trend', breakout:'Breakout', reversal:'Reversal', none:'No Pattern' },
+    wk:     { all:'Weekly', BULLISH:'Bullish', BULLISH_EXTENDED:'Bull Ext', NEUTRAL:'Neutral',
+               BEARISH_WEAK:'Bear Weak', BEARISH_STRONG:'Bear Strong' },
+  };
+  ['firing','dir','cat','wk'].forEach(key => {
+    const fv = filters[key];
+    const el = document.getElementById(`ms-${key}-label`);
+    if (!el) return;
+    if (fv === 'all') { el.textContent = labels[key].all; return; }
+    const vals = Array.isArray(fv) ? fv : [fv];
+    el.textContent = vals.map(v => labels[key][v] || v).join(', ');
   });
-});
+}
 
-// ── Scan ───────────────────────────────────────────────────────────────────
+function clearFilters() {
+  ['firing','dir','cat','wk'].forEach(key => {
+    filters[key] = 'all';
+    document.querySelectorAll(`#ms-${key}-dd input`).forEach(cb => {
+      cb.checked = cb.value === 'all';
+    });
+  });
+  updateFilterLabels();
+  renderTable();
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────────
 async function startScan() {
-  const raw = document.getElementById('ticker-input').value;
-  const tickers = raw.trim().split(/[\s,]+/).map(t => t.toUpperCase()).filter(Boolean);
-  if (!tickers.length) { setStatus('Enter at least one ticker'); return; }
+  const btn = document.getElementById('scan-btn');
+  const minVol = parseFloat(document.getElementById('vol-filter').value) || 0;
+  const fetchOpts = document.getElementById('fetch-opts').checked;
 
-  document.getElementById('scan-btn').disabled = true;
-  document.getElementById('progress-wrap').style.display = 'block';
-  document.getElementById('progress-bar').style.width = '0%';
-  setStatus(`Starting scan for ${tickers.length} ticker(s)…`);
+  let body = { min_volume_m: minVol, fetch_options: fetchOpts };
+
+  if (selectedUniverse === 'custom') {
+    const raw = document.getElementById('ticker-input').value;
+    const tickers = raw.trim().split(/[\s,]+/).map(t => t.toUpperCase()).filter(Boolean);
+    if (!tickers.length) { setStatus('Enter at least one ticker.'); return; }
+    body.tickers = tickers;
+  } else {
+    body.universe = selectedUniverse;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ SCANNING…';
+  btn.classList.add('running');
+  document.getElementById('running-badge').style.display = 'block';
+  setProgress(0, true);
 
   try {
-    const resp = await fetch('/api/ta-scan', {
+    const r = await fetch('/api/ta-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tickers }),
+      body: JSON.stringify(body),
     });
-    const data = await resp.json();
-    if (data.status === 'already_running') { setStatus('Scan already running…'); return; }
-    if (data.status === 'started') { pollResults(); }
+    const d = await r.json();
+    if (d.status === 'already_running') {
+      setStatus('Already running — wait for completion.');
+      resetBtn();
+      return;
+    }
+    if (d.status === 'started') {
+      setStatus(`Scan started for ${d.count} tickers…`);
+      startPolling();
+    } else {
+      setStatus('Unexpected response: ' + JSON.stringify(d));
+      resetBtn();
+    }
   } catch (e) {
-    setStatus('Error: ' + e.message);
-    document.getElementById('scan-btn').disabled = false;
+    setStatus('Error starting scan: ' + e.message);
+    resetBtn();
   }
 }
 
-function pollResults() {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
     try {
-      const resp = await fetch('/api/ta-scan/results');
-      const data = await resp.json();
-      const pct = data.tickers_total > 0
-        ? Math.round((data.tickers_scanned / data.tickers_total) * 100) : 0;
-      document.getElementById('progress-bar').style.width = pct + '%';
-      setStatus(data.message || `Scanning… ${data.tickers_scanned}/${data.tickers_total}`);
+      const r = await fetch('/api/ta-scan/results');
+      const d = await r.json();
 
-      if (!data.running) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-        document.getElementById('scan-btn').disabled = false;
-        document.getElementById('progress-bar').style.width = '100%';
-        setTimeout(() => { document.getElementById('progress-wrap').style.display = 'none'; }, 600);
-        allResults = data.results || [];
-        updateStats(data);
+      const pct = d.tickers_total > 0
+        ? Math.round((d.tickers_scanned / d.tickers_total) * 100) : 0;
+      setProgress(pct, d.running && d.tickers_scanned === 0);
+      setStatus(d.message || '…');
+
+      if (!d.running) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        resetBtn();
+        allRows = d.results || [];
+        updateStats(d);
         renderTable();
-        setStatus(data.message);
+        setProgress(100, false);
+        setTimeout(() => setProgress(0, false), 1500);
       }
     } catch (e) {
-      clearInterval(pollInterval);
-      document.getElementById('scan-btn').disabled = false;
+      clearInterval(pollTimer);
+      resetBtn();
       setStatus('Poll error: ' + e.message);
     }
-  }, 1000);
+  }, 800);
+}
+
+function resetBtn() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = false;
+  btn.textContent = '▶ RUN SCAN';
+  btn.classList.remove('running');
+  document.getElementById('running-badge').style.display = 'none';
 }
 
 function setStatus(msg) {
   document.getElementById('status-line').textContent = msg;
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────
-function updateStats(data) {
-  const results = data.results || [];
-  const firing = results.filter(r => r.firing).length;
-  const longs  = results.filter(r => r.firing && r.direction === 'long').length;
-  const shorts = results.filter(r => r.firing && r.direction === 'short').length;
-  const t = data.scanned_at ? new Date(data.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-  document.getElementById('stat-total').textContent  = results.length;
-  document.getElementById('stat-firing').textContent = firing;
-  document.getElementById('stat-long').textContent   = longs;
-  document.getElementById('stat-short').textContent  = shorts;
-  document.getElementById('stat-time').textContent   = t;
+function setProgress(pct, indeterminate) {
+  const bar = document.getElementById('prog-bar');
+  if (indeterminate) {
+    bar.classList.add('indeterminate');
+    bar.style.width = '';
+  } else {
+    bar.classList.remove('indeterminate');
+    bar.style.width = pct + '%';
+  }
 }
 
-// ── Sort ───────────────────────────────────────────────────────────────────
-function sortTable(key) {
-  if (sortKey === key) { sortAsc = !sortAsc; }
-  else { sortKey = key; sortAsc = key === 'ticker' || key === 'pattern'; }
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats(d) {
+  const rs = d.results || [];
+  const firing = rs.filter(r => r.firing).length;
+  const longs  = rs.filter(r => r.firing && r.direction === 'long').length;
+  const shorts = rs.filter(r => r.firing && r.direction === 'short').length;
+  const nodata = rs.filter(r => r.pattern === 'no_pattern' || r.pattern === 'NO DATA').length;
+  const t = d.scanned_at
+    ? new Date(d.scanned_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+    : '—';
+  document.getElementById('s-total').textContent  = rs.length;
+  document.getElementById('s-fire').textContent   = firing;
+  document.getElementById('s-long').textContent   = longs;
+  document.getElementById('s-short').textContent  = shorts;
+  document.getElementById('s-nodata').textContent = nodata;
+  document.getElementById('s-time').textContent   = t;
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────
+function sortCol(key) {
+  sortAsc = sortKey === key ? !sortAsc : (key === 'ticker' || key === 'pattern');
+  sortKey = key;
   document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
   document.querySelectorAll('th').forEach(th => {
-    if (th.getAttribute('onclick') === `sortTable('${key}')`) th.classList.add('sorted');
+    if (th.getAttribute('onclick') === `sortCol('${key}')`) th.classList.add('sorted');
   });
   renderTable();
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────
-function applyFilter(results) {
-  switch (activeFilter) {
-    case 'firing':   return results.filter(r => r.firing);
-    case 'long':     return results.filter(r => r.firing && r.direction === 'long');
-    case 'short':    return results.filter(r => r.firing && r.direction === 'short');
-    case 'trend':    return results.filter(r => patternCategory(r.pattern) === 'trend');
-    case 'breakout': return results.filter(r => patternCategory(r.pattern) === 'breakout');
-    case 'reversal': return results.filter(r => patternCategory(r.pattern) === 'reversal');
-    default:         return results;
-  }
+// ── Filter + sort pipeline ────────────────────────────────────────────────
+function applyFilters(rows) {
+  return rows.filter(r => {
+    // firing
+    const fv = filters.firing;
+    if (fv !== 'all') {
+      const want = Array.isArray(fv) ? fv : [fv];
+      if (want.includes('yes') && !want.includes('no') && !r.firing) return false;
+      if (want.includes('no') && !want.includes('yes') && r.firing) return false;
+    }
+    // direction
+    const dv = filters.dir;
+    if (dv !== 'all') {
+      const want = Array.isArray(dv) ? dv : [dv];
+      if (!want.includes(r.direction)) return false;
+    }
+    // category
+    const cv = filters.cat;
+    if (cv !== 'all') {
+      const want = Array.isArray(cv) ? cv : [cv];
+      if (!want.includes(patCat(r.pattern))) return false;
+    }
+    // weekly
+    const wv = filters.wk;
+    if (wv !== 'all') {
+      const want = Array.isArray(wv) ? wv : [wv];
+      if (!want.includes(r.weekly_state)) return false;
+    }
+    return true;
+  });
 }
 
-function applySortLocal(results) {
-  return [...results].sort((a, b) => {
+function applySort(rows) {
+  return [...rows].sort((a, b) => {
     let va = a[sortKey], vb = b[sortKey];
     if (sortKey === 'firing') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
-    if (va == null) va = sortAsc ? Infinity : -Infinity;
-    if (vb == null) vb = sortAsc ? Infinity : -Infinity;
+    const nullVal = sortAsc ? Infinity : -Infinity;
+    if (va == null) va = nullVal;
+    if (vb == null) vb = nullVal;
     if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     return sortAsc ? va - vb : vb - va;
   });
 }
 
+// ── Render ────────────────────────────────────────────────────────────────
+function fmt(n, dec=2) { return n != null ? n.toFixed(dec) : '—'; }
+function fmtK(n) {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1)+'M';
+  if (n >= 1_000)     return (n/1_000).toFixed(0)+'K';
+  return String(n);
+}
+
 function renderTable() {
-  const filtered = applyFilter(allResults);
-  const sorted   = applySortLocal(filtered);
-  const tbody = document.getElementById('results-body');
+  const filtered = applyFilters(allRows);
+  const sorted   = applySort(filtered);
+  const tbody    = document.getElementById('tbody');
+  const total    = allRows.length;
+
+  document.getElementById('filter-count').textContent =
+    filtered.length < total ? `${filtered.length} / ${total} shown` : `${total} rows`;
 
   if (!sorted.length) {
-    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state">No results match the current filter</div></td></tr>';
+    tbody.innerHTML = '<tr class="no-data-row"><td colspan="15">No results — run a scan or adjust filters</td></tr>';
     return;
   }
 
-  const rows = sorted.map(r => {
-    const cat    = patternCategory(r.pattern);
-    const patCss = patternCss(r.pattern);
-    const patLabel = (r.pattern || 'no_pattern').replace(/_/g, ' ');
+  tbody.innerHTML = sorted.map(r => {
+    const cat      = patCat(r.pattern);
+    const pillCls  = patPillClass(r.pattern);
+    const patLabel = (r.pattern || 'no_pattern').replace(/_/g,' ');
 
-    const dirHtml = r.direction === 'short'
-      ? `<span class="dir-short">↓ SHORT</span>`
-      : r.direction === 'long'
-        ? `<span class="dir-long">↑ LONG</span>`
-        : `<span style="color:var(--text2)">—</span>`;
+    // Direction
+    const dirHtml = r.direction === 'long'
+      ? `<span class="dir-long">↑ L</span>`
+      : r.direction === 'short'
+        ? `<span class="dir-short">↓ S</span>`
+        : '<span style="color:var(--W3)">—</span>';
 
-    const wkHtml = (() => {
-      const w = (r.weekly_state || '').toUpperCase();
-      if (w.includes('BULLISH') && !w.includes('EXTENDED')) return `<span class="wk-bullish">${w}</span>`;
-      if (w.includes('EXTENDED')) return `<span class="wk-extended">${w}</span>`;
-      if (w.includes('BEARISH')) return `<span class="wk-bearish">${w}</span>`;
-      return `<span class="wk-neutral">${w || '—'}</span>`;
-    })();
+    // Weekly
+    const wk = (r.weekly_state || '').toUpperCase();
+    const wkCls = wk.includes('EXTENDED') ? 'wk-bull-ext'
+                : wk === 'BULLISH'        ? 'wk-bull'
+                : wk.includes('BEARISH')  ? 'wk-bear'
+                : 'wk-neutral';
 
+    // Confidence
     const conf = r.confidence || 0;
-    const confPct = Math.min(100, conf);
-    const confHtml = `<div class="conf-wrap">
-      <div class="conf-bar-bg"><div class="conf-bar" style="width:${confPct}%"></div></div>
-      <span class="conf-val">${conf.toFixed(1)}%</span>
-    </div>`;
+    const confFillCls = conf >= 70 ? 'conf-hi' : conf >= 50 ? 'conf-mid' : 'conf-lo';
+    const confHtml = `<div class="conf-cell">
+      <div class="conf-track"><div class="conf-fill ${confFillCls}" style="width:${Math.min(100,conf)}%"></div></div>
+      <span class="conf-val">${conf.toFixed(0)}%</span></div>`;
 
-    const rsi = r.rsi != null ? r.rsi.toFixed(1) : '—';
-    const rsiCss = r.rsi == null ? '' : r.rsi > 70 ? 'rsi-high' : r.rsi < 30 ? 'rsi-low' : 'rsi-normal';
-    const adx = r.adx != null ? r.adx.toFixed(1) : '—';
-    const adxCss = r.adx != null && r.adx > 25 ? 'adx-strong' : 'adx-normal';
+    // RSI
+    const rsi = r.rsi;
+    const rsiCls = rsi == null ? '' : rsi > 70 ? 'rsi-ob' : rsi < 30 ? 'rsi-os' : 'rsi-ok';
+    const rsiHtml = rsi != null ? `<span class="${rsiCls}">${rsi.toFixed(1)}</span>` : '—';
 
-    const vol = r.vol_ratio != null ? `${r.vol_ratio.toFixed(1)}x` : '—';
-    const volCss = r.vol_ratio != null && r.vol_ratio > 1.5 ? 'vol-high' : 'vol-normal';
+    // ADX
+    const adx = r.adx;
+    const adxCls = adx != null && adx > 25 ? 'adx-strong' : 'adx-ok';
+    const adxHtml = adx != null ? `<span class="${adxCls}">${adx.toFixed(1)}</span>` : '—';
 
+    // Vol ratio
+    const vr = r.vol_ratio;
+    const vrCls = vr == null ? '' : vr >= 2 ? 'vr-spike' : vr >= 1.2 ? 'vr-ok' : 'vr-low';
+    const vrHtml = vr != null ? `<span class="${vrCls}">${vr.toFixed(1)}×</span>` : '—';
+
+    // Avg vol
+    const av = r.avg_vol_m;
+    const avCls = av >= 10 ? 'vol-high' : av >= 1 ? 'vol-ok' : '';
+    const avHtml = av != null ? `<span class="cell-vol ${avCls}">${av.toFixed(1)}M</span>` : '—';
+
+    // Spot
+    const spotHtml = r.spot != null
+      ? `$${r.spot.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
+
+    // Options
+    const callHtml = fmtK(r.call_vol);
+    const putHtml  = fmtK(r.put_vol);
+    const pcr = r.pcr;
+    const pcrCls = pcr == null ? '' : pcr > 1.2 ? 'opt-pcr-high' : pcr < 0.8 ? 'opt-pcr-low' : 'opt-pcr-ok';
+    const pcrHtml = pcr != null ? `<span class="${pcrCls}">${pcr.toFixed(2)}</span>` : '—';
+
+    // Fire
     const fireHtml = r.firing
-      ? `<span class="firing-yes">●</span>`
-      : `<span class="firing-no">○</span>`;
+      ? `<span class="fire-yes">●</span>`
+      : `<span class="fire-no">○</span>`;
 
-    const spot = r.spot != null ? `$${r.spot.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—';
+    // Narrative
+    const narr = (r.narrative || '').substring(0, 72) + (r.narrative && r.narrative.length > 72 ? '…' : '');
 
-    const narr = (r.narrative || '').substring(0, 80) + (r.narrative && r.narrative.length > 80 ? '…' : '');
-
-    const rowClass = r.firing ? 'firing-row' : '';
-
-    return `<tr class="${rowClass}">
+    return `<tr>
       <td class="cell-ticker">${r.ticker}</td>
-      <td class="cell-spot">${spot}</td>
-      <td><span class="pattern-pill ${patCss}">${patLabel}</span></td>
+      <td class="cell-spot">${spotHtml}</td>
+      <td>${avHtml}</td>
+      <td><span class="pill ${pillCls}">${patLabel}</span></td>
       <td>${dirHtml}</td>
-      <td>${wkHtml}</td>
+      <td><span class="${wkCls}">${wk || '—'}</span></td>
       <td>${confHtml}</td>
-      <td class="${rsiCss}">${rsi}</td>
-      <td class="${adxCss}">${adx}</td>
-      <td class="${volCss}">${vol}</td>
+      <td>${rsiHtml}</td>
+      <td>${adxHtml}</td>
+      <td>${vrHtml}</td>
+      <td class="opt-val">${callHtml}</td>
+      <td class="opt-val">${putHtml}</td>
+      <td>${pcrHtml}</td>
       <td>${fireHtml}</td>
-      <td class="cell-narrative" title="${(r.narrative||'').replace(/"/g,'&quot;')}">${narr}</td>
+      <td class="narr" title="${(r.narrative||'').replace(/"/g,'&quot;')}">${narr}</td>
     </tr>`;
-  });
-
-  tbody.innerHTML = rows.join('');
+  }).join('');
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
+// ── Init — load previous scan ────────────────────────────────────────────
 (async () => {
   try {
-    const resp = await fetch('/api/ta-scan/results');
-    const data = await resp.json();
-    if (data.results && data.results.length) {
-      allResults = data.results;
-      updateStats(data);
+    const r = await fetch('/api/ta-scan/results');
+    const d = await r.json();
+    if (d.running) {
+      // Scan was already running (e.g. server restarted mid-scan) — resume polling
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('scan-btn').textContent = '⏳ SCANNING…';
+      document.getElementById('scan-btn').classList.add('running');
+      document.getElementById('running-badge').style.display = 'block';
+      setProgress(0, true);
+      setStatus(d.message || 'Scan in progress…');
+      startPolling();
+    } else if (d.results && d.results.length) {
+      allRows = d.results;
+      updateStats(d);
       renderTable();
-      setStatus(data.message || 'Showing previous scan results');
+      setStatus(d.message || 'Showing previous results');
     }
   } catch (_) {}
 })();
