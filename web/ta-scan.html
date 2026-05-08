@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView · TA Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #000308;
+  --c1:     #0a0f1a;
+  --c2:     #0f1825;
+  --c3:     #162030;
+  --border: #1e2d40;
+  --G:      #00ff88;
+  --R:      #ff3355;
+  --B:      #00aaff;
+  --Y:      #ffcc00;
+  --P:      #cc66ff;
+  --O:      #ff7700;
+  --W:      #ffffff;
+  --W2:     #e0eaff;
+  --W3:     #7090b0;
+  --G-dim:  rgba(0,255,136,0.12);
+  --R-dim:  rgba(255,51,85,0.12);
+  --B-dim:  rgba(0,170,255,0.12);
+  --Y-dim:  rgba(255,204,0,0.12);
+  --P-dim:  rgba(204,102,255,0.12);
+  --font-ui:   'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--W); font-family: var(--font-ui); font-size: 13px; overflow: hidden; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--c1); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── LAYOUT ── */
+.app { display: flex; flex-direction: column; height: 100vh; padding: 10px 12px; gap: 8px; }
+
+/* ── TOPBAR ── */
+.topbar { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.logo { font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--W); letter-spacing: -0.5px; }
+.logo em { color: var(--G); font-style: normal; }
+.page-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); padding: 3px 8px; border: 1px solid var(--border); border-radius: 20px; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.back-link { font-family: var(--font-mono); font-size: 11px; color: var(--W3); text-decoration: none; }
+.back-link:hover { color: var(--B); }
+
+/* ── SCAN CONTROLS ── */
+.controls-row { display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0; padding: 10px 12px; background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius); flex-wrap: wrap; }
+.ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+.ctrl-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
+
+/* Universe tabs */
+.universe-tabs { display: flex; gap: 2px; }
+.utab {
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: transparent; color: var(--W3); cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; transition: all 0.15s; white-space: nowrap;
+}
+.utab:hover { color: var(--W2); border-color: var(--B); }
+.utab.active { background: var(--B-dim); border-color: var(--B); color: var(--B); }
+
+/* Ticker textarea */
+.ticker-area {
+  width: 280px; height: 52px; background: var(--c3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 6px 8px; color: var(--W);
+  font-family: var(--font-mono); font-size: 11px; resize: none;
+}
+.ticker-area:focus { outline: none; border-color: var(--B); }
+
+/* Vol filter */
+.vol-input-wrap { display: flex; align-items: center; gap: 6px; }
+.vol-input {
+  width: 70px; background: var(--c3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 5px 8px; color: var(--W);
+  font-family: var(--font-mono); font-size: 12px; text-align: right;
+}
+.vol-input:focus { outline: none; border-color: var(--Y); }
+.vol-unit { font-family: var(--font-mono); font-size: 10px; color: var(--W3); }
+
+/* Analyzed row dimming */
+tr.analyzed td { opacity: 0.35; }
+tr.analyzed td.cb-col { opacity: 1; }
+
+/* Checkbox col */
+.cb-col { width: 28px; text-align: center; }
+.cb-col input[type=checkbox] { accent-color: var(--G); cursor: pointer; width: 13px; height: 13px; }
+
+/* Editable narrative */
+td.narr[contenteditable] { cursor: text; outline: none; }
+td.narr[contenteditable]:focus { background: var(--c3); border-radius: 3px; }
+
+/* Select input */
+.select-input {
+  background: var(--c3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 5px 8px; color: var(--W); font-family: var(--font-mono); font-size: 12px;
+  cursor: pointer;
+}
+.select-input:focus { outline: none; border-color: var(--Y); }
+
+/* Options toggle */
+.toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.toggle-cb { width: 14px; height: 14px; accent-color: var(--G); cursor: pointer; }
+.toggle-label { font-family: var(--font-mono); font-size: 11px; color: var(--W3); }
+
+/* Scan button */
+.scan-btn {
+  padding: 8px 24px; border: none; border-radius: var(--radius-sm);
+  background: var(--G); color: #000; font-family: var(--font-ui); font-size: 13px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.3px; white-space: nowrap;
+  transition: opacity 0.15s; align-self: flex-end;
+}
+.scan-btn:hover { opacity: 0.85; }
+.scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.scan-btn.running { background: var(--Y); animation: pulse-btn 1s ease-in-out infinite; }
+@keyframes pulse-btn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Status + progress */
+.status-wrap { display: flex; flex-direction: column; gap: 4px; align-self: flex-end; min-width: 200px; }
+.status-line { font-family: var(--font-mono); font-size: 10px; color: var(--W3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prog-track { height: 2px; background: var(--c3); border-radius: 2px; overflow: hidden; }
+.prog-bar { height: 100%; width: 0%; background: var(--G); border-radius: 2px; transition: width 0.4s ease; }
+.prog-bar.indeterminate { animation: indeterminate 1.5s linear infinite; width: 30%; }
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(430%); }
+}
+
+/* Scan running overlay on table */
+.scan-running-badge {
+  display: none; position: absolute; top: 12px; right: 12px; z-index: 10;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--Y); padding: 4px 10px;
+  background: var(--Y-dim); border: 1px solid var(--Y); border-radius: 20px;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ── STATS ROW ── */
+.stats-row { display: flex; gap: 8px; flex-shrink: 0; }
+.stat-tile {
+  background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 100px;
+}
+.stat-val { font-family: var(--font-mono); font-size: 20px; font-weight: 600; line-height: 1; }
+.stat-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
+.sv-total   { color: var(--W); }
+.sv-fire    { color: var(--G); }
+.sv-long    { color: var(--B); }
+.sv-short   { color: var(--R); }
+.sv-vol     { color: var(--W3); }
+.sv-time    { color: var(--W3); font-size: 12px; }
+
+/* ── FILTER ROW ── */
+.filter-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.filter-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--W3); }
+.multi-select { position: relative; }
+.ms-btn {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  background: var(--c2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--W2); font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  white-space: nowrap; min-width: 100px; user-select: none;
+}
+.ms-btn:hover { border-color: var(--B); }
+.ms-btn.active { border-color: var(--B); }
+.ms-caret { margin-left: auto; color: var(--W3); }
+.ms-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--c2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  z-index: 100; min-width: 160px; max-height: 240px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+.ms-dropdown.open { display: block; }
+.ms-opt {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--W2); white-space: nowrap;
+}
+.ms-opt:hover { background: var(--c3); color: var(--W); }
+.ms-opt input[type=checkbox] { accent-color: var(--G); width: 12px; height: 12px; }
+.ms-divider { border-top: 1px solid var(--border); margin: 4px 0; }
+.ms-actions { display: flex; gap: 0; border-top: 1px solid var(--border); }
+.ms-action {
+  flex: 1; padding: 5px; text-align: center; cursor: pointer; font-family: var(--font-mono);
+  font-size: 10px; color: var(--W3); background: none; border: none;
+}
+.ms-action:hover { color: var(--B); }
+.filter-clear { padding: 4px 10px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--W3); font-family: var(--font-mono); font-size: 10px; cursor: pointer; }
+.filter-clear:hover { color: var(--R); border-color: var(--R); }
+.filter-count { font-family: var(--font-mono); font-size: 10px; color: var(--W3); margin-left: auto; }
+
+/* ── TABLE ── */
+.table-wrap { flex: 1; overflow: auto; background: var(--c1); border: 1px solid var(--border); border-radius: var(--radius); position: relative; min-height: 0; }
+table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); }
+thead { position: sticky; top: 0; z-index: 5; }
+thead tr { background: var(--c2); border-bottom: 1px solid var(--border); }
+th {
+  padding: 7px 10px; text-align: left; font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--W3); white-space: nowrap; user-select: none;
+  cursor: pointer; transition: color 0.1s; font-weight: 500;
+}
+th:hover { color: var(--W2); }
+th.sorted { color: var(--B); }
+th .sa { font-size: 8px; margin-left: 3px; opacity: 0.5; }
+th.sorted .sa { opacity: 1; }
+td { padding: 6px 10px; border-bottom: 1px solid rgba(30,45,64,0.6); vertical-align: middle; white-space: nowrap; font-size: 12px; }
+tr:hover td { background: rgba(14,24,37,0.8); }
+.no-data-row td { text-align: center; padding: 60px; color: var(--W3); font-size: 13px; }
+
+/* ── CELLS ── */
+.cell-ticker { font-weight: 600; font-size: 13px; color: var(--W); letter-spacing: 0.5px; }
+.cell-spot { color: var(--W2); }
+.cell-vol { color: var(--W3); }
+.cell-vol.vol-ok { color: var(--W2); }
+.cell-vol.vol-high { color: var(--O); font-weight: 600; }
+
+/* Pattern pill */
+.pill { display: inline-block; padding: 2px 7px; border-radius: var(--radius-sm); font-size: 10px; font-weight: 500; }
+.pill-green  { background: var(--G-dim); color: var(--G); }   /* trend */
+.pill-blue   { background: var(--B-dim); color: var(--B); }   /* breakout */
+.pill-yellow { background: var(--Y-dim); color: var(--Y); }   /* reversal */
+.pill-gray   { background: rgba(112,144,176,0.12); color: var(--W3); }  /* none/error */
+
+/* Direction */
+.dir-long  { color: var(--G); font-weight: 600; }
+.dir-short { color: var(--R); font-weight: 600; }
+
+/* Weekly state */
+.wk-bull { color: var(--G); }
+.wk-bull-ext { color: var(--Y); }
+.wk-bear { color: var(--R); }
+.wk-neutral { color: var(--W3); }
+
+/* Confidence bar */
+.conf-cell { display: flex; align-items: center; gap: 6px; }
+.conf-track { width: 44px; height: 3px; background: var(--c3); border-radius: 2px; flex-shrink: 0; }
+.conf-fill { height: 100%; border-radius: 2px; }
+.conf-val { min-width: 40px; color: var(--W2); }
+.conf-hi { background: var(--G); }
+.conf-mid { background: var(--B); }
+.conf-lo { background: var(--W3); }
+
+/* RSI / ADX */
+.rsi-ob { color: var(--R); }
+.rsi-os { color: var(--G); }
+.rsi-ok { color: var(--W2); }
+.adx-strong { color: var(--Y); font-weight: 600; }
+.adx-ok { color: var(--W2); }
+
+/* Vol ratio */
+.vr-spike { color: var(--O); font-weight: 600; }
+.vr-ok { color: var(--W2); }
+.vr-low { color: var(--W3); }
+
+/* Firing badge */
+.fire-yes { color: var(--G); font-weight: 700; font-size: 14px; }
+.fire-no  { color: var(--c3); font-size: 14px; }
+
+/* Options */
+.opt-val { color: var(--W2); }
+.opt-pcr-high { color: var(--R); }
+.opt-pcr-low  { color: var(--G); }
+.opt-pcr-ok   { color: var(--W2); }
+
+/* Narrative */
+.narr { color: var(--W3); font-size: 10px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">Eigen<em>View</em></div>
+    <div class="page-tag">TA Scanner</div>
+    <div class="topbar-right">
+      <a href="/" class="back-link">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- SCAN CONTROLS -->
+  <div class="controls-row">
+    <div class="ctrl-group">
+      <div class="ctrl-label">Universe</div>
+      <div class="universe-tabs">
+        <button class="utab active" data-u="default">Default 30</button>
+        <button class="utab" data-u="ndx100">NDX 100</button>
+        <button class="utab" data-u="sp500">S&amp;P 500+</button>
+        <button class="utab" data-u="test5">Test 5</button>
+        <button class="utab" data-u="custom">Custom ▸</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group" id="custom-ticker-group" style="display:none">
+      <div class="ctrl-label">Tickers (space/comma separated)</div>
+      <textarea class="ticker-area" id="ticker-input" placeholder="NVDA AAPL TSLA&#10;META AMD ..."></textarea>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Min Vol (M/day)</div>
+      <div class="vol-input-wrap">
+        <input class="vol-input" type="number" id="vol-filter" value="1" min="0" step="0.5">
+        <span class="vol-unit">M shares</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Lookback Bars</div>
+      <select class="select-input" id="lookback-bars">
+        <option value="1">1 bar</option>
+        <option value="3">3 bars</option>
+        <option value="5">5 bars</option>
+        <option value="10" selected>10 bars</option>
+        <option value="15">15 bars</option>
+        <option value="20">20 bars</option>
+        <option value="30">30 bars</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Options</div>
+      <label class="toggle-wrap">
+        <input class="toggle-cb" type="checkbox" id="fetch-opts" checked>
+        <span class="toggle-label">Fetch call/put vol</span>
+      </label>
+    </div>
+
+    <div class="ctrl-group" style="margin-left:auto;">
+      <div class="ctrl-label">&nbsp;</div>
+      <button class="scan-btn" id="scan-btn" onclick="startScan()">▶ RUN SCAN</button>
+    </div>
+
+    <div class="status-wrap">
+      <div class="status-line" id="status-line">Ready</div>
+      <div class="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-tile"><div class="stat-val sv-total" id="s-total">—</div><div class="stat-lbl">Scanned</div></div>
+    <div class="stat-tile"><div class="stat-val sv-fire"  id="s-fire">—</div><div class="stat-lbl">Firing</div></div>
+    <div class="stat-tile"><div class="stat-val sv-long"  id="s-long">—</div><div class="stat-lbl">Long</div></div>
+    <div class="stat-tile"><div class="stat-val sv-short" id="s-short">—</div><div class="stat-lbl">Short</div></div>
+    <div class="stat-tile"><div class="stat-val sv-vol"   id="s-nodata">—</div><div class="stat-lbl">No Pattern</div></div>
+    <div class="stat-tile" style="margin-left:auto;"><div class="stat-val sv-time" id="s-time">—</div><div class="stat-lbl">Last Scan</div></div>
+  </div>
+
+  <!-- FILTER ROW -->
+  <div class="filter-row">
+    <div class="filter-label">Filter:</div>
+
+    <!-- Firing filter -->
+    <div class="multi-select" id="ms-firing">
+      <div class="ms-btn" onclick="toggleDropdown('ms-firing')">
+        <span id="ms-firing-label">Firing</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-firing-dd">
+        <div class="ms-opt"><input type="checkbox" value="all" checked onchange="updateFilter('firing',this)"> All</div>
+        <div class="ms-opt"><input type="checkbox" value="yes" onchange="updateFilter('firing',this)"> Firing only</div>
+        <div class="ms-opt"><input type="checkbox" value="no"  onchange="updateFilter('firing',this)"> Not firing</div>
+      </div>
+    </div>
+
+    <!-- Direction filter -->
+    <div class="multi-select" id="ms-dir">
+      <div class="ms-btn" onclick="toggleDropdown('ms-dir')">
+        <span id="ms-dir-label">Direction</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-dir-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"   checked onchange="updateFilter('dir',this)"> All</div>
+        <div class="ms-opt"><input type="checkbox" value="long"  onchange="updateFilter('dir',this)"> Long only</div>
+        <div class="ms-opt"><input type="checkbox" value="short" onchange="updateFilter('dir',this)"> Short only</div>
+      </div>
+    </div>
+
+    <!-- Pattern category filter -->
+    <div class="multi-select" id="ms-cat">
+      <div class="ms-btn" onclick="toggleDropdown('ms-cat')">
+        <span id="ms-cat-label">Pattern</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-cat-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"      checked onchange="updateFilter('cat',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="trend"    onchange="updateFilter('cat',this)"> Trend Continuation</div>
+        <div class="ms-opt"><input type="checkbox" value="breakout" onchange="updateFilter('cat',this)"> Breakout / Breakdown</div>
+        <div class="ms-opt"><input type="checkbox" value="reversal" onchange="updateFilter('cat',this)"> Reversal</div>
+        <div class="ms-opt"><input type="checkbox" value="none"     onchange="updateFilter('cat',this)"> No Pattern</div>
+      </div>
+    </div>
+
+    <!-- Weekly state filter -->
+    <div class="multi-select" id="ms-wk">
+      <div class="ms-btn" onclick="toggleDropdown('ms-wk')">
+        <span id="ms-wk-label">Weekly</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-wk-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"            checked onchange="updateFilter('wk',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="BULLISH"        onchange="updateFilter('wk',this)"> Bullish</div>
+        <div class="ms-opt"><input type="checkbox" value="BULLISH_EXTENDED" onchange="updateFilter('wk',this)"> Bullish Extended</div>
+        <div class="ms-opt"><input type="checkbox" value="NEUTRAL"        onchange="updateFilter('wk',this)"> Neutral</div>
+        <div class="ms-opt"><input type="checkbox" value="BEARISH_WEAK"   onchange="updateFilter('wk',this)"> Bearish Weak</div>
+        <div class="ms-opt"><input type="checkbox" value="BEARISH_STRONG" onchange="updateFilter('wk',this)"> Bearish Strong</div>
+      </div>
+    </div>
+
+    <!-- Vol character filter -->
+    <div class="multi-select" id="ms-vc">
+      <div class="ms-btn" onclick="toggleDropdown('ms-vc')">
+        <span id="ms-vc-label">Vol Char</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-vc-dd">
+        <div class="ms-opt"><input type="checkbox" value="all"       checked onchange="updateFilter('vc',this)"> All</div>
+        <div class="ms-divider"></div>
+        <div class="ms-opt"><input type="checkbox" value="declining" onchange="updateFilter('vc',this)"> Declining (pullbacks)</div>
+        <div class="ms-opt"><input type="checkbox" value="expanding" onchange="updateFilter('vc',this)"> Expanding (breakouts)</div>
+        <div class="ms-opt"><input type="checkbox" value="neutral"   onchange="updateFilter('vc',this)"> Neutral</div>
+      </div>
+    </div>
+
+    <!-- Conf min filter -->
+    <div class="multi-select" id="ms-conf">
+      <div class="ms-btn" onclick="toggleDropdown('ms-conf')">
+        <span id="ms-conf-label">Conf</span>
+        <span class="ms-caret">▾</span>
+      </div>
+      <div class="ms-dropdown" id="ms-conf-dd">
+        <div class="ms-opt"><input type="radio" name="conf-r" value="0"  checked onchange="updateConfFilter(this)"> All</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="50" onchange="updateConfFilter(this)"> ≥ 50%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="60" onchange="updateConfFilter(this)"> ≥ 60%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="70" onchange="updateConfFilter(this)"> ≥ 70%</div>
+        <div class="ms-opt"><input type="radio" name="conf-r" value="80" onchange="updateConfFilter(this)"> ≥ 80%</div>
+      </div>
+    </div>
+
+    <button class="filter-clear" onclick="clearFilters()">✕ Clear</button>
+    <div class="filter-count" id="filter-count"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap" id="table-wrap">
+    <div class="scan-running-badge" id="running-badge">● SCANNING</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="cb-col"></th>
+          <th onclick="sortCol('ticker')">Ticker<span class="sa">↕</span></th>
+          <th onclick="sortCol('spot')">Spot<span class="sa">↕</span></th>
+          <th onclick="sortCol('avg_vol_m')">Avg Vol<span class="sa">↕</span></th>
+          <th onclick="sortCol('pattern')">Pattern<span class="sa">↕</span></th>
+          <th onclick="sortCol('direction')">Dir<span class="sa">↕</span></th>
+          <th onclick="sortCol('weekly_state')">Weekly<span class="sa">↕</span></th>
+          <th onclick="sortCol('confidence')">Conf<span class="sa">↕</span></th>
+          <th onclick="sortCol('rsi')">RSI<span class="sa">↕</span></th>
+          <th onclick="sortCol('adx')">ADX<span class="sa">↕</span></th>
+          <th onclick="sortCol('vol_ratio')">Vol×<span class="sa">↕</span></th>
+          <th onclick="sortCol('call_vol')">Calls<span class="sa">↕</span></th>
+          <th onclick="sortCol('put_vol')">Puts<span class="sa">↕</span></th>
+          <th onclick="sortCol('pcr')">P/C<span class="sa">↕</span></th>
+          <th onclick="sortCol('firing')">Fire<span class="sa">↕</span></th>
+          <th onclick="sortCol('signal_age')">Age<span class="sa">↕</span></th>
+          <th onclick="sortCol('rs_vs_spy')">RS/SPY<span class="sa">↕</span></th>
+          <th>Narrative</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let allRows   = [];
+let sortKey   = 'firing';
+let sortAsc   = false;
+let pollTimer = null;
+
+const filters = { firing: 'all', dir: 'all', cat: 'all', wk: 'all', vc: 'all', conf_min: 0 };
+
+// ── Pattern categories ────────────────────────────────────────────────────
+const TREND = new Set(['pullback_in_trend','pullback_deep','flag_continuation',
+  'rally_in_downtrend','oversold_bounce','failed_breakdown']);
+const BREAK = new Set(['breakout','compression_break','base_breakout','ema_reclaim',
+  'breakdown','compression_break_down','base_breakdown','ema_rejection',
+  'failed_breakout','bos_bullish','bos_bearish']);
+const REVER = new Set(['bullish_reversal','bearish_reversal','overbought_reversal',
+  'choch_bullish','choch_bearish']);
+
+function patCat(p) {
+  if (TREND.has(p)) return 'trend';
+  if (BREAK.has(p)) return 'breakout';
+  if (REVER.has(p)) return 'reversal';
+  if (!p || p === 'no_pattern' || p === 'NO DATA' || p === 'ERROR') return 'none';
+  return 'none';
+}
+
+function patPillClass(p) {
+  const c = patCat(p);
+  return {trend:'pill-green', breakout:'pill-blue', reversal:'pill-yellow', none:'pill-gray'}[c];
+}
+
+// ── Universe selector ─────────────────────────────────────────────────────
+let selectedUniverse = 'default';
+document.querySelectorAll('.utab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.utab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedUniverse = btn.dataset.u;
+    const custom = document.getElementById('custom-ticker-group');
+    custom.style.display = selectedUniverse === 'custom' ? 'flex' : 'none';
+  });
+});
+
+// ── Multi-select dropdowns ────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('.multi-select')) {
+    document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+
+function toggleDropdown(id) {
+  const dd = document.getElementById(id + '-dd');
+  const wasOpen = dd.classList.contains('open');
+  document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+  if (!wasOpen) dd.classList.add('open');
+}
+
+function updateFilter(key, checkbox) {
+  const val = checkbox.value;
+  const dd  = checkbox.closest('.ms-dropdown');
+  const allCb = dd.querySelector('[value="all"]');
+
+  if (val === 'all') {
+    // checking "all" → uncheck everything else
+    dd.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = cb.value === 'all'; });
+    filters[key] = 'all';
+  } else {
+    // unchecked specific → ensure 'all' is off
+    allCb.checked = false;
+    // collect checked non-all values
+    const checked = [...dd.querySelectorAll('input[type=checkbox]:checked')]
+      .map(cb => cb.value).filter(v => v !== 'all');
+    if (checked.length === 0) {
+      allCb.checked = true;
+      filters[key] = 'all';
+    } else {
+      filters[key] = checked; // array
+    }
+  }
+  updateFilterLabels();
+  renderTable();
+}
+
+function updateFilterLabels() {
+  const labels = {
+    firing: { all:'Firing', yes:'Firing ✓', no:'Not Firing' },
+    dir:    { all:'Direction', long:'Long ↑', short:'Short ↓' },
+    cat:    { all:'Pattern', trend:'Trend', breakout:'Breakout', reversal:'Reversal', none:'No Pattern' },
+    wk:     { all:'Weekly', BULLISH:'Bullish', BULLISH_EXTENDED:'Bull Ext', NEUTRAL:'Neutral',
+               BEARISH_WEAK:'Bear Weak', BEARISH_STRONG:'Bear Strong' },
+    vc:     { all:'Vol Char', declining:'Declining', expanding:'Expanding', neutral:'Neutral' },
+  };
+  ['firing','dir','cat','wk','vc'].forEach(key => {
+    const fv = filters[key];
+    const el = document.getElementById(`ms-${key}-label`);
+    if (!el) return;
+    if (fv === 'all') { el.textContent = labels[key].all; return; }
+    const vals = Array.isArray(fv) ? fv : [fv];
+    el.textContent = vals.map(v => labels[key][v] || v).join(', ');
+  });
+}
+
+function updateConfFilter(radio) {
+  filters.conf_min = parseInt(radio.value, 10);
+  const el = document.getElementById('ms-conf-label');
+  el.textContent = filters.conf_min === 0 ? 'Conf' : `Conf ≥${filters.conf_min}%`;
+  renderTable();
+}
+
+function clearFilters() {
+  ['firing','dir','cat','wk'].forEach(key => {
+    filters[key] = 'all';
+    document.querySelectorAll(`#ms-${key}-dd input`).forEach(cb => {
+      cb.checked = cb.value === 'all';
+    });
+  });
+  filters.vc = 'all';
+  document.querySelectorAll('#ms-vc-dd input').forEach(cb => { cb.checked = cb.value === 'all'; });
+  filters.conf_min = 0;
+  document.querySelector('#ms-conf-dd input[value="0"]').checked = true;
+  document.getElementById('ms-conf-label').textContent = 'Conf';
+  updateFilterLabels();
+  renderTable();
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────────
+async function startScan() {
+  const btn = document.getElementById('scan-btn');
+  const minVol = parseFloat(document.getElementById('vol-filter').value) || 0;
+  const fetchOpts = document.getElementById('fetch-opts').checked;
+  const lookbackBars = parseInt(document.getElementById('lookback-bars').value, 10) || 10;
+
+  let body = { min_volume_m: minVol, fetch_options: fetchOpts, lookback_bars: lookbackBars };
+
+  if (selectedUniverse === 'custom') {
+    const raw = document.getElementById('ticker-input').value;
+    const tickers = raw.trim().split(/[\s,]+/).map(t => t.toUpperCase()).filter(Boolean);
+    if (!tickers.length) { setStatus('Enter at least one ticker.'); return; }
+    body.tickers = tickers;
+  } else {
+    body.universe = selectedUniverse;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ SCANNING…';
+  btn.classList.add('running');
+  document.getElementById('running-badge').style.display = 'block';
+  setProgress(0, true);
+
+  try {
+    const r = await fetch('/api/ta-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.status === 'already_running') {
+      setStatus('Already running — wait for completion.');
+      resetBtn();
+      return;
+    }
+    if (d.status === 'started') {
+      setStatus(`Scan started for ${d.count} tickers…`);
+      startPolling();
+    } else {
+      setStatus('Unexpected response: ' + JSON.stringify(d));
+      resetBtn();
+    }
+  } catch (e) {
+    setStatus('Error starting scan: ' + e.message);
+    resetBtn();
+  }
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/ta-scan/results');
+      const d = await r.json();
+
+      const pct = d.tickers_total > 0
+        ? Math.round((d.tickers_scanned / d.tickers_total) * 100) : 0;
+      setProgress(pct, d.running && d.tickers_scanned === 0);
+      setStatus(d.message || '…');
+
+      if (!d.running) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        resetBtn();
+        allRows = d.results || [];
+        updateStats(d);
+        renderTable();
+        setProgress(100, false);
+        setTimeout(() => setProgress(0, false), 1500);
+      }
+    } catch (e) {
+      clearInterval(pollTimer);
+      resetBtn();
+      setStatus('Poll error: ' + e.message);
+    }
+  }, 800);
+}
+
+function resetBtn() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = false;
+  btn.textContent = '▶ RUN SCAN';
+  btn.classList.remove('running');
+  document.getElementById('running-badge').style.display = 'none';
+}
+
+function setStatus(msg) {
+  document.getElementById('status-line').textContent = msg;
+}
+
+function setProgress(pct, indeterminate) {
+  const bar = document.getElementById('prog-bar');
+  if (indeterminate) {
+    bar.classList.add('indeterminate');
+    bar.style.width = '';
+  } else {
+    bar.classList.remove('indeterminate');
+    bar.style.width = pct + '%';
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats(d) {
+  const rs = d.results || [];
+  const firing = rs.filter(r => r.firing).length;
+  const longs  = rs.filter(r => r.firing && r.direction === 'long').length;
+  const shorts = rs.filter(r => r.firing && r.direction === 'short').length;
+  const nodata = rs.filter(r => r.pattern === 'no_pattern' || r.pattern === 'NO DATA').length;
+  const t = d.scanned_at
+    ? new Date(d.scanned_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+    : '—';
+  document.getElementById('s-total').textContent  = rs.length;
+  document.getElementById('s-fire').textContent   = firing;
+  document.getElementById('s-long').textContent   = longs;
+  document.getElementById('s-short').textContent  = shorts;
+  document.getElementById('s-nodata').textContent = nodata;
+  document.getElementById('s-time').textContent   = t;
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────
+function sortCol(key) {
+  sortAsc = sortKey === key ? !sortAsc : (key === 'ticker' || key === 'pattern');
+  sortKey = key;
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  document.querySelectorAll('th').forEach(th => {
+    if (th.getAttribute('onclick') === `sortCol('${key}')`) th.classList.add('sorted');
+  });
+  renderTable();
+}
+
+// ── Filter + sort pipeline ────────────────────────────────────────────────
+function applyFilters(rows) {
+  return rows.filter(r => {
+    // firing
+    const fv = filters.firing;
+    if (fv !== 'all') {
+      const want = Array.isArray(fv) ? fv : [fv];
+      if (want.includes('yes') && !want.includes('no') && !r.firing) return false;
+      if (want.includes('no') && !want.includes('yes') && r.firing) return false;
+    }
+    // direction
+    const dv = filters.dir;
+    if (dv !== 'all') {
+      const want = Array.isArray(dv) ? dv : [dv];
+      if (!want.includes(r.direction)) return false;
+    }
+    // category
+    const cv = filters.cat;
+    if (cv !== 'all') {
+      const want = Array.isArray(cv) ? cv : [cv];
+      if (!want.includes(patCat(r.pattern))) return false;
+    }
+    // weekly
+    const wv = filters.wk;
+    if (wv !== 'all') {
+      const want = Array.isArray(wv) ? wv : [wv];
+      if (!want.includes(r.weekly_state)) return false;
+    }
+    // vol character
+    const vcv = filters.vc;
+    if (vcv !== 'all') {
+      const want = Array.isArray(vcv) ? vcv : [vcv];
+      if (!want.includes(r.vol_character)) return false;
+    }
+    // confidence min
+    if (filters.conf_min > 0 && (r.confidence || 0) < filters.conf_min) return false;
+    return true;
+  });
+}
+
+function applySort(rows) {
+  return [...rows].sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === 'firing') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    const nullVal = sortAsc ? Infinity : -Infinity;
+    if (va == null) va = nullVal;
+    if (vb == null) vb = nullVal;
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+}
+
+// ── localStorage persistence ──────────────────────────────────────────────
+function getStore(ticker) {
+  try { return JSON.parse(localStorage.getItem('ev_ta_' + ticker) || '{}'); } catch { return {}; }
+}
+function setStore(ticker, updates) {
+  const cur = getStore(ticker);
+  localStorage.setItem('ev_ta_' + ticker, JSON.stringify({...cur, ...updates}));
+}
+function saveNote(ticker, el) {
+  setStore(ticker, { note: el.innerText.trim() });
+}
+function toggleAnalyzed(ticker, cb) {
+  setStore(ticker, { checked: cb.checked });
+  cb.closest('tr').classList.toggle('analyzed', cb.checked);
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function fmt(n, dec=2) { return n != null ? n.toFixed(dec) : '—'; }
+function fmtK(n) {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1)+'M';
+  if (n >= 1_000)     return (n/1_000).toFixed(0)+'K';
+  return String(n);
+}
+
+function renderTable() {
+  const filtered = applyFilters(allRows);
+  const sorted   = applySort(filtered);
+  const tbody    = document.getElementById('tbody');
+  const total    = allRows.length;
+
+  document.getElementById('filter-count').textContent =
+    filtered.length < total ? `${filtered.length} / ${total} shown` : `${total} rows`;
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr class="no-data-row"><td colspan="19">No results — run a scan or adjust filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(r => {
+    const cat      = patCat(r.pattern);
+    const pillCls  = patPillClass(r.pattern);
+    const patLabel = (r.pattern || 'no_pattern').replace(/_/g,' ');
+
+    // Direction
+    const dirHtml = r.direction === 'long'
+      ? `<span class="dir-long">↑ L</span>`
+      : r.direction === 'short'
+        ? `<span class="dir-short">↓ S</span>`
+        : '<span style="color:var(--W3)">—</span>';
+
+    // Weekly
+    const wk = (r.weekly_state || '').toUpperCase();
+    const wkCls = wk.includes('EXTENDED') ? 'wk-bull-ext'
+                : wk === 'BULLISH'        ? 'wk-bull'
+                : wk.includes('BEARISH')  ? 'wk-bear'
+                : 'wk-neutral';
+
+    // Confidence
+    const conf = r.confidence || 0;
+    const confFillCls = conf >= 70 ? 'conf-hi' : conf >= 50 ? 'conf-mid' : 'conf-lo';
+    const confHtml = `<div class="conf-cell">
+      <div class="conf-track"><div class="conf-fill ${confFillCls}" style="width:${Math.min(100,conf)}%"></div></div>
+      <span class="conf-val">${conf.toFixed(0)}%</span></div>`;
+
+    // RSI
+    const rsi = r.rsi;
+    const rsiCls = rsi == null ? '' : rsi > 70 ? 'rsi-ob' : rsi < 30 ? 'rsi-os' : 'rsi-ok';
+    const rsiHtml = rsi != null ? `<span class="${rsiCls}">${rsi.toFixed(1)}</span>` : '—';
+
+    // ADX
+    const adx = r.adx;
+    const adxCls = adx != null && adx > 25 ? 'adx-strong' : 'adx-ok';
+    const adxHtml = adx != null ? `<span class="${adxCls}">${adx.toFixed(1)}</span>` : '—';
+
+    // Vol ratio
+    const vr = r.vol_ratio;
+    const vrCls = vr == null ? '' : vr >= 2 ? 'vr-spike' : vr >= 1.2 ? 'vr-ok' : 'vr-low';
+    const vrHtml = vr != null ? `<span class="${vrCls}">${vr.toFixed(1)}×</span>` : '—';
+
+    // Avg vol
+    const av = r.avg_vol_m;
+    const avCls = av >= 10 ? 'vol-high' : av >= 1 ? 'vol-ok' : '';
+    const avHtml = av != null ? `<span class="cell-vol ${avCls}">${av.toFixed(1)}M</span>` : '—';
+
+    // Spot
+    const spotHtml = r.spot != null
+      ? `$${r.spot.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
+
+    // Options
+    const callHtml = fmtK(r.call_vol);
+    const putHtml  = fmtK(r.put_vol);
+    const pcr = r.pcr;
+    const pcrCls = pcr == null ? '' : pcr > 1.2 ? 'opt-pcr-high' : pcr < 0.8 ? 'opt-pcr-low' : 'opt-pcr-ok';
+    const pcrHtml = pcr != null ? `<span class="${pcrCls}">${pcr.toFixed(2)}</span>` : '—';
+
+    // Fire
+    const fireHtml = r.firing
+      ? `<span class="fire-yes">●</span>`
+      : `<span class="fire-no">○</span>`;
+
+    // Signal age
+    const age = r.signal_age;
+    const ageHtml = age == null
+      ? '<span style="color:var(--W3)">—</span>'
+      : age === 0
+        ? '<span style="color:var(--G);font-weight:600">Today</span>'
+        : `<span style="color:var(--Y)">${age}d ago</span>`;
+
+    // RS vs SPY
+    const rs = r.rs_vs_spy;
+    const rsHtml = rs == null ? '—'
+      : rs > 0 ? `<span style="color:var(--G)">+${rs.toFixed(1)}%</span>`
+      : `<span style="color:var(--R)">${rs.toFixed(1)}%</span>`;
+
+    // Checkbox + localStorage
+    const stored  = getStore(r.ticker);
+    const checked = stored.checked ? 'checked' : '';
+    const analyzed = stored.checked ? 'analyzed' : '';
+    const narrDisplay = escHtml(stored.note || (r.narrative || '').substring(0, 120));
+
+    return `<tr class="${analyzed}">
+      <td class="cb-col"><input type="checkbox" ${checked} onchange="toggleAnalyzed('${r.ticker}',this)"></td>
+      <td class="cell-ticker">${r.ticker}</td>
+      <td class="cell-spot">${spotHtml}</td>
+      <td>${avHtml}</td>
+      <td><span class="pill ${pillCls}">${patLabel}</span></td>
+      <td>${dirHtml}</td>
+      <td><span class="${wkCls}">${wk || '—'}</span></td>
+      <td>${confHtml}</td>
+      <td>${rsiHtml}</td>
+      <td>${adxHtml}</td>
+      <td>${vrHtml}</td>
+      <td class="opt-val">${callHtml}</td>
+      <td class="opt-val">${putHtml}</td>
+      <td>${pcrHtml}</td>
+      <td>${fireHtml}</td>
+      <td>${ageHtml}</td>
+      <td>${rsHtml}</td>
+      <td class="narr" contenteditable="true" title="${escHtml(r.narrative||'')}" onblur="saveNote('${r.ticker}',this)">${narrDisplay}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Init — load previous scan ────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch('/api/ta-scan/results');
+    const d = await r.json();
+    if (d.running) {
+      // Scan was already running (e.g. server restarted mid-scan) — resume polling
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('scan-btn').textContent = '⏳ SCANNING…';
+      document.getElementById('scan-btn').classList.add('running');
+      document.getElementById('running-badge').style.display = 'block';
+      setProgress(0, true);
+      setStatus(d.message || 'Scan in progress…');
+      startPolling();
+    } else if (d.results && d.results.length) {
+      allRows = d.results;
+      updateStats(d);
+      renderTable();
+      setStatus(d.message || 'Showing previous results');
+    }
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>
