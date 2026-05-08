@@ -203,7 +203,8 @@ def init_db() -> None:
 
     async def _run() -> None:
         typer.echo("Initializing database tables...")
-        await create_tables()
+        import eigenview.data.storage as _storage
+        await _storage.create_tables()
         typer.echo("Done.")
 
     asyncio.run(_run())
