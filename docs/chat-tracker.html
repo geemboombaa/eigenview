@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EigenView — Chat Ask Tracker</title>
+<style>
+  :root {
+    --bg:#010408; --surface:#080e18; --surface2:#0c1420; --surface3:#101928;
+    --border:#152030; --border2:#1e2d40;
+    --text:#e8f0ff; --text2:#ccd8f0; --text3:#a0b8d8;
+    --G:#00ff99; --R:#ff2d55; --B:#00b4ff; --Y:#ffd60a;
+    --P:#bf5fff; --O:#ff6b00; --T:#00e5cc;
+    --accent:#7c6dfa;
+    --done-bg:rgba(0,255,153,0.08); --done-border:rgba(0,255,153,0.2);
+    --progress-bg:rgba(255,214,10,0.08); --progress-border:rgba(255,214,10,0.25);
+    --open-bg:rgba(255,45,85,0.08); --open-border:rgba(255,45,85,0.25);
+    --partial-bg:rgba(191,95,255,0.08); --partial-border:rgba(191,95,255,0.25);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;line-height:1.5;}
+
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;position:sticky;top:0;z-index:100;}
+  .hrow{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  h1{font-size:15px;font-weight:800;letter-spacing:0.5px;}
+  h1 span{color:var(--accent);}
+  .meta{font-size:11px;color:var(--text3);}
+  .meta strong{color:var(--text2);}
+  .stats{display:flex;gap:8px;margin-left:auto;}
+  .stat{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 12px;text-align:center;}
+  .stat-val{font-size:16px;font-weight:800;display:block;}
+  .stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;}
+  .sv-done{color:var(--G);}
+  .sv-prog{color:var(--Y);}
+  .sv-open{color:var(--R);}
+  .sv-part{color:var(--P);}
+
+  .toolbar{display:flex;gap:8px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;position:sticky;top:59px;z-index:99;}
+  select,input[type=text]{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;outline:none;}
+  select:focus,input:focus{border-color:var(--accent);}
+
+  main{padding:16px 24px;}
+
+  /* SESSION SECTIONS */
+  .session{margin-bottom:20px;}
+  .session-hdr{background:var(--surface2);border:1px solid var(--border2);border-radius:8px 8px 0 0;padding:10px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+  .session-hdr:hover{background:var(--surface3);}
+  .session-date{font-weight:800;font-size:13px;color:var(--text);}
+  .session-count{font-size:11px;color:var(--text3);}
+  .session-body{border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;}
+  thead{background:var(--surface);}
+  th{padding:7px 10px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border2);white-space:nowrap;}
+  td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(124,109,250,0.04);}
+
+  .col-num{width:42px;min-width:42px;font-family:'Courier New',monospace;font-size:11px;color:var(--text3);}
+  .col-src{width:70px;min-width:70px;}
+  .col-ask{min-width:280px;}
+  .col-status{width:100px;min-width:100px;}
+  .col-resp{min-width:200px;color:var(--text2);font-size:11px;}
+
+  .ask-title{font-size:12px;font-weight:600;color:var(--text);line-height:1.4;}
+  .ask-detail{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;}
+
+  /* SOURCE BADGES */
+  .src-user{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;
+    background:rgba(0,180,255,0.12);color:var(--B);border:1px solid rgba(0,180,255,0.3);}
+  .src-claude{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;
+    background:rgba(124,109,250,0.12);color:var(--accent);border:1px solid rgba(124,109,250,0.3);}
+
+  /* STATUS BADGES */
+  .st{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.3px;white-space:nowrap;}
+  .st-done{background:var(--done-bg);color:var(--G);border:1px solid var(--done-border);}
+  .st-prog{background:var(--progress-bg);color:var(--Y);border:1px solid var(--progress-border);}
+  .st-open{background:var(--open-bg);color:var(--R);border:1px solid var(--open-border);}
+  .st-partial{background:var(--partial-bg);color:var(--P);border:1px solid var(--partial-border);}
+
+  /* PRIORITY */
+  .pri{display:inline-flex;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800;margin-left:6px;}
+  .p0{background:rgba(255,45,85,0.15);color:var(--R);}
+  .p1{background:rgba(255,107,0,0.15);color:var(--O);}
+  .p2{background:rgba(255,214,10,0.12);color:var(--Y);}
+  .p3{background:rgba(0,180,255,0.12);color:var(--B);}
+
+  .resp-file{font-family:'Courier New',monospace;font-size:10px;background:var(--surface2);padding:1px 5px;border-radius:3px;color:var(--T);}
+
+  /* FILTER HIDDEN */
+  .item-row.hidden{display:none;}
+
+  /* LAST UPDATED */
+  .last-updated{font-size:11px;color:var(--text3);padding:8px 24px;text-align:right;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <h1>Eigen<span>View</span> — <span style="color:var(--T)">Chat Ask Tracker</span></h1>
+    <div class="meta">Updated: <strong id="last-updated">2026-05-08</strong></div>
+    <div class="stats">
+      <div class="stat"><span class="stat-val sv-done" id="cnt-done">0</span><span class="stat-lbl">Done</span></div>
+      <div class="stat"><span class="stat-val sv-prog" id="cnt-prog">0</span><span class="stat-lbl">In Progress</span></div>
+      <div class="stat"><span class="stat-val sv-part" id="cnt-part">0</span><span class="stat-lbl">Partial</span></div>
+      <div class="stat"><span class="stat-val sv-open" id="cnt-open">0</span><span class="stat-lbl">Open</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <select id="filter-src">
+    <option value="">All Sources</option>
+    <option value="user">User Asks</option>
+    <option value="claude">Claude Identified</option>
+  </select>
+  <select id="filter-status">
+    <option value="">All Status</option>
+    <option value="done">Done</option>
+    <option value="prog">In Progress</option>
+    <option value="partial">Partial</option>
+    <option value="open">Open</option>
+  </select>
+  <select id="filter-pri">
+    <option value="">All Priorities</option>
+    <option value="p0">P0 — Critical</option>
+    <option value="p1">P1 — Core</option>
+    <option value="p2">P2 — Enhancement</option>
+    <option value="p3">P3 — Nice to Have</option>
+  </select>
+  <input type="text" id="filter-search" placeholder="Search asks..." style="min-width:200px;">
+</div>
+
+<main id="main-content"></main>
+<div class="last-updated">Last updated: 2026-05-08 · Updated by Claude each conversation turn</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA — all asks, numbered sequentially, updated each turn by Claude
+// ─────────────────────────────────────────────────────────────────────────────
+const SESSIONS = [
+
+{
+  date: "2026-05-07 (prev session)",
+  items: [
+    {id:1, src:"user", pri:"p0", status:"done",
+     ask:"Why did CI not run the Claude zero-context audit?",
+     detail:"Full honest accounting requested — what exactly happened with the audit step.",
+     resp:"Two bugs: (1) YAML syntax error — Python f-string with numbered list at col 0 broke block scalar. (2) import anthropic before API key check + no pip install anthropic in audit job. Both fixed in b43e881."},
+
+    {id:2, src:"user", pri:"p0", status:"done",
+     ask:"Fix CI so independent Claude audit actually runs",
+     detail:"Do not add any bypass. Confirm fix is real not a workaround.",
+     resp:"Added 'Install Claude audit deps' step (pip install anthropic). Moved import inside if api_key block. Confirmed not a bypass — just fixing the crash."},
+
+    {id:3, src:"user", pri:"p1", status:"done",
+     ask:"Full quality audit of 299 existing tests",
+     detail:"Are most tests fake or not doing anything? Deep scan, report quality.",
+     resp:"Opus 4.7 audit: 57% real, 33% weak, 10% fake. Worst: CLI tests (100% theatre), test_macro.py (tautological arithmetic), test_chat.py (mocked client asserts not None)."},
+
+    {id:4, src:"user", pri:"p0", status:"done",
+     ask:"Audit system design — is the rigid pipeline right?",
+     detail:"GEX/TA/Flow as hard gates + conviction math — is this institutional quality? What evidence?",
+     resp:"9 critical flaws found. Dual TA implementations, broken conviction math (mean with zeros), GEX hard gate kills 40% of valid picks, zero alpha validation, sentiment is bag-of-words not FinBERT, scanner.py bug (duplicate function), no position sizing."},
+
+    {id:5, src:"user", pri:"p0", status:"partial",
+     ask:"Design intelligent scoring layer — configurable, adaptive, not rigid pipeline",
+     detail:"All parameters configurable. Intelligent analysis not boolean gates. Sell to hedge funds.",
+     resp:"Opus design delivered: config/strategy.yaml schema, FeatureVector (30+ fields), regime-conditional weighted sum, 3-phase LGBM roadmap. Written to .boss/intelligent-layer-design.md. NOT YET IMPLEMENTED."},
+  ]
+},
+
+{
+  date: "2026-05-08 (current session)",
+  items: [
+    {id:6, src:"user", pri:"p1", status:"done",
+     ask:"Gate design wrong — why must I remove label just for Claude to write ACs?",
+     detail:"pre-build-gate.ps1 was blocking docs/ writes during design review phase. Gate should only block src/.",
+     resp:"Fixed: gate:awaiting-step21 now only blocks src/ and tests/ writes. docs/, config/, .boss/, .github/ writable during step 20 design review. Committed in pre-build-gate.ps1."},
+
+    {id:7, src:"user", pri:"p0", status:"done",
+     ask:"No synthetic OHLCV, no mock API — told many times, still in design. Fix.",
+     detail:"design-review.md had synthetic OHLCV for AC4, pytest-httpserver for AC8. Both wrong.",
+     resp:"Fixed: AC4→real signal_triggers table (real scan data). AC8→real server + Playwright store injection (browser-side, not API mocking). Suite B→real server + real DB picks. All stubs rewritten."},
+
+    {id:8, src:"user", pri:"p0", status:"partial",
+     ask:"What is the plan to close ALL Opus audit gaps (Part 1 + Part 2)?",
+     detail:"Both design flaws and test quality gaps. Need concrete plan not just identification.",
+     resp:"Intelligent layer design written (.boss/intelligent-layer-design.md). Conviction fix + GEX soft gate + forward_returns + PickExplanation designed. NOT YET CODED. See items 12-19 below for individual gaps."},
+
+    {id:9, src:"user", pri:"p0", status:"prog",
+     ask:"Institutional-grade AI layer — NOT weighted scoring. What does a hedge fund actually use?",
+     detail:"Research question: given all these factor signals, what is the professional/institutional AI mechanism? LLM agent? Multi-agent? Hybrid ML+LLM? Not weighted sum.",
+     resp:"Opus 4.7 launched (fresh context, no codebase). Researching: industry state of art, 5+ architecture options, cold-start strategy, LLM honest assessment, cross-factor interactions, missing data signals. In progress."},
+
+    {id:10, src:"user", pri:"p1", status:"done",
+     ask:"Integration E2E — is it just Playwright or are UI tests fed by real live data?",
+     detail:"Clarify architecture: what counts as integration vs E2E vs unit.",
+     resp:"Integration = Python tests (test_pipeline.py) with real API/DB calls. E2E = Playwright against real running server. integration-live.yml runs BOTH sequentially: (1) full daily_scan on real data → (2) Playwright Suite B reads picks that scan just wrote. Suite A tests UI behavior only (store injection). Suite B is end-to-end: real data → real server → UI field validation."},
+
+    {id:11, src:"user", pri:"p1", status:"done",
+     ask:"Live tracking dashboard — numbered asks, status, real-time updates",
+     detail:"Looking through chat or git is not cutting it. Tabular format. Claude updates live.",
+     resp:"Created docs/chat-tracker.html (this file). Separate from signal-tracker.html. Claude updates this file each session. Numbers persist across sessions. Filter by source/status/priority/search."},
+
+    // ── Claude-identified gaps from Opus audit ───────────────────────────────
+
+    {id:12, src:"claude", pri:"p0", status:"open",
+     ask:"scanner.py: _identify_dormant_bets defined twice (lines 30 and 73)",
+     detail:"One definition is dead code. Must fix before intelligent layer wires to scanner.",
+     resp:"Identified in Opus audit. Not yet fixed. Fix: read scanner.py, delete duplicate, verify tests pass."},
+
+    {id:13, src:"claude", pri:"p0", status:"open",
+     ask:"sentiment.py: production code is 10-word bag-of-words, spec says FinBERT",
+     detail:'{"beat","record","guidance"} bag-of-words is not FinBERT. The spec and the code disagree.',
+     resp:"Identified in Opus audit. Not yet fixed. Requires: add sentence-transformers to deps, implement FinBERT local inference, replace bag-of-words function."},
+
+    {id:14, src:"claude", pri:"p0", status:"open",
+     ask:"forward_return_5d / forward_return_20d columns exist but are NEVER populated",
+     detail:"signal_triggers table has these columns. Zero code anywhere populates them. No alpha validation possible.",
+     resp:"Designed in intelligent layer doc: forward_returns.py populator (cron job T+5, T+20). Not yet implemented."},
+
+    {id:15, src:"claude", pri:"p0", status:"open",
+     ask:"Two parallel TA implementations: score_technical() and detect_pattern() diverge",
+     detail:"Both live in technical.py. Return different things. Can disagree on edge cases. Time bomb.",
+     resp:"Identified. Not yet fixed. Requires deep read of technical.py to understand both, then merge."},
+
+    {id:16, src:"claude", pri:"p0", status:"open",
+     ask:"Conviction math broken: mean([ta,gex,flow,dormant,sentiment]) with non-firing=0",
+     detail:"TA=5, GEX=4, flow=5 with dormant+sentiment not firing → conviction 2.8 → rounds to 3. Should be 4-5.",
+     resp:"Fix designed in intelligent-layer-design.md: weighted sum of FIRING factors only, normalized by their weights. Part of scorer.py. Not yet coded."},
+
+    {id:17, src:"claude", pri:"p1", status:"open",
+     ask:"GEX hard gate eliminates ~40% valid picks on low/zero-GEX tickers",
+     detail:"Small/mid cap tickers have near-zero GEX. Hard gate kills them regardless of TA=5, flow=5.",
+     resp:"Fix designed: soft gate mode. Penalize score by soft_gate_penalty (0.4x) instead of eliminating. In config/strategy.yaml gate_modes. Not yet coded."},
+
+    {id:18, src:"claude", pri:"p2", status:"open",
+     ask:"No position sizing — picks have entry/stop/target but zero capital allocation logic",
+     detail:"No contracts calculation, no account_size param, no ATR-based sizing.",
+     resp:"Designed in intelligent layer: position_size_contracts = floor(account_size / (atr * atr_multiple * 100)). AC-POSITION-1. Not yet coded."},
+
+    {id:19, src:"claude", pri:"p1", status:"open",
+     ask:"~90 weak/fake tests need strengthening",
+     detail:"CLI tests mock everything + assert exit_code==0. test_macro.py computes formula then compares to itself. API tests are status-200 only.",
+     resp:"Identified in Opus audit. Plan: replace CLI tests with subprocess tests against real CLI. Replace macro arithmetic tests with real data assertions. Strengthen API tests with field validation. No timeline yet."},
+
+    {id:20, src:"claude", pri:"p1", status:"open",
+     ask:"4 remaining ac-audit.yml bugs still not fixed",
+     detail:"(1) hardcoded origin/master diff wrong for non-master PRs. (2) audit job has no permissions: pull-requests: write — comment posting silently fails. (3) step trigger says 'Step 13' should say 'Step 19/20'. (4) AC traceability scans all 300+ tests = 270 noise findings.",
+     resp:"Identified. Not yet fixed. Can fix on this branch during green phase (step 22+)."},
+
+    {id:21, src:"claude", pri:"p1", status:"open",
+     ask:"Frontend UI: signal matrix view and chart overlays not implemented",
+     detail:"Playwright stubs for signal matrix (SIGNAL MATRIX nav pill, star column, matrix rows) and chart EMA/BB toggles all marked test.fail — UI features don't exist yet.",
+     resp:"8 gap stubs written in suite_a_gaps.spec.js. Features need to be built in UI (framework.js or new module). No timeline yet."},
+
+    {id:22, src:"claude", pri:"p2", status:"open",
+     ask:"Options flow is EOD V/OI ratio, not tick-level sweep detection",
+     detail:"V/OI > 3 at EOD is unusual activity indicator, not sweep detection. Hedge funds want OPRA tape or at minimum intraday chain snapshots.",
+     resp:"Identified in Opus audit. Improving flow to intraday requires either paid data (OPRA) or multiple yfinance chain pulls per day (rate limit risk). Lower priority than above. Needs decision."},
+
+    // ── Integration E2E gaps ──────────────────────────────────────────────────
+
+    {id:23, src:"claude", pri:"p0", status:"open",
+     ask:"integration-live.yml does not exist yet — must be created (AC1)",
+     detail:"The nightly CI workflow that runs real data pipeline + Playwright Suite B. Core of integration-e2e-suite feature.",
+     resp:"Designed in design-review.md. Stubs written. Implementation unblocked (gate removed). Create .github/workflows/integration-live.yml."},
+
+    {id:24, src:"claude", pri:"p0", status:"open",
+     ask:"condition_coverage.py does not exist yet — must be created (AC3/AC4)",
+     detail:"Checks signal_triggers table for NEVER_FIRED patterns across 21 TA setups. Reports coverage.",
+     resp:"Stubs written. Must create src/eigenview/ci/condition_coverage.py. No synthetic data — reads real signal_triggers rows."},
+
+    {id:25, src:"claude", pri:"p0", status:"open",
+     ask:"BOSS mechanism (auto-fix loop) CI jobs not yet implemented (AC5/AC6/AC7)",
+     detail:"CI reads pytest XML, posts BOSS_FIX_REQUEST comment on RED failures, BOSS_YELLOW_FLAGS on data_dependent failures, escalates after 3 attempts.",
+     resp:"Stubs written. Must create src/eigenview/ci/boss_mechanism.py + CI job in integration-live.yml."},
+
+    {id:26, src:"claude", pri:"p0", status:"open",
+     ask:"tests/ui/conftest.py server fixture not yet implemented (AC8/AC9)",
+     detail:"Must start real uvicorn server as pytest fixture. AC8 (Suite A) connects to it for store injection. AC9 (Suite B) connects for DB field validation.",
+     resp:"Stubs in test_suite_a_ac8.py and test_suite_b_ac9_ac10.py reference this fixture. Must implement: subprocess uvicorn + playwright browser fixture."},
+  ]
+}
+
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────────────
+function statusBadge(st) {
+  const map = {done:'st-done',prog:'st-prog',partial:'st-partial',open:'st-open'};
+  const label = {done:'✓ Done',prog:'⟳ In Progress',partial:'◑ Partial',open:'○ Open'};
+  return `<span class="st ${map[st]||'st-open'}">${label[st]||st}</span>`;
+}
+function priBadge(p) {
+  if (!p) return '';
+  return `<span class="pri ${p}">${p.toUpperCase()}</span>`;
+}
+function srcBadge(src) {
+  return src === 'user'
+    ? `<span class="src-user">USER</span>`
+    : `<span class="src-claude">CLAUDE</span>`;
+}
+
+function renderAll(filterSrc, filterSt, filterPri, search) {
+  const main = document.getElementById('main-content');
+  let cntDone=0, cntProg=0, cntPart=0, cntOpen=0;
+  let html = '';
+
+  SESSIONS.forEach(sess => {
+    let rows = '';
+    let shown = 0;
+    sess.items.forEach(item => {
+      const srcMatch = !filterSrc || item.src === filterSrc;
+      const stMatch  = !filterSt  || item.status === filterSt;
+      const priMatch = !filterPri || item.pri === filterPri;
+      const text = (item.ask+' '+item.detail+' '+(item.resp||'')).toLowerCase();
+      const srchMatch = !search || text.includes(search.toLowerCase());
+      const vis = srcMatch && stMatch && priMatch && srchMatch;
+      if (!vis) return;
+      shown++;
+      if (item.status==='done') cntDone++;
+      else if (item.status==='prog') cntProg++;
+      else if (item.status==='partial') cntPart++;
+      else cntOpen++;
+
+      rows += `<tr class="item-row">
+        <td class="col-num">#${item.id}</td>
+        <td class="col-src">${srcBadge(item.src)}</td>
+        <td class="col-ask">
+          <div class="ask-title">${item.ask}${priBadge(item.pri)}</div>
+          ${item.detail ? `<div class="ask-detail">${item.detail}</div>` : ''}
+        </td>
+        <td class="col-status">${statusBadge(item.status)}</td>
+        <td class="col-resp">${item.resp||'—'}</td>
+      </tr>`;
+    });
+    if (shown === 0) return;
+
+    html += `<div class="session">
+      <div class="session-hdr" onclick="this.parentElement.querySelector('.session-body').style.display=this.parentElement.querySelector('.session-body').style.display==='none'?'block':'none'">
+        <span class="session-date">${sess.date}</span>
+        <span class="session-count">${shown} items</span>
+      </div>
+      <div class="session-body">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Source</th><th>Ask / Item</th><th>Status</th><th>Response / Notes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+
+  main.innerHTML = html || '<div style="padding:40px;text-align:center;color:var(--text3)">No items match filter.</div>';
+  document.getElementById('cnt-done').textContent = cntDone;
+  document.getElementById('cnt-prog').textContent  = cntProg;
+  document.getElementById('cnt-part').textContent  = cntPart;
+  document.getElementById('cnt-open').textContent  = cntOpen;
+}
+
+function applyFilters() {
+  renderAll(
+    document.getElementById('filter-src').value,
+    document.getElementById('filter-status').value,
+    document.getElementById('filter-pri').value,
+    document.getElementById('filter-search').value.trim()
+  );
+}
+
+document.getElementById('filter-src').addEventListener('change', applyFilters);
+document.getElementById('filter-status').addEventListener('change', applyFilters);
+document.getElementById('filter-pri').addEventListener('change', applyFilters);
+document.getElementById('filter-search').addEventListener('input', applyFilters);
+
+renderAll('','','','');
+</script>
+</body>
+</html>
