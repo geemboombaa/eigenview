@@ -26,7 +26,7 @@
 <body>
 
 <h1>EigenView — Master Engineering Process Table (A→Z)</h1>
-<p>Version 1.1 &nbsp;|&nbsp; 2026-05-08 &nbsp;|&nbsp; All steps numbered. Manual gates highlighted. Changes from v1.0 marked ★.</p>
+<p>Version 1.2 &nbsp;|&nbsp; 2026-05-08 &nbsp;|&nbsp; All steps numbered. Manual gates highlighted. v1.1 changes marked ★, v1.2 changes marked ✦.</p>
 
 <div class="legend">
   <span style="background:#fff3cd;border:1px solid #ccc">&#9654; Manual gate</span>
@@ -165,9 +165,12 @@
 <tr><td>.boss/ exempt from pre-build-gate</td><td>Claude could edit .boss/hooks/pre-commit.sh without PR</td><td>Real gate is .git/hooks/pre-commit (untracked). Editing tracked copy doesn't affect running hook.</td><td>Low risk — .git/ is not editable via Write tool</td></tr>
 <tr><td>--ignore=tests/integration in pre-commit</td><td>Failing tests hidden if moved to tests/integration/</td><td>Integration tests genuinely need real network/DB. CI runs full suite including integration.</td><td>Accepted risk, documented</td></tr>
 <tr><td>Claude cannot remove gate:awaiting-step21</td><td>Label set by CI, only human or GITHUB_TOKEN can remove</td><td>Human must go to GitHub PR and manually remove label. Claude explicitly told "Do NOT remove this label yourself."</td><td>Mechanically enforced</td></tr>
+<tr><td><code>fix/</code> prefix is Claude's naming choice</td><td>Claude could name any branch <code>fix/</code> to skip gate:awaiting-step21 check and spec/stub phases. pre-build-gate trusts the prefix blindly.</td><td>CLAUDE.md rule: <code>fix/</code> is only for confirmed bugs with known fix, typos, config/dep updates. Human still reviews and merges — cannot self-merge. Abuse visible at PR review.</td><td>Policy only — not mechanically blocked. Weak control.</td></tr>
+<tr><td>stop-gate only checks <code>^src/</code> for dirty files</td><td>Changes to <code>tests/</code>, <code>web/</code>, <code>docs/</code> are not flagged by dirty check. Claude could leave uncommitted changes in those paths without stop-gate blocking.</td><td>pre-commit hook (separate process) catches uncommitted tests/src/ at commit time. Human sees diff at PR review. Accepted scope — stop-gate is specifically a src/ change guard.</td><td>By design — accepted scope limitation</td></tr>
+<tr><td>stop-gate relies on <code>pyproject.toml addopts</code> for integration exclusion</td><td>Enforcement stubs in <code>tests/integration/enforcement/</code> raise NotImplementedError. If <code>addopts</code> is removed, they run in default suite and fail every turn. Risk: dependency on a config line to avoid false stop-gate blocks.</td><td>addopts is committed and tracked. Any removal triggers test failures immediately — visible. Integration stubs location (<code>tests/integration/enforcement/</code>) is explicit. CI runs full suite including integration, so stubs will be caught there.</td><td>Accepted risk, documented. addopts is the explicit control.</td></tr>
 </table>
 
-<p class="note">Generated: 2026-05-08. Version 1.1. Project: EigenView. Changes from v1.0: stop-gate order fixed (dirty check first), gate:awaiting-step21 label mechanism added, two-tier PR system (feature/ vs fix/), per-feature step tracker, known bypass vectors documented, phase numbering adjusted.</p>
+<p class="note">Generated: 2026-05-08. Version 1.2. Project: EigenView. Changes from v1.1: fresh hook audit (stop-gate.ps1 + pre-build-gate.ps1 read line-by-line), three new bypass vectors documented (fix/ naming, stop-gate src/-only scope, addopts reliance), enforcement stubs placed in tests/integration/enforcement/ (excluded from default suite via addopts). Changes from v1.0: stop-gate order fixed (dirty check first), gate:awaiting-step21 label mechanism added, two-tier PR system (feature/ vs fix/), per-feature step tracker, known bypass vectors documented, phase numbering adjusted.</p>
 
 </body>
 </html>

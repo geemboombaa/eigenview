@@ -503,6 +503,8 @@ At step 5, copy `.boss/PROCESS-TEMPLATE.md` → `.boss/CURRENT-STEP.md`. Fill in
 - Never edit `src/` on master branch
 - Never claim a step done without the enforcing mechanism having fired
 - Never remove the `gate:awaiting-step21` label — only human removes it at step 21
+- `fix/` prefix is only for confirmed bugs with known fix, typos, config/dep bumps — NOT for new behavior or features. Using `fix/` to skip spec/stub phases on a feature is a process violation.
+- Subprocess-based enforcement tests (stop-gate, pre-build-gate, pre-commit) go in `tests/integration/enforcement/` — excluded from default pytest via pyproject.toml `addopts`. Do not put them in the normal test tree or stop-gate will fail every turn.
 
 ---
 
