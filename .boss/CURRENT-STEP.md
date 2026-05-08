@@ -16,19 +16,23 @@ feature/integration-e2e-suite
 feature (full 29 steps)
 
 ## Current Step
-Step 19 — MANUAL GATE: human reviews CI audit report on PR #125
+Step 21 complete (label removed by human) → Step 22 — Implementation begins
 
 ## Next Step
-Step 20 — Claude writes .boss/design-review.md
+Step 22 — Claude implements src/ code (integration-live.yml, condition_coverage.py, BOSS mechanism, Suite A/B Playwright fixtures, conftest.py)
 
 ## Blocked On
-Step 19 manual gate — human must review CI audit report and approve
+Nothing — gate:awaiting-step21 removed by human. Implementation unblocked.
 
 ## Steps Completed
-1, 2, 3, 4 (user approved), 5 (spec.md written), 7 (issue #124), 8 (PR #125), 9 (63 stubs), 10 (pre-commit RED — correct), 11 (stop-gate clean), 12 (pushed eb896f3), 13 (CI ran), 14-18 (ac-audit.yml — verify-red-phase PASS, phase:red + gate:awaiting-step21 labels set)
+1, 2, 3, 4 (user approved), 5 (spec.md written), 7 (issue #124), 8 (PR #125), 9 (63 stubs), 10 (pre-commit RED — correct), 11 (stop-gate clean), 12 (pushed eb896f3), 13 (CI ran), 14-18 (ac-audit.yml — verify-red-phase PASS, phase:red + gate:awaiting-step21 labels set), 19 (human reviewed CI audit), 20 (design-review.md + intelligent-layer-design.md written), 21 (human removed gate:awaiting-step21 label)
 
 ## Steps Remaining
-19 (human review — CURRENT), 20 (design-review.md), 21 (human removes gate:awaiting-step21), 22-26, 27 (human approves PR), 28 (human merges), 29 (CI on master)
+22-26 (implementation), 27 (human approves PR), 28 (human merges), 29 (CI on master)
+
+## Parallel Workstream
+Intelligent layer design complete: .boss/intelligent-layer-design.md
+Implementation of intelligent layer (config/strategy.yaml, FeatureVector, scorer) pending priority decision from human.
 
 ## CI Status (step 13-18)
 - verify-red-phase: PASS — 299 existing pass, 63 stubs fail (correct)

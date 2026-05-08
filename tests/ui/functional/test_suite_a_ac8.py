@@ -1,195 +1,271 @@
 """
-Suite A Playwright — functional UI tests — AC8.
+Suite A — AC8: All UI functional paths covered by Playwright specs running against real server.
 
-AC8: All UI functional paths covered with mocked API responses.
-     Themes, templates, keyboard shortcuts, favorites, edit mode,
-     category nav, factor strip, help page.
+Strategy: each test invokes the existing JS spec file via pytest subprocess.
+No mocked API, no synthetic data. Server must be running at BASE_URL.
+Real picks injected via EV.Store.set() (Playwright-native store injection —
+tests UI rendering behavior, not the data pipeline).
 
-All tests raise NotImplementedError until implementation (green phase).
-Playwright tests here are Python pytest-playwright stubs.
-The actual Playwright .spec.js tests live alongside these as *.spec.js files.
+All tests raise NotImplementedError until green phase wires the subprocess runner.
 """
 from __future__ import annotations
 
+import os
+import subprocess
 import pytest
 
+BASE_URL = os.environ.get("EIGENVIEW_TEST_URL", "http://localhost:8000")
+SPECS_DIR = "tests/ui"
 
-def _get_page(base_url: str = "http://localhost:8000"):
+
+def _run_spec(spec_file: str, grep: str | None = None) -> subprocess.CompletedProcess:
     """
-    Return a Playwright page connected to EigenView server with mocked API.
-    Raises NotImplementedError until Suite A fixtures are implemented.
+    Run a Playwright JS spec against the real server.
+    Raises NotImplementedError until green phase implements the server fixture.
     """
     raise NotImplementedError(
-        "AC8: Suite A Playwright fixtures not yet implemented. "
-        "Implement server fixture with mocked API responses in green phase."
+        f"AC8: Server fixture not yet wired. "
+        f"Implement: start eigenview server at {BASE_URL}, then run "
+        f"'npx playwright test {spec_file}' as subprocess. "
+        f"No mocked API — server must serve real routes."
     )
 
 
-def test_AC8_theme_dark_applies_correct_css_vars():
-    """
-    GIVEN server running with mocked API
-    WHEN dark theme is selected
-    THEN CSS variable --bg-primary matches dark theme token
-    """
-    page = _get_page()
-    raise NotImplementedError("AC8: dark theme CSS var verification not implemented")
+# ── Themes ────────────────────────────────────────────────────────────────────
 
-
-def test_AC8_theme_light_applies_correct_css_vars():
-    """
-    GIVEN server running with mocked API
-    WHEN light theme is selected
-    THEN CSS variable --bg-primary matches light theme token
-    """
-    page = _get_page()
-    raise NotImplementedError("AC8: light theme CSS var verification not implemented")
-
-
-def test_AC8_theme_glass_applies_correct_css_vars():
-    """
-    GIVEN server running with mocked API
-    WHEN glass theme is selected
-    THEN CSS variable --bg-primary matches glass theme token
-    """
-    page = _get_page()
-    raise NotImplementedError("AC8: glass theme CSS var verification not implemented")
-
-
-def test_AC8_theme_bento_applies_correct_css_vars():
-    """
-    GIVEN server running with mocked API
-    WHEN bento theme is selected
-    THEN CSS variable --bg-primary matches bento theme token
-    """
-    page = _get_page()
-    raise NotImplementedError("AC8: bento theme CSS var verification not implemented")
-
-
-def test_AC8_template_standard_loads_with_key_1():
+def test_AC8_all_4_themes_css_vars():
     """
     GIVEN server running
-    WHEN key 1 is pressed
-    THEN STANDARD template is active
+    WHEN each of dark/light/glass/bento selected
+    THEN CSS vars (--bg-primary, --panel, --radius-card) match design tokens
+    Covered by: comprehensive.spec.js groups 2, 27, 28
     """
-    page = _get_page()
-    raise NotImplementedError("AC8: STANDARD template key binding not implemented")
+    _run_spec("comprehensive.spec.js", grep="theme")
 
 
-def test_AC8_template_minimal_loads_with_key_2():
+def test_AC8_theme_persists_across_template_switch():
+    """
+    GIVEN theme=glass active
+    WHEN template switched to MINIMAL
+    THEN data-theme=glass still set on document
+    """
+    raise NotImplementedError("AC8: theme × template cross-check not in existing specs")
+
+
+# ── Templates ─────────────────────────────────────────────────────────────────
+
+def test_AC8_all_5_templates_keyboard_bindings():
     """
     GIVEN server running
-    WHEN key 2 is pressed
-    THEN MINIMAL template is active
+    WHEN keys 1-5 pressed
+    THEN STANDARD/MINIMAL/PRO/RESEARCH/FOCUS templates applied
+    Covered by: comprehensive.spec.js group 3, full-ui.spec.js
     """
-    page = _get_page()
-    raise NotImplementedError("AC8: MINIMAL template key binding not implemented")
+    _run_spec("comprehensive.spec.js", grep="template")
 
 
-def test_AC8_template_pro_loads_with_key_3():
-    page = _get_page()
-    raise NotImplementedError("AC8: PRO template key binding not implemented")
+def test_AC8_template_layout_slots_visible_correct():
+    """
+    GIVEN each template active
+    THEN correct slots visible/hidden per template definition
+    Covered by: comprehensive.spec.js group 3
+    """
+    _run_spec("comprehensive.spec.js", grep="slot")
 
 
-def test_AC8_template_research_loads_with_key_4():
-    page = _get_page()
-    raise NotImplementedError("AC8: RESEARCH template key binding not implemented")
+# ── Keyboard shortcuts ─────────────────────────────────────────────────────────
+
+def test_AC8_ctrl_k_opens_search():
+    _run_spec("comprehensive.spec.js", grep="Ctrl\\+K")
 
 
-def test_AC8_template_focus_loads_with_key_5():
-    page = _get_page()
-    raise NotImplementedError("AC8: FOCUS template key binding not implemented")
+def test_AC8_slash_focuses_chat():
+    _run_spec("comprehensive.spec.js", grep="/ key")
 
 
-def test_AC8_ctrl_k_opens_command_palette():
-    page = _get_page()
-    raise NotImplementedError("AC8: Ctrl+K command palette not implemented")
+def test_AC8_e_toggles_edit_mode():
+    _run_spec("comprehensive.spec.js", grep="E toggles")
 
 
-def test_AC8_slash_key_opens_search():
-    page = _get_page()
-    raise NotImplementedError("AC8: / search shortcut not implemented")
+def test_AC8_question_mark_opens_shortcuts():
+    _run_spec("comprehensive.spec.js", grep="\\? opens")
 
 
-def test_AC8_e_key_toggles_edit_mode():
-    page = _get_page()
-    raise NotImplementedError("AC8: E edit mode toggle not implemented")
+def test_AC8_h_opens_help():
+    _run_spec("comprehensive.spec.js", grep="H opens")
 
 
-def test_AC8_question_key_opens_help():
-    page = _get_page()
-    raise NotImplementedError("AC8: ? help shortcut not implemented")
+def test_AC8_arrow_navigation():
+    _run_spec("comprehensive.spec.js", grep="ArrowDown")
 
 
-def test_AC8_h_key_opens_help():
-    page = _get_page()
-    raise NotImplementedError("AC8: H help shortcut not implemented")
+def test_AC8_shortcuts_blocked_in_input():
+    """Keys must not fire when focus is in search or chat input."""
+    _run_spec("comprehensive.spec.js", grep="input-focus guard")
 
 
-def test_AC8_arrow_navigation_moves_selection():
-    page = _get_page()
-    raise NotImplementedError("AC8: arrow navigation not implemented")
-
+# ── Favorites / Mine tab ───────────────────────────────────────────────────────
 
 def test_AC8_pin_card_appears_in_mine_tab():
     """
-    GIVEN a pick card is visible
-    WHEN user pins the card (favorites)
-    THEN card appears in Mine tab
+    GIVEN a pick card visible
+    WHEN user clicks pin (⭐)
+    THEN card appears in Mine tab (category nav filter)
+    NOT covered by existing specs — new test needed.
     """
-    page = _get_page()
-    raise NotImplementedError("AC8: favorites pin → Mine tab not implemented")
+    raise NotImplementedError(
+        "AC8: favorites → Mine tab not tested in existing specs. "
+        "Implement: pin card → click Mine tab → assert card still visible."
+    )
 
 
-def test_AC8_favorites_persist_in_localstorage():
+def test_AC8_favorites_persist_localstorage():
     """
-    GIVEN a card is pinned
-    WHEN page is reloaded
-    THEN pinned card still appears in Mine tab (localStorage persistence)
+    GIVEN card pinned
+    WHEN page.reload()
+    THEN card still in Mine tab (localStorage key 'ev_favorites' survives reload)
+    NOT covered by existing specs — new test needed.
     """
-    page = _get_page()
-    raise NotImplementedError("AC8: localStorage favorites persistence not implemented")
+    raise NotImplementedError(
+        "AC8: localStorage persistence across reload not tested. "
+        "Implement: pin → reload → Mine tab → assert card present."
+    )
 
 
-def test_AC8_edit_mode_drag_works():
-    page = _get_page()
-    raise NotImplementedError("AC8: edit mode drag not implemented")
+# ── Edit mode ─────────────────────────────────────────────────────────────────
 
-
-def test_AC8_edit_mode_resize_works():
-    page = _get_page()
-    raise NotImplementedError("AC8: edit mode resize not implemented")
-
-
-def test_AC8_edit_mode_close_card():
-    page = _get_page()
-    raise NotImplementedError("AC8: edit mode close card not implemented")
-
-
-def test_AC8_edit_mode_color_palette():
-    page = _get_page()
-    raise NotImplementedError("AC8: edit mode color palette not implemented")
-
-
-def test_AC8_category_nav_filters_by_setup_type():
-    page = _get_page()
-    raise NotImplementedError("AC8: category nav filter not implemented")
-
-
-def test_AC8_factor_strip_collapse_expand():
-    page = _get_page()
-    raise NotImplementedError("AC8: factor strip collapse/expand not implemented")
-
-
-def test_AC8_factor_strip_dot_click_opens_detail_panel():
-    page = _get_page()
-    raise NotImplementedError("AC8: factor strip dot → detail panel not implemented")
-
-
-def test_AC8_help_page_all_11_tabs_render():
+def test_AC8_edit_mode_drag_changes_position():
     """
-    GIVEN server running
-    WHEN help page is opened
-    THEN all 11 tabs render without error
+    GIVEN edit mode active, module present
+    WHEN drag handle used to drag module
+    THEN module translateX/Y changes
+    NOT fully covered — existing specs only check handles visible.
     """
-    page = _get_page()
-    raise NotImplementedError("AC8: help page 11-tab render check not implemented")
+    raise NotImplementedError(
+        "AC8: actual drag position change not tested. "
+        "Implement: page.dragAndDrop on drag handle → assert transform changed."
+    )
+
+
+def test_AC8_edit_mode_resize_changes_height():
+    """
+    GIVEN edit mode active
+    WHEN resize handle dragged downward
+    THEN module height increases
+    """
+    raise NotImplementedError("AC8: resize interaction not tested")
+
+
+def test_AC8_edit_mode_close_removes_module():
+    _run_spec("comprehensive.spec.js", grep="close button removes module")
+
+
+def test_AC8_edit_mode_add_panel_palette():
+    _run_spec("comprehensive.spec.js", grep="Add Panel")
+
+
+# ── Factor strip ──────────────────────────────────────────────────────────────
+
+def test_AC8_factor_strip_dots_fired_unfired():
+    _run_spec("comprehensive.spec.js", grep="fired class")
+
+
+def test_AC8_factor_strip_dot_click_opens_detail():
+    _run_spec("comprehensive.spec.js", grep="expands detail panel")
+
+
+def test_AC8_factor_strip_chat_prefill():
+    _run_spec("comprehensive.spec.js", grep="populates chat textarea")
+
+
+# ── Chart ─────────────────────────────────────────────────────────────────────
+
+def test_AC8_gex_overlay_lines_on_chart():
+    """
+    GIVEN pick selected with GEX data (gamma_flip, call_wall, put_wall)
+    WHEN price chart loads
+    THEN 3 horizontal price lines visible on chart canvas
+    NOT covered by existing specs — new test needed.
+    """
+    raise NotImplementedError(
+        "AC8: GEX overlay lines (gamma_flip, call_wall, put_wall) not tested. "
+        "Implement: inject pick with gex data → chart loads → assert "
+        "3 price lines exist on TradingView chart canvas."
+    )
+
+
+def test_AC8_chart_ema_toggle():
+    """
+    GIVEN chart loaded
+    WHEN EMA21 toggle clicked OFF
+    THEN EMA21 series removed from chart
+    NOT covered by existing specs.
+    """
+    raise NotImplementedError("AC8: chart EMA toggle state not tested")
+
+
+def test_AC8_chart_maximize_restore():
+    _run_spec("comprehensive.spec.js", grep="maximize")
+
+
+# ── Signal freshness ──────────────────────────────────────────────────────────
+
+def test_AC8_signal_freshness_badge_fresh():
+    """
+    GIVEN pick with fired_at < 2h ago
+    THEN pick card shows 'Fresh' badge in green
+    NOT covered by existing specs.
+    """
+    raise NotImplementedError("AC8: signal freshness Fresh badge not tested")
+
+
+def test_AC8_signal_freshness_badge_stale():
+    """
+    GIVEN pick with fired_at > 8h ago
+    THEN pick card shows 'Stale' badge in amber
+    """
+    raise NotImplementedError("AC8: signal freshness Stale badge not tested")
+
+
+# ── Help page ─────────────────────────────────────────────────────────────────
+
+def test_AC8_help_page_all_tabs_render():
+    _run_spec("comprehensive.spec.js", grep="help overlay has tabs")
+
+
+def test_AC8_help_page_chip_links_navigate_to_correct_tab():
+    _run_spec("comprehensive.spec.js", grep="chip links")
+
+
+# ── Signal matrix ─────────────────────────────────────────────────────────────
+
+def test_AC8_signal_matrix_star_column():
+    """
+    GIVEN SIGNAL MATRIX nav pill clicked
+    THEN matrix view shows with star column indicating conviction
+    NOT covered by existing specs.
+    """
+    raise NotImplementedError(
+        "AC8: signal matrix view not tested. "
+        "Implement: click SIGNAL MATRIX pill → assert matrix rows visible "
+        "with star column matching pick conviction."
+    )
+
+
+def test_AC8_signal_matrix_row_click_selects_pick():
+    """
+    GIVEN signal matrix visible
+    WHEN row clicked
+    THEN selectedPick store updates to that ticker
+    """
+    raise NotImplementedError("AC8: matrix row click → selectedPick not tested")
+
+
+# ── Auto-refresh ──────────────────────────────────────────────────────────────
+
+def test_AC8_auto_refresh_polls_api():
+    _run_spec("comprehensive.spec.js", grep="setInterval.*picks")
+
+
+def test_AC8_scan_badge_updates_after_refresh():
+    _run_spec("comprehensive.spec.js", grep="scan badge updates")
