@@ -280,3 +280,153 @@ Be harsh. Trading system. Fake tests cost money."""
             ac-audit-report.json
             issue-ac-audit.json
             claude-audit-report.md
+
+  # ── Gap 1+2: verify red phase + post step trigger comment ──────────────────
+  verify-red-phase:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SECRET_KEY: placeholder-secret
+          ALPHA_VANTAGE_KEY: placeholder
+          FINNHUB_KEY: placeholder
+          ANTHROPIC_API_KEY: placeholder
+
+      - name: Detect phase and verify
+        id: phase
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SECRET_KEY: placeholder-secret
+          ALPHA_VANTAGE_KEY: placeholder
+          FINNHUB_KEY: placeholder
+          ANTHROPIC_API_KEY: placeholder
+        run: |
+          # New test files added in this PR (not in base branch)
+          NEW_TESTS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            --diff-filter=A | grep -E '^tests/.*\.py$' || true)
+
+          # New src files added/modified in this PR
+          CHANGED_SRC=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '^src/' || true)
+
+          echo "new_tests=$NEW_TESTS"
+          echo "changed_src=$CHANGED_SRC"
+
+          if [ -n "$CHANGED_SRC" ] && [ -n "$NEW_TESTS" ]; then
+            echo "phase=green" >> $GITHUB_OUTPUT
+            echo "PHASE: green (src/ + tests/ both changed)"
+
+            # Green phase: all tests must pass
+            uv run pytest -q --tb=short --no-header --ignore=tests/integration --ignore=tests/ui
+            if [ $? -ne 0 ]; then
+              echo "verdict=FAIL" >> $GITHUB_OUTPUT
+              echo "reason=Green phase: tests must all pass when src/ is changed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            echo "verdict=PASS" >> $GITHUB_OUTPUT
+            echo "reason=Green phase: all tests pass" >> $GITHUB_OUTPUT
+
+          elif [ -z "$CHANGED_SRC" ] && [ -n "$NEW_TESTS" ]; then
+            echo "phase=red" >> $GITHUB_OUTPUT
+            echo "PHASE: red (only tests/ added, no src/ changes)"
+
+            # Red phase: existing tests pass, new stubs fail
+            IGNORE_ARGS=""
+            for f in $NEW_TESTS; do
+              IGNORE_ARGS="$IGNORE_ARGS --ignore=$f"
+            done
+
+            echo "--- Regression check (excluding new stubs) ---"
+            uv run pytest -q --tb=short --no-header --ignore=tests/integration --ignore=tests/ui $IGNORE_ARGS
+            if [ $? -ne 0 ]; then
+              echo "verdict=FAIL" >> $GITHUB_OUTPUT
+              echo "reason=Red phase: existing tests regressed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+
+            echo "--- Stub verification (must FAIL) ---"
+            uv run pytest -q --tb=line --no-header $NEW_TESTS 2>&1 || STUB_FAILED=true
+            if [ -z "$STUB_FAILED" ]; then
+              echo "verdict=FAIL" >> $GITHUB_OUTPUT
+              echo "reason=Red phase: stubs passed — implementation should not exist yet" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+
+            echo "verdict=PASS" >> $GITHUB_OUTPUT
+            echo "reason=Red phase verified: no regressions + stubs correctly fail" >> $GITHUB_OUTPUT
+
+          else
+            echo "phase=docs" >> $GITHUB_OUTPUT
+            echo "verdict=SKIP" >> $GITHUB_OUTPUT
+            echo "reason=No new test files or src/ changes in this PR" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Label PR with phase
+        if: steps.phase.outputs.verdict == 'PASS' && steps.phase.outputs.phase != 'docs'
+        run: |
+          PHASE="${{ steps.phase.outputs.phase }}"
+          # Remove old phase labels first
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "phase:red" 2>/dev/null || true
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "phase:green" 2>/dev/null || true
+          # Add current phase label (create if missing)
+          gh label create "phase:$PHASE" --color "0075ca" 2>/dev/null || true
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "phase:$PHASE"
+          echo "Labeled PR with phase:$PHASE"
+
+      - name: Post step-trigger comment
+        if: steps.phase.outputs.verdict == 'PASS'
+        run: |
+          PHASE="${{ steps.phase.outputs.phase }}"
+          PR="${{ github.event.pull_request.number }}"
+          BRANCH="${{ github.head_ref }}"
+          SHA="${{ github.sha }}"
+
+          if [ "$PHASE" = "red" ]; then
+            NEXT_STEP="13"
+            NEXT_ACTION="Write design review doc (.boss/design-review.md) — architecture review, implementation checklist, gaps."
+            HUMAN_ACTION="**No action needed.** Claude can continue to step 13 automatically in next turn."
+          elif [ "$PHASE" = "green" ]; then
+            NEXT_STEP="27"
+            NEXT_ACTION="Review CI results and approve PR if everything looks good."
+            HUMAN_ACTION="**Manual gate.** Review this PR, check CI badges, then approve and merge."
+          else
+            NEXT_STEP="?"
+            NEXT_ACTION="No test changes detected."
+            HUMAN_ACTION="No action needed."
+          fi
+
+          BODY="## ✅ Phase Verification — \`phase:$PHASE\` confirmed
+
+          **Reason:** ${{ steps.phase.outputs.reason }}
+          **Branch:** \`$BRANCH\`
+          **Commit:** \`${SHA:0:8}\`
+
+          ---
+
+          ### ➡️ Next Step: Step $NEXT_STEP
+
+          $NEXT_ACTION
+
+          $HUMAN_ACTION
+
+          ---
+          *Posted by \`verify-red-phase\` job — external trigger for step sequencing.*"
+
+          gh pr comment $PR --body "$BODY"
