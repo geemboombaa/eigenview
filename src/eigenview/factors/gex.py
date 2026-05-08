@@ -136,9 +136,11 @@ def _find_gamma_flip(
     for strike in all_strikes:
         curr_net = net_by_strike[strike]
         if prev_net is not None and prev_net * curr_net < 0:
-            # linear interpolation
+            # linear interpolation across sign change
             frac = abs(prev_net) / (abs(prev_net) + abs(curr_net))
             return prev_strike + frac * (strike - prev_strike)
         prev_strike = strike
         prev_net = curr_net
-    return None
+
+    # No sign change — return the strike closest to zero net GEX (nearest potential flip)
+    return min(all_strikes, key=lambda s: abs(net_by_strike[s]))
