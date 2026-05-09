@@ -320,13 +320,12 @@
         });
       });
 
-      // Auto-fill TA checklist when technical factor fires on render.
-      // _expanded stays null so the first manual button click goes to expand branch.
+      // Pre-fill TA checklist when technical factor fires — det has content
+      // without expanding the slot, so the strip stays collapsed until user clicks.
       if (pick && factors.technical?.firing) {
         const det = this.el.querySelector('#fs-det');
         if (det && !det.innerHTML) {
           det.innerHTML = renderChecklist('technical', factors.technical || {});
-          slot.classList.add('expanded');
         }
       }
     }
