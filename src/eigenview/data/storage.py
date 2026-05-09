@@ -290,7 +290,7 @@ async def write_signal_trigger(
         valid_until=None,
     )
     session.add(trigger)
-    await session.commit()
+    await session.flush()
     return trigger
 
 

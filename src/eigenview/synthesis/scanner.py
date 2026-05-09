@@ -11,7 +11,8 @@ from eigenview.data.calendar import get_catalysts
 from eigenview.data.chains import get_chain
 from eigenview.data.news import fetch_news
 from eigenview.data.prices import get_prices
-from eigenview.data.storage import Chain, DormantBet
+from eigenview.data.storage import Chain, DormantBet, write_signal_trigger
+from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, entry_zone, stop_level
 from eigenview.factors.dormant import score_dormant
 from eigenview.factors.flow import score_flow
 from eigenview.factors.gex import score_gex
@@ -130,6 +131,29 @@ async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[Tick
 
     qualified = rank_picks(scorecards, macro_score)
     await write_picks(qualified, macro_score, session, all_scorecards=scorecards)
+
+    today_str = date.today().isoformat()
+    for sc in scorecards:
+        if not sc.technical.firing or not sc.technical.label:
+            continue
+        direction = "short" if sc.technical.label in SHORT_SETUP_PATTERNS else "long"
+        ez = entry_zone(sc)
+        sl = stop_level(sc)
+        try:
+            await write_signal_trigger(
+                session,
+                ticker=sc.ticker,
+                scan_date=today_str,
+                setup_type=sc.technical.label,
+                direction=direction,
+                entry_low=ez[0],
+                entry_high=ez[1],
+                stop=sl,
+                target=None,
+                confidence=sc.technical.strength,
+            )
+        except Exception as exc:
+            log.warning("signal_trigger_write_failed", ticker=sc.ticker, error=str(exc))
 
     # Generate LLM theses for qualifying picks
     try:
