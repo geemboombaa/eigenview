@@ -4,13 +4,18 @@ Condition coverage tests — AC3, AC4.
 AC3: NEVER_FIRED detection exits non-zero when a required pattern is absent
 AC4: condition_coverage exits 0 when all required patterns fire at least once
 
-All tests raise NotImplementedError until implementation (green phase).
+NOTE: Tests AC3/AC4 use constructed scan_output dicts (not real DB data).
+This tests the checker LOGIC correctly. A separate @pytest.mark.data_dependent
+test (test_AC3_against_real_signal_triggers) tests the full pipeline with
+real signal_triggers rows from a completed daily scan.
 """
 from __future__ import annotations
 
 import json
 import sys
 import pathlib
+
+import pytest
 
 # Ensure src/ on path for direct import
 sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "src"))
@@ -80,6 +85,39 @@ def test_AC4_all_patterns_fired_exits_zero():
     scan_output = _make_scan_output_all_patterns_fired()
     exit_code, report = _run_condition_coverage(scan_output)
     assert exit_code == 0, f"Expected exit 0 but got {exit_code}"
+
+
+@pytest.mark.data_dependent
+def test_AC3_against_real_signal_triggers():
+    """
+    GIVEN a completed daily_scan has run (signal_triggers table has rows)
+    WHEN condition_coverage runs against real signal_triggers data
+    THEN report contains only FIRED or NEVER_FIRED statuses
+    Skips if no scan data available.
+    """
+    import asyncio
+    try:
+        from eigenview.data.storage import AsyncSessionLocal, SignalTrigger
+        from sqlalchemy import select
+
+        async def _get_real_scan_output() -> dict:
+            async with AsyncSessionLocal() as session:
+                rows = (await session.execute(select(SignalTrigger))).scalars().all()
+                if not rows:
+                    return {}
+                picks = [{"ticker": r.ticker, "setup_type": r.setup_type,
+                          "conviction": 3, "direction": r.direction}
+                         for r in rows]
+                return {"picks_count": len(picks), "picks": picks}
+
+        scan_output = asyncio.run(_get_real_scan_output())
+        if not scan_output:
+            pytest.skip("signal_triggers table empty — run eigenview daily-scan first")
+        _, report = check_coverage(scan_output)
+        for pattern, status in report.items():
+            assert status in ("FIRED", "NEVER_FIRED"), f"Unknown status {status} for {pattern}"
+    except ImportError:
+        pytest.skip("eigenview not importable")
 
 
 def test_AC3_required_patterns_include_all_21_setups():
