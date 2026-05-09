@@ -190,10 +190,10 @@ const SESSIONS = [
      detail:"Both design flaws and test quality gaps. Need concrete plan not just identification.",
      resp:"Intelligent layer design written (.boss/intelligent-layer-design.md). Conviction fix + GEX soft gate + forward_returns + PickExplanation designed. NOT YET CODED. See items 12-19 below for individual gaps."},
 
-    {id:9, src:"user", pri:"p0", status:"prog",
+    {id:9, src:"user", pri:"p0", status:"partial",
      ask:"Institutional-grade AI layer — NOT weighted scoring. What does a hedge fund actually use?",
      detail:"Research question: given all these factor signals, what is the professional/institutional AI mechanism? LLM agent? Multi-agent? Hybrid ML+LLM? Not weighted sum.",
-     resp:"Opus 4.7 launched (fresh context, no codebase). Researching: industry state of art, 5+ architecture options, cold-start strategy, LLM honest assessment, cross-factor interactions, missing data signals. In progress."},
+     resp:"Opus 4.7 research complete in .boss/institutional-ai-layer-research.md. Recommendation: Hybrid GBT + LLM Reasoning Layer (Option E). Key: LLM as ASYMMETRIC auditor — can only downgrade conviction, never raise (prevents hallucinated false positives). GBT learns factor interactions after 500 labels (~day 90). Active learning from trader rejections starts day 30. MoE at day 365. IMPLEMENTATION AWAITING USER APPROVAL of proposal."},
 
     {id:10, src:"user", pri:"p1", status:"done",
      ask:"Integration E2E — is it just Playwright or are UI tests fed by real live data?",
@@ -207,20 +207,20 @@ const SESSIONS = [
 
     // ── Claude-identified gaps from Opus audit ───────────────────────────────
 
-    {id:12, src:"claude", pri:"p0", status:"open",
+    {id:12, src:"claude", pri:"p0", status:"done",
      ask:"scanner.py: _identify_dormant_bets defined twice (lines 30 and 73)",
      detail:"One definition is dead code. Must fix before intelligent layer wires to scanner.",
-     resp:"Identified in Opus audit. Not yet fixed. Fix: read scanner.py, delete duplicate, verify tests pass."},
+     resp:"Fixed in commit b563e3e. Removed first duplicate definition, merged None guards + OI update logic into single clean implementation. 299 tests pass."},
 
     {id:13, src:"claude", pri:"p0", status:"open",
      ask:"sentiment.py: production code is 10-word bag-of-words, spec says FinBERT",
      detail:'{"beat","record","guidance"} bag-of-words is not FinBERT. The spec and the code disagree.',
-     resp:"Identified in Opus audit. Not yet fixed. Requires: add sentence-transformers to deps, implement FinBERT local inference, replace bag-of-words function."},
+     resp:"Identified in Opus audit. Needs separate fix/ PR. Requires: add sentence-transformers to deps, implement FinBERT local inference with keyword fallback. Deferred."},
 
-    {id:14, src:"claude", pri:"p0", status:"open",
+    {id:14, src:"claude", pri:"p0", status:"done",
      ask:"forward_return_5d / forward_return_20d columns exist but are NEVER populated",
      detail:"signal_triggers table has these columns. Zero code anywhere populates them. No alpha validation possible.",
-     resp:"Designed in intelligent layer doc: forward_returns.py populator (cron job T+5, T+20). Not yet implemented."},
+     resp:"Fixed in commit b563e3e. Created ForwardReturn ORM table in storage.py + full populator in synthesis/forward_returns.py. T+5/T+20 returns, hit_target/stop, direction-aware. CLI command: uv run eigenview populate-forward-returns."},
 
     {id:15, src:"claude", pri:"p0", status:"open",
      ask:"Two parallel TA implementations: score_technical() and detect_pattern() diverge",
@@ -247,10 +247,10 @@ const SESSIONS = [
      detail:"CLI tests mock everything + assert exit_code==0. test_macro.py computes formula then compares to itself. API tests are status-200 only.",
      resp:"Identified in Opus audit. Plan: replace CLI tests with subprocess tests against real CLI. Replace macro arithmetic tests with real data assertions. Strengthen API tests with field validation. No timeline yet."},
 
-    {id:20, src:"claude", pri:"p1", status:"open",
+    {id:20, src:"claude", pri:"p1", status:"done",
      ask:"4 remaining ac-audit.yml bugs still not fixed",
      detail:"(1) hardcoded origin/master diff wrong for non-master PRs. (2) audit job has no permissions: pull-requests: write — comment posting silently fails. (3) step trigger says 'Step 13' should say 'Step 19/20'. (4) AC traceability scans all 300+ tests = 270 noise findings.",
-     resp:"Identified. Not yet fixed. Can fix on this branch during green phase (step 22+)."},
+     resp:"All 4 fixed in commit b563e3e: permissions: pull-requests: write added, GITHUB_BASE_REF env var replaces hardcoded master, step trigger now says Step 20, AC traceability uses git diff HEAD^1 HEAD to scan only changed files."},
 
     {id:21, src:"claude", pri:"p1", status:"open",
      ask:"Frontend UI: signal matrix view and chart overlays not implemented",
@@ -264,25 +264,25 @@ const SESSIONS = [
 
     // ── Integration E2E gaps ──────────────────────────────────────────────────
 
-    {id:23, src:"claude", pri:"p0", status:"open",
+    {id:23, src:"claude", pri:"p0", status:"done",
      ask:"integration-live.yml does not exist yet — must be created (AC1)",
      detail:"The nightly CI workflow that runs real data pipeline + Playwright Suite B. Core of integration-e2e-suite feature.",
-     resp:"Designed in design-review.md. Stubs written. Implementation unblocked (gate removed). Create .github/workflows/integration-live.yml."},
+     resp:"Created in commit 71b7d4e. Nightly cron 21:00 UTC Mon-Fri + workflow_dispatch. Reads ALPHA_VANTAGE_KEY + FINNHUB_KEY from secrets, fails with clear message if absent. Runs daily_scan → condition_coverage → Playwright. Posts BOSS comments. Uploads artifacts."},
 
-    {id:24, src:"claude", pri:"p0", status:"open",
+    {id:24, src:"claude", pri:"p0", status:"done",
      ask:"condition_coverage.py does not exist yet — must be created (AC3/AC4)",
      detail:"Checks signal_triggers table for NEVER_FIRED patterns across 21 TA setups. Reports coverage.",
-     resp:"Stubs written. Must create src/eigenview/ci/condition_coverage.py. No synthetic data — reads real signal_triggers rows."},
+     resp:"Created src/eigenview/ci/condition_coverage.py in commit 71b7d4e. Checks all 27 TA setup patterns (superset of 21 from CLAUDE.md). Exits 0 if all FIRED, exits 1 if any NEVER_FIRED. 5/5 AC3/AC4 tests pass."},
 
-    {id:25, src:"claude", pri:"p0", status:"open",
+    {id:25, src:"claude", pri:"p0", status:"done",
      ask:"BOSS mechanism (auto-fix loop) CI jobs not yet implemented (AC5/AC6/AC7)",
      detail:"CI reads pytest XML, posts BOSS_FIX_REQUEST comment on RED failures, BOSS_YELLOW_FLAGS on data_dependent failures, escalates after 3 attempts.",
-     resp:"Stubs written. Must create src/eigenview/ci/boss_mechanism.py + CI job in integration-live.yml."},
+     resp:"Implemented as GitHub Actions script in integration-live.yml (Post BOSS status comment step). YELLOW→BOSS_YELLOW_FLAGS + status:yellow-flags-pending, build passes. RED→BOSS_FIX_REQUEST JSON + status:ci-failing, build fails. RED×3→BOSS_ESCALATE + status:needs-human-debug. 9/9 AC5/6/7 tests pass."},
 
-    {id:26, src:"claude", pri:"p0", status:"open",
+    {id:26, src:"claude", pri:"p0", status:"done",
      ask:"tests/ui/conftest.py server fixture not yet implemented (AC8/AC9)",
      detail:"Must start real uvicorn server as pytest fixture. AC8 (Suite A) connects to it for store injection. AC9 (Suite B) connects for DB field validation.",
-     resp:"Stubs in test_suite_a_ac8.py and test_suite_b_ac9_ac10.py reference this fixture. Must implement: subprocess uvicorn + playwright browser fixture."},
+     resp:"Created tests/ui/conftest.py in commit 71b7d4e. eigenview_server: starts subprocess uvicorn, polls until live, tears down after session. eigenview_server_with_picks: runs daily_scan first to populate DB, skips if live data unavailable. No mock API, no synthetic data."},
   ]
 }
 
