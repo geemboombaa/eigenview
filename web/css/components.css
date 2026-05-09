@@ -168,6 +168,10 @@ html, body {
   height: 230px;
 }
 
+.strip-module-inner {
+  height: 230px;
+}
+
 #ev-strip-slot .ev-module {
   height: 100%;
   min-height: 0;

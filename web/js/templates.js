@@ -33,7 +33,8 @@
       nav: true,
       chat: true,
       showPicks: true,
-      showMain: true
+      showMain: true,
+      showStrip: false
     },
     {
       id: 'research',
@@ -83,11 +84,13 @@
     const mainCol   = document.getElementById('ev-main-col');
     const picksSlot = document.getElementById('ev-picks-slot');
     const nav       = document.getElementById('ev-nav-slot');
+    const stripSlot = document.getElementById('ev-strip-slot');
     const body      = document.getElementById('ev-body');
 
     if (mainCol)   mainCol.style.display   = showMain  ? '' : 'none';
     if (picksSlot) picksSlot.style.display = showPicks ? '' : 'none';
     if (nav)       nav.style.display       = tpl.nav   ? '' : 'none';
+    if (stripSlot) stripSlot.style.display = tpl.showStrip !== false ? '' : 'none';
 
     if (body) {
       const pc = showPicks ? '380px' : '0';

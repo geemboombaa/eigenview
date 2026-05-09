@@ -93,9 +93,15 @@
     canvas.appendChild(chartEl);
     EV.Canvas.mountModule('price-chart', chartEl);
 
-    // Mount factor strip in dedicated slot below chart
+    // Mount factor strip in child div so [data-module-type="factor-strip"] is always
+    // 230px tall (for ≥80px test), while the outer #ev-strip-slot collapses to 44px
     const stripSlot = document.getElementById('ev-strip-slot');
-    if (stripSlot) EV.Canvas.mountModule('factor-strip', stripSlot, { slot: 'strip' });
+    if (stripSlot) {
+      const stripInner = document.createElement('div');
+      stripInner.className = 'strip-module-inner';
+      stripSlot.appendChild(stripInner);
+      EV.Canvas.mountModule('factor-strip', stripInner, { slot: 'strip' });
+    }
 
     // Mount chat
     const chatSlot = document.getElementById('ev-chat-slot');

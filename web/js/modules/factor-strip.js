@@ -266,7 +266,7 @@
       this._sub('selectedPick', pick => {
         this._pick = pick;
         this._expanded = null;
-        this.el.classList.remove('expanded');
+        (this.el.parentElement || this.el).classList.remove('expanded');
         this._render(pick);
       });
 
@@ -301,23 +301,35 @@
       this.el.innerHTML = `<div class="fs-wrap"><div class="fs-top">${dotsHtml}<span class="fs-sep"></span>${summary}</div><div class="fs-detail" id="fs-det"></div></div>`;
 
       // Wire clicks
+      const slot = this.el.parentElement || this.el;
       this.el.querySelectorAll('.fs-dot-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.fid;
           const det = this.el.querySelector('#fs-det');
           if (this._expanded === fid) {
             this._expanded = null;
-            this.el.classList.remove('expanded');
+            slot.classList.remove('expanded');
             if (det) det.innerHTML = '';
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.remove('expanded'));
           } else {
             this._expanded = fid;
-            this.el.classList.add('expanded');
+            slot.classList.add('expanded');
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.toggle('expanded', b.dataset.fid === fid));
             if (det) det.innerHTML = renderChecklist(fid, factors[fid] || {});
           }
         });
       });
+
+      // Auto-expand TA checklist when technical factor fires on render
+      if (pick && factors.technical?.firing) {
+        const det = this.el.querySelector('#fs-det');
+        if (det && !det.innerHTML) {
+          det.innerHTML = renderChecklist('technical', factors.technical || {});
+          this._expanded = 'technical';
+          slot.classList.add('expanded');
+          this.el.querySelector('[data-fid="technical"]')?.classList.add('expanded');
+        }
+      }
     }
 
     unmount() {
