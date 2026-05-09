@@ -12,11 +12,11 @@ import pathlib
 
 
 def _load_workflow_yaml() -> str:
-    """Read .github/workflows/integration-live.yml. Raises NotImplementedError if not found."""
-    raise NotImplementedError(
-        "AC1/AC2: .github/workflows/integration-live.yml not yet created. "
-        "Implement workflow file in green phase."
-    )
+    """Read .github/workflows/integration-live.yml."""
+    wf = pathlib.Path(".github/workflows/integration-live.yml")
+    if not wf.exists():
+        raise FileNotFoundError(f"{wf} not found — create workflow in green phase")
+    return wf.read_text()
 
 
 def test_AC1_workflow_has_schedule_trigger():

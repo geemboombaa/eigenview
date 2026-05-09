@@ -1,0 +1,200 @@
+name: integration-live
+
+on:
+  schedule:
+    - cron: '0 21 * * 1-5'   # 21:00 UTC Mon-Fri (post US market close)
+  workflow_dispatch:
+    inputs:
+      universe:
+        description: 'Ticker universe'
+        required: false
+        default: 'test5'
+
+env:
+  ALPHA_VANTAGE_KEY: ${{ secrets.ALPHA_VANTAGE_KEY }}
+  FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  DB_PATH: data/eigenview_integration.db
+  UNIVERSE: ${{ github.event.inputs.universe || 'test5' }}
+
+jobs:
+  integration:
+    name: Live Integration + UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          if [ -z "$ALPHA_VANTAGE_KEY" ]; then
+            echo "ERROR: ALPHA_VANTAGE_KEY secret is absent or empty"
+            exit 1
+          fi
+          if [ -z "$FINNHUB_KEY" ]; then
+            echo "ERROR: FINNHUB_KEY secret is absent or empty"
+            exit 1
+          fi
+          echo "Secrets present — proceeding"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Create DB directory
+        run: mkdir -p data
+
+      - name: Run daily scan (test5 universe)
+        id: daily_scan
+        run: |
+          uv run eigenview daily-scan --universe $UNIVERSE 2>&1 | tee scan_output.log
+          echo "scan_exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Collect scan results
+        id: scan_results
+        run: |
+          uv run python -c "
+          import asyncio, json
+          from eigenview.data.storage import AsyncSessionLocal, Pick
+          from sqlalchemy import select
+          from datetime import date
+
+          async def main():
+              async with AsyncSessionLocal() as s:
+                  rows = (await s.execute(select(Pick).where(Pick.date == date.today()))).scalars().all()
+                  picks = [{'ticker': r.ticker, 'setup_type': r.setup_type, 'conviction': r.conviction, 'direction': r.direction} for r in rows]
+                  print(json.dumps({'picks_count': len(picks), 'picks': picks}))
+
+          asyncio.run(main())
+          " > scan_results.json
+          cat scan_results.json
+
+      - name: Run condition coverage check
+        id: condition_coverage
+        run: |
+          uv run python src/eigenview/ci/condition_coverage.py scan_results.json > coverage_report.json
+          echo "coverage_exit=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Install Playwright
+        run: |
+          uv run playwright install chromium --with-deps
+
+      - name: Start eigenview server
+        run: |
+          uv run uvicorn eigenview.api.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          curl -f http://localhost:8000/api/market/regime || (echo "Server failed to start" && exit 1)
+
+      - name: Run Playwright UI tests
+        id: playwright
+        run: |
+          EIGENVIEW_TEST_URL=http://localhost:8000 uv run pytest tests/ui/functional/ tests/ui/data/ -v \
+            --tb=short -m "not data_dependent" 2>&1 | tee playwright_output.log
+          echo "playwright_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Run data_dependent tests (yellow flag tier)
+        id: playwright_yellow
+        run: |
+          EIGENVIEW_TEST_URL=http://localhost:8000 uv run pytest tests/ui/data/ -v \
+            --tb=short -m "data_dependent" 2>&1 | tee playwright_yellow.log
+          echo "yellow_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-live-artifacts-${{ github.run_id }}
+          path: |
+            scan_output.log
+            scan_results.json
+            coverage_report.json
+            playwright_output.log
+            playwright_yellow.log
+          retention-days: 30
+
+      - name: Post BOSS status comment
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PLAYWRIGHT_EXIT: ${{ steps.playwright.outputs.playwright_exit }}
+          YELLOW_EXIT: ${{ steps.playwright_yellow.outputs.yellow_exit }}
+          SCAN_EXIT: ${{ steps.daily_scan.outputs.scan_exit }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        with:
+          script: |
+            const playwrightExit = parseInt(process.env.PLAYWRIGHT_EXIT || '0');
+            const yellowExit = parseInt(process.env.YELLOW_EXIT || '0');
+            const scanExit = parseInt(process.env.SCAN_EXIT || '0');
+            const attempt = parseInt(process.env.RUN_ATTEMPT || '1');
+
+            const prList = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`
+            });
+
+            let body, labels;
+
+            if (playwrightExit !== 0) {
+              if (attempt >= 3) {
+                body = `BOSS_ESCALATE\n\nThird consecutive RED failure. Human debug required.\nAttempt: ${attempt}\nRun: ${context.runId}`;
+                labels = ['status:needs-human-debug'];
+                const removeLabel = 'status:ci-failing';
+                if (prList.data.length > 0) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: prList.data[0].number,
+                      name: removeLabel
+                    });
+                  } catch(e) {}
+                }
+              } else {
+                body = `BOSS_FIX_REQUEST\n\n\`\`\`json\n{"attempt": ${attempt}, "run_id": "${context.runId}", "failure": "playwright_tests_red"}\n\`\`\``;
+                labels = ['status:ci-failing'];
+              }
+            } else if (yellowExit !== 0) {
+              body = `BOSS_YELLOW_FLAGS\n\nData-dependent tests failed (market data issue, not code bug).\nAttempt: ${attempt}\nRun: ${context.runId}`;
+              labels = ['status:yellow-flags-pending'];
+            } else {
+              body = `Integration run GREEN ✓\nScan complete. All UI tests pass.\nRun: ${context.runId}`;
+              labels = [];
+            }
+
+            if (prList.data.length > 0) {
+              const prNum = prList.data[0].number;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNum,
+                body
+              });
+              for (const label of labels) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNum,
+                    labels: [label]
+                  });
+                } catch(e) {}
+              }
+            }
+
+            // Fail the build on RED (but not YELLOW)
+            if (playwrightExit !== 0) {
+              core.setFailed(`Integration tests RED (attempt ${attempt})`);
+            }
