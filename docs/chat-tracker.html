@@ -35,7 +35,16 @@
   .sv-open{color:var(--R);}
   .sv-part{color:var(--P);}
 
-  .toolbar{display:flex;gap:8px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;position:sticky;top:59px;z-index:99;}
+  /* TAB NAV */
+  .tab-nav{display:flex;gap:8px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:59px;z-index:99;flex-wrap:wrap;align-items:center;}
+  .tab-btn{padding:5px 18px;border-radius:20px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+  .tab-btn:hover{border-color:var(--accent);color:var(--text);}
+  .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* ISSUES TOOLBAR */
+  .toolbar{display:flex;gap:8px;padding:10px 24px 10px;flex-wrap:wrap;align-items:center;}
   select,input[type=text]{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;outline:none;}
   select:focus,input:focus{border-color:var(--accent);}
 
@@ -88,11 +97,63 @@
 
   .resp-file{font-family:'Courier New',monospace;font-size:10px;background:var(--surface2);padding:1px 5px;border-radius:3px;color:var(--T);}
 
-  /* FILTER HIDDEN */
   .item-row.hidden{display:none;}
-
-  /* LAST UPDATED */
   .last-updated{font-size:11px;color:var(--text3);padding:8px 24px;text-align:right;}
+
+  /* ── CAPTURES TAB ─────────────────────────────────────────────────────── */
+  .cap-panel{padding:16px 24px;}
+  .cap-grid{display:flex;flex-direction:column;gap:12px;}
+
+  .capture-card{background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+  .capture-card-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .cap-num{font-family:'Courier New',monospace;font-size:12px;font-weight:800;color:var(--T);min-width:28px;}
+  .cap-title{font-size:12px;font-weight:700;color:var(--text);flex:1;}
+  .cap-ts{font-size:10px;color:var(--text3);}
+  .cap-author-claude{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;
+    background:rgba(124,109,250,0.12);color:var(--accent);border:1px solid rgba(124,109,250,0.3);}
+  .cap-author-user{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;
+    background:rgba(0,180,255,0.12);color:var(--B);border:1px solid rgba(0,180,255,0.3);}
+  .cap-type{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;
+    background:var(--surface3);color:var(--text3);border:1px solid var(--border2);}
+  .cap-issues{display:flex;gap:4px;flex-wrap:wrap;margin-left:4px;}
+  .cap-issue-link{font-size:10px;font-weight:700;color:var(--Y);background:rgba(255,214,10,0.1);
+    border:1px solid rgba(255,214,10,0.25);border-radius:4px;padding:1px 6px;cursor:pointer;text-decoration:none;}
+  .cap-issue-link:hover{background:rgba(255,214,10,0.2);}
+  .capture-card-body{padding:14px;}
+  .cap-text{font-size:12px;color:var(--text2);white-space:pre-wrap;line-height:1.6;}
+  .cap-image{max-width:100%;border-radius:4px;border:1px solid var(--border2);}
+  .cap-table{width:100%;border-collapse:collapse;font-size:11px;}
+  .cap-table th{background:var(--surface2);color:var(--text3);padding:5px 8px;text-align:left;border:1px solid var(--border2);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;}
+  .cap-table td{padding:5px 8px;border:1px solid var(--border);color:var(--text2);}
+  .cap-table tr:nth-child(even) td{background:rgba(255,255,255,0.01);}
+
+  /* DELETE btn */
+  .cap-del{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:2px 6px;border-radius:4px;margin-left:auto;}
+  .cap-del:hover{color:var(--R);background:rgba(255,45,85,0.1);}
+
+  /* PASTE AREA */
+  .paste-section{margin-bottom:16px;}
+  .paste-hdr{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:700;}
+  .paste-form{background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden;}
+  .paste-fields{display:flex;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .paste-title-input{flex:1;background:var(--surface3);border:1px solid var(--border2);color:var(--text);padding:5px 10px;border-radius:5px;font-size:12px;outline:none;}
+  .paste-title-input:focus{border-color:var(--accent);}
+  .paste-issue-input{width:110px;background:var(--surface3);border:1px solid var(--border2);color:var(--Y);padding:5px 10px;border-radius:5px;font-size:12px;outline:none;}
+  .paste-issue-input:focus{border-color:var(--Y);}
+  .paste-issue-input::placeholder{color:var(--text3);}
+  .paste-zone{min-height:80px;padding:14px;color:var(--text3);font-size:12px;outline:none;position:relative;cursor:text;}
+  .paste-zone:focus{color:var(--text);}
+  .paste-zone-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--text3);font-size:12px;pointer-events:none;text-align:center;white-space:nowrap;}
+  .paste-zone-hint span{display:block;font-size:18px;margin-bottom:4px;opacity:0.4;}
+  .paste-zone img{max-width:100%;border-radius:4px;}
+  .paste-actions{display:flex;gap:8px;padding:8px 14px;border-top:1px solid var(--border);}
+  .paste-save-btn{padding:5px 16px;background:var(--accent);border:none;border-radius:5px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+  .paste-save-btn:hover{opacity:0.85;}
+  .paste-clear-btn{padding:5px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:12px;cursor:pointer;}
+  .paste-clear-btn:hover{border-color:var(--R);color:var(--R);}
+
+  /* Cap counter badge */
+  .cap-count-badge{font-size:11px;color:var(--T);background:rgba(0,229,204,0.1);border:1px solid rgba(0,229,204,0.2);border-radius:10px;padding:2px 8px;margin-left:8px;}
 </style>
 </head>
 <body>
@@ -110,35 +171,70 @@
   </div>
 </header>
 
-<div class="toolbar">
-  <select id="filter-src">
-    <option value="">All Sources</option>
-    <option value="user">User Asks</option>
-    <option value="claude">Claude Identified</option>
-  </select>
-  <select id="filter-status">
-    <option value="">All Status</option>
-    <option value="done">Done</option>
-    <option value="prog">In Progress</option>
-    <option value="partial">Partial</option>
-    <option value="open">Open</option>
-  </select>
-  <select id="filter-pri">
-    <option value="">All Priorities</option>
-    <option value="p0">P0 — Critical</option>
-    <option value="p1">P1 — Core</option>
-    <option value="p2">P2 — Enhancement</option>
-    <option value="p3">P3 — Nice to Have</option>
-  </select>
-  <input type="text" id="filter-search" placeholder="Search asks..." style="min-width:200px;">
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('issues',this)">Issues</button>
+  <button class="tab-btn" onclick="switchTab('captures',this)">Captures <span class="cap-count-badge" id="cap-count-badge">0</span></button>
 </div>
 
-<main id="main-content"></main>
-<div class="last-updated">Last updated: 2026-05-08 · Updated by Claude each conversation turn</div>
+<!-- ── ISSUES TAB ──────────────────────────────────────────────────────────── -->
+<div id="tab-issues" class="tab-panel active">
+  <div class="toolbar">
+    <select id="filter-src">
+      <option value="">All Sources</option>
+      <option value="user">User Asks</option>
+      <option value="claude">Claude Identified</option>
+    </select>
+    <select id="filter-status">
+      <option value="">All Status</option>
+      <option value="done">Done</option>
+      <option value="prog">In Progress</option>
+      <option value="partial">Partial</option>
+      <option value="open">Open</option>
+    </select>
+    <select id="filter-pri">
+      <option value="">All Priorities</option>
+      <option value="p0">P0 — Critical</option>
+      <option value="p1">P1 — Core</option>
+      <option value="p2">P2 — Enhancement</option>
+      <option value="p3">P3 — Nice to Have</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="Search asks..." style="min-width:200px;">
+  </div>
+  <main id="main-content"></main>
+  <div class="last-updated">Last updated: 2026-05-08 · Updated by Claude each conversation turn</div>
+</div>
+
+<!-- ── CAPTURES TAB ────────────────────────────────────────────────────────── -->
+<div id="tab-captures" class="tab-panel">
+  <div class="cap-panel">
+
+    <!-- PASTE AREA -->
+    <div class="paste-section">
+      <div class="paste-hdr">New Capture — paste text or image below</div>
+      <div class="paste-form">
+        <div class="paste-fields">
+          <input type="text" class="paste-title-input" id="paste-title" placeholder="Title (optional)">
+          <input type="text" class="paste-issue-input" id="paste-issues" placeholder="Issues: #16 #28">
+        </div>
+        <div class="paste-zone" id="paste-zone" contenteditable="true" tabindex="0">
+          <div class="paste-zone-hint" id="paste-hint"><span>⌘V</span>Paste text, image, or table here</div>
+        </div>
+        <div class="paste-actions">
+          <button class="paste-save-btn" onclick="saveCapture()">Save Capture</button>
+          <button class="paste-clear-btn" onclick="clearPasteZone()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPTURES LIST -->
+    <div class="cap-grid" id="captures-list"></div>
+
+  </div>
+</div>
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
-// DATA — all asks, numbered sequentially, updated each turn by Claude
+// ISSUES DATA
 // ─────────────────────────────────────────────────────────────────────────────
 const SESSIONS = [
 
@@ -158,7 +254,7 @@ const SESSIONS = [
     {id:3, src:"user", pri:"p1", status:"done",
      ask:"Full quality audit of 299 existing tests",
      detail:"Are most tests fake or not doing anything? Deep scan, report quality.",
-     resp:"Opus 4.7 audit: 57% real, 33% weak, 10% fake. Worst: CLI tests (100% theatre), test_macro.py (tautological arithmetic), test_chat.py (mocked client asserts not None)."},
+     resp:"Opus 4.7 audit: 57% real, 33% weak, 10% fake. Worst: CLI tests (100% theatre), test_macro.py (tautological arithmetic), test_chat.py (mocked client asserts not None). See Capture C1."},
 
     {id:4, src:"user", pri:"p0", status:"done",
      ask:"Audit system design — is the rigid pipeline right?",
@@ -193,12 +289,12 @@ const SESSIONS = [
     {id:9, src:"user", pri:"p0", status:"partial",
      ask:"Institutional-grade AI layer — NOT weighted scoring. What does a hedge fund actually use?",
      detail:"Research question: given all these factor signals, what is the professional/institutional AI mechanism? LLM agent? Multi-agent? Hybrid ML+LLM? Not weighted sum.",
-     resp:"Opus 4.7 research complete in .boss/institutional-ai-layer-research.md. Recommendation: Hybrid GBT + LLM Reasoning Layer (Option E). Key: LLM as ASYMMETRIC auditor — can only downgrade conviction, never raise (prevents hallucinated false positives). GBT learns factor interactions after 500 labels (~day 90). Active learning from trader rejections starts day 30. MoE at day 365. IMPLEMENTATION AWAITING USER APPROVAL of proposal."},
+     resp:"Opus 4.7 research complete in .boss/institutional-ai-layer-research.md. Recommendation: Hybrid GBT + LLM Reasoning Layer (Option E). LLM as ASYMMETRIC auditor — can only downgrade conviction, never raise. GBT learns factor interactions after 500 labels (~day 90). IMPLEMENTATION AWAITING USER APPROVAL."},
 
     {id:10, src:"user", pri:"p1", status:"done",
      ask:"Integration E2E — is it just Playwright or are UI tests fed by real live data?",
      detail:"Clarify architecture: what counts as integration vs E2E vs unit.",
-     resp:"Integration = Python tests (test_pipeline.py) with real API/DB calls. E2E = Playwright against real running server. integration-live.yml runs BOTH sequentially: (1) full daily_scan on real data → (2) Playwright Suite B reads picks that scan just wrote. Suite A tests UI behavior only (store injection). Suite B is end-to-end: real data → real server → UI field validation."},
+     resp:"Integration = Python tests (test_pipeline.py) with real API/DB calls. E2E = Playwright against real running server. integration-live.yml runs BOTH: (1) full daily_scan on real data → (2) Playwright Suite B reads picks that scan just wrote."},
 
     {id:11, src:"user", pri:"p1", status:"done",
      ask:"Live tracking dashboard — numbered asks, status, real-time updates",
@@ -225,12 +321,12 @@ const SESSIONS = [
     {id:15, src:"claude", pri:"p0", status:"open",
      ask:"Two parallel TA implementations: score_technical() and detect_pattern() diverge",
      detail:"Both live in technical.py. Return different things. Can disagree on edge cases. Time bomb.",
-     resp:"Identified. Not yet fixed. Requires deep read of technical.py to understand both, then merge."},
+     resp:"Identified. Separate PR needed with full spec. score_technical() should call detect_pattern() internally. Deferred."},
 
-    {id:16, src:"claude", pri:"p0", status:"open",
+    {id:16, src:"claude", pri:"p0", status:"done",
      ask:"Conviction math broken: mean([ta,gex,flow,dormant,sentiment]) with non-firing=0",
      detail:"TA=5, GEX=4, flow=5 with dormant+sentiment not firing → conviction 2.8 → rounds to 3. Should be 4-5.",
-     resp:"Fix designed in intelligent-layer-design.md: weighted sum of FIRING factors only, normalized by their weights. Part of scorer.py. Not yet coded."},
+     resp:"Fixed in commit 5e36a9b. conviction_score() now: firing = [f for f in factors if f.firing], avg_strength = sum(f.strength for f in firing)/len(firing), count_ratio = max(0,(len(firing)-2)/(len(factors)-2)), composite = strength×0.65 + count_ratio×0.35 → 1-5 thresholds. All 299 tests pass. See Capture C2."},
 
     {id:17, src:"claude", pri:"p1", status:"open",
      ask:"GEX hard gate eliminates ~40% valid picks on low/zero-GEX tickers",
@@ -249,18 +345,18 @@ const SESSIONS = [
 
     {id:20, src:"claude", pri:"p1", status:"done",
      ask:"4 remaining ac-audit.yml bugs still not fixed",
-     detail:"(1) hardcoded origin/master diff wrong for non-master PRs. (2) audit job has no permissions: pull-requests: write — comment posting silently fails. (3) step trigger says 'Step 13' should say 'Step 19/20'. (4) AC traceability scans all 300+ tests = 270 noise findings.",
+     detail:"(1) hardcoded origin/master diff wrong for non-master PRs. (2) audit job has no permissions: pull-requests: write. (3) step trigger says 'Step 13' should say 'Step 19/20'. (4) AC traceability scans all 300+ tests = 270 noise findings.",
      resp:"All 4 fixed in commit b563e3e: permissions: pull-requests: write added, GITHUB_BASE_REF env var replaces hardcoded master, step trigger now says Step 20, AC traceability uses git diff HEAD^1 HEAD to scan only changed files."},
 
     {id:21, src:"claude", pri:"p1", status:"open",
      ask:"Frontend UI: signal matrix view and chart overlays not implemented",
      detail:"Playwright stubs for signal matrix (SIGNAL MATRIX nav pill, star column, matrix rows) and chart EMA/BB toggles all marked test.fail — UI features don't exist yet.",
-     resp:"8 gap stubs written in suite_a_gaps.spec.js. Features need to be built in UI (framework.js or new module). No timeline yet."},
+     resp:"8 gap stubs written in suite_a_gaps.spec.js. Features need to be built in UI (framework.js or new module). No timeline yet. Separate feature PR."},
 
     {id:22, src:"claude", pri:"p2", status:"open",
      ask:"Options flow is EOD V/OI ratio, not tick-level sweep detection",
      detail:"V/OI > 3 at EOD is unusual activity indicator, not sweep detection. Hedge funds want OPRA tape or at minimum intraday chain snapshots.",
-     resp:"Identified in Opus audit. Improving flow to intraday requires either paid data (OPRA) or multiple yfinance chain pulls per day (rate limit risk). Lower priority than above. Needs decision."},
+     resp:"Identified in Opus audit. Improving flow to intraday requires either paid data (OPRA) or multiple yfinance chain pulls per day (rate limit risk). Lower priority. Needs decision."},
 
     // ── Integration E2E gaps ──────────────────────────────────────────────────
 
@@ -272,29 +368,29 @@ const SESSIONS = [
     {id:24, src:"claude", pri:"p0", status:"done",
      ask:"condition_coverage.py does not exist yet — must be created (AC3/AC4)",
      detail:"Checks signal_triggers table for NEVER_FIRED patterns across 21 TA setups. Reports coverage.",
-     resp:"Created src/eigenview/ci/condition_coverage.py in commit 71b7d4e. Checks all 27 TA setup patterns (superset of 21 from CLAUDE.md). Exits 0 if all FIRED, exits 1 if any NEVER_FIRED. 5/5 AC3/AC4 tests pass."},
+     resp:"Created src/eigenview/ci/condition_coverage.py in commit 71b7d4e. Checks all 27 TA setup patterns. Exits 0 if all FIRED, exits 1 if any NEVER_FIRED. 5/5 AC3/AC4 tests pass."},
 
     {id:25, src:"claude", pri:"p0", status:"done",
      ask:"BOSS mechanism (auto-fix loop) CI jobs not yet implemented (AC5/AC6/AC7)",
      detail:"CI reads pytest XML, posts BOSS_FIX_REQUEST comment on RED failures, BOSS_YELLOW_FLAGS on data_dependent failures, escalates after 3 attempts.",
-     resp:"Implemented as GitHub Actions script in integration-live.yml (Post BOSS status comment step). YELLOW→BOSS_YELLOW_FLAGS + status:yellow-flags-pending, build passes. RED→BOSS_FIX_REQUEST JSON + status:ci-failing, build fails. RED×3→BOSS_ESCALATE + status:needs-human-debug. 9/9 AC5/6/7 tests pass."},
+     resp:"Implemented as GitHub Actions script in integration-live.yml. YELLOW→BOSS_YELLOW_FLAGS + status:yellow-flags-pending, build passes. RED→BOSS_FIX_REQUEST JSON + status:ci-failing, build fails. RED×3→BOSS_ESCALATE + status:needs-human-debug. 9/9 AC5/6/7 tests pass."},
 
     {id:26, src:"claude", pri:"p0", status:"done",
      ask:"tests/ui/conftest.py server fixture not yet implemented (AC8/AC9)",
      detail:"Must start real uvicorn server as pytest fixture. AC8 (Suite A) connects to it for store injection. AC9 (Suite B) connects for DB field validation.",
-     resp:"Created tests/ui/conftest.py in commit 71b7d4e. eigenview_server: starts subprocess uvicorn, polls until live, tears down after session. eigenview_server_with_picks: runs daily_scan first to populate DB, skips if live data unavailable. No mock API, no synthetic data."},
+     resp:"Created tests/ui/conftest.py in commit 71b7d4e. eigenview_server: starts subprocess uvicorn, polls until live, tears down after session. eigenview_server_with_picks: runs daily_scan first, skips if live data unavailable."},
 
     // ── Honest gaps caught 2026-05-08 ────────────────────────────────────────
 
     {id:27, src:"claude", pri:"p0", status:"done",
      ask:"[CORRECTION] Previous 'all done' claim was false — Suite A/B had NotImplementedError stubs, Suite B had broken interface",
      detail:"Suite B: (page, db_picks) unpack when function returned just list = TypeError on first run. Suite A: 14 inline NotImplementedError stubs. AC3/AC4 tests used fake Python dicts not real DB. AC10 all NotImplementedError.",
-     resp:"FIXED in commit 56842d0: Suite B rewritten as real API contract tests (ticker type, direction valid, conviction 1-5, entry_low<entry_high, stop<entry_low, factors_json keys, setup_type known, zero-null check). AC10 all 5 tests = real YAML file assertions. Suite A 14 stubs = xfail(strict=False) documenting gaps. AC3 real-data path added (data_dependent)."},
+     resp:"FIXED in commit 56842d0: Suite B rewritten as real API contract tests. AC10 all 5 tests = real YAML file assertions. Suite A 14 stubs = xfail(strict=False) documenting gaps. AC3 real-data path added (data_dependent)."},
 
-    {id:28, src:"claude", pri:"p0", status:"open",
+    {id:28, src:"claude", pri:"p0", status:"done",
      ask:"AC11: pre-commit hook missing integration-test requirement check — 6 tests RED",
-     detail:"AC11 requires: when src/ changes staged, pre-commit blocks unless tests/integration/ or tests/ui/ also staged. Hook does not have this check. Tests correctly FAIL.",
-     resp:"Genuine gap. Pre-commit hook needs additional block in GREEN phase. Not hidden as xfail — it's a real missing enforcement mechanism."},
+     detail:"AC11 requires: when src/ changes staged, pre-commit blocks unless tests/integration/ or tests/ui/ also staged. Hook does not have this check.",
+     resp:"Fixed in commit 5e36a9b. Created src/eigenview/ci/precommit_checks.py (pure function check_integration_test_required). Pre-commit GREEN phase calls it via inline Python. All 6 AC11 tests now pass. 299 unit tests still pass."},
 
     {id:29, src:"claude", pri:"p0", status:"open",
      ask:"integration-live.yml never actually executed — zero proof CI workflow runs correctly",
@@ -303,20 +399,138 @@ const SESSIONS = [
 
     {id:30, src:"claude", pri:"p1", status:"open",
      ask:"forward_returns.py never run against real OHLCV data — never verified it produces correct numbers",
-     detail:"Code written, commits pass. But populate_forward_returns_for_date() was never called on real picks. T+5/T+20 math could be wrong (off-by-one in iloc indexing etc.)",
+     detail:"Code written, commits pass. But populate_forward_returns_for_date() was never called on real picks. T+5/T+20 math could be wrong.",
      resp:"Run: uv run eigenview populate-forward-returns --lookback-days 30. Requires real picks in DB from past scan dates. Then query forward_returns table and verify numbers against manually calculated returns."},
 
     {id:31, src:"claude", pri:"p1", status:"open",
      ask:"Suite A Playwright specs require node.js + npx + playwright install — never validated on this machine",
-     detail:"_run_spec() calls npx playwright test. If node.js not installed, tests skip. If installed, have never been run against a live server. No proof comprehensive.spec.js passes.",
+     detail:"_run_spec() calls npx playwright test. If node.js not installed, tests skip. If installed, have never been run against a live server.",
      resp:"Run: npx playwright test tests/ui/comprehensive.spec.js --base-url http://localhost:8000 with server running. Check if node/npx available first."},
+
+    {id:32, src:"claude", pri:"p1", status:"done",
+     ask:"Add Captures tab to chat-tracker.html — paste images, text, tables; auto-numbered; link to issues",
+     detail:"User requested: live paste box, auto-generate new box after each paste, auto-numbered C1/C2..., Claude captures auto-loaded, base64 image storage, link to open issue #ids.",
+     resp:"Built in current session. Captures tab added to chat-tracker.html: CLAUDE_CAPTURES array for pre-loaded audit findings, localStorage for user pastes, clipboard paste API (detects image vs text), C1/C2... auto-numbering across both. Linked issues navigate to Issues tab with filter."},
   ]
 }
 
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RENDER
+// CAPTURES DATA — Claude-authored findings (pre-loaded, source of truth in file)
+// User captures are stored in localStorage and merged at render time
+// ─────────────────────────────────────────────────────────────────────────────
+const CLAUDE_CAPTURES = [
+  {
+    id: "C-claude-1",
+    author: "claude",
+    type: "table",
+    title: "Test Quality Audit — Opus 4.7 Results",
+    linked_issues: ["#3","#19"],
+    timestamp: "2026-05-07",
+    table: {
+      headers: ["Category", "Count", "Quality", "Problem"],
+      rows: [
+        ["CLI tests", "~60", "FAKE", "Mock everything, assert exit_code==0 only. Never call real CLI."],
+        ["test_macro.py", "~15", "FAKE", "Computes formula then checks result against itself. Tautological."],
+        ["test_chat.py", "~10", "FAKE", "MagicMock client. Asserts result is not None. Tests nothing."],
+        ["API tests", "~20", "WEAK", "status_code==200 only. No field validation, no type checks."],
+        ["test_technical.py", "~40", "REAL", "Real pandas DataFrames, real indicator outputs, real assertions."],
+        ["test_gex.py", "~20", "REAL", "Real chain DataFrames, real GEX math verified."],
+        ["test_dormant.py", "~20", "REAL", "Real historical chain fixtures, real activation scores."],
+        ["test_sentiment.py", "~15", "REAL", "Real news list input, real scoring output assertions."],
+        ["test_gate.py", "~20", "REAL", "Real TickerScorecard objects, real qualify_pick / conviction logic."],
+        ["test_storage.py", "~20", "REAL", "Real SQLite DB, real ORM inserts/queries."],
+        ["AC11 tests", "6", "REAL", "Pure function check, all 6 pass after fix in 5e36a9b."],
+        ["AC3/AC4 tests", "5+1", "REAL+WEAK", "Checker logic real. Original fake-dict path = weak. data_dependent path = real."],
+        ["AC5/AC6/AC7 tests", "9", "REAL", "Pure Python simulation of BOSS logic. Acceptable as logic tests."],
+        ["Suite B (AC9)", "9", "REAL", "Real urllib GET /api/picks contract assertions. data_dependent."],
+        ["Suite A (AC8)", "14 gaps", "GAP", "14 features not built → xfail(strict=False). Not hidden."],
+        ["TOTAL REAL", "~170/299", "57%", "Real tests with real assertions."],
+        ["TOTAL WEAK", "~99/299", "33%", "Status-200 / arithmetic tautologies / mock-returns-not-None."],
+        ["TOTAL FAKE", "~30/299", "10%", "Tests that never exercise real code path."],
+      ]
+    }
+  },
+  {
+    id: "C-claude-2",
+    author: "claude",
+    type: "table",
+    title: "Conviction Math Fix — Before vs After",
+    linked_issues: ["#16"],
+    timestamp: "2026-05-08",
+    table: {
+      headers: ["Scenario", "Old score", "New score", "Why"],
+      rows: [
+        ["TA=1.0, GEX=0.8, flow=1.0, dormant=0, sentiment=0", "3 (dragged down)", "5", "Old: mean([1.0,0.8,1.0,0,0])/5=0.56. New: mean([1.0,0.8,1.0])×0.65 + count_ratio×0.35=0.87→5"],
+        ["TA=0.9, GEX=0.7, flow=0.8, dormant=0, sentiment=0", "2", "4", "3 firing factors, composite 0.80→4"],
+        ["TA=0.5, GEX=0.5, flow=0, dormant=0, sentiment=0", "2", "3", "2 firing, count_ratio=0 (minimum), composite 0.5×0.65=0.33→3"],
+        ["All 5 firing at 0.9", "4", "5", "avg=0.9, count_ratio=1.0, composite=0.94→5"],
+        ["All 5 firing at 0.5", "3", "3", "avg=0.5, count_ratio=1.0, composite=0.68→4. Small improvement."],
+        ["Only 1 factor firing", "1", "1", "len(firing)<2 guard falls through naturally → 1"],
+      ]
+    }
+  },
+  {
+    id: "C-claude-3",
+    author: "claude",
+    type: "text",
+    title: "init-tracker: How to Reuse Chat Tracker in New Projects",
+    linked_issues: [],
+    timestamp: "2026-05-08",
+    text: `init-tracker is a Claude Code custom command.
+
+HOW TO CREATE IT:
+Create file: ~/.claude/commands/init-tracker.md
+
+Contents of that file:
+---
+# /init-tracker
+
+Copy docs/chat-tracker.html from EigenView project into this project's docs/.
+Adjust the title, reset SESSIONS to empty, reset CLAUDE_CAPTURES to [].
+Add "open docs/chat-tracker.html to track session asks" to CLAUDE.md session start checklist.
+---
+
+HOW TO USE IT:
+In any new project, type: /init-tracker
+Claude will execute the instructions in that .md file.
+Claude copies the tracker, resets the data, wires it into the project.
+
+WHY NOT A PACKAGE:
+The tracker is a single self-contained HTML file with no dependencies.
+A package (npm/PyPI) adds install friction, versioning complexity, and a registry account.
+The custom command approach gives you the same reusability with zero overhead.
+If you want version tracking: keep the canonical file in EigenView and copy it forward.
+
+CURRENT STATUS: Custom command file NOT YET CREATED.
+To create it: Write ~/.claude/commands/init-tracker.md with the instructions above.`
+  },
+  {
+    id: "C-claude-4",
+    author: "claude",
+    type: "table",
+    title: "29-Step Process: Honest Assessment + v2 Proposal",
+    linked_issues: [],
+    timestamp: "2026-05-08",
+    table: {
+      headers: ["Aspect", "Assessment", "Evidence"],
+      rows: [
+        ["Mechanical gate enforcement", "GENUINELY NOVEL", "pre-build-gate.ps1 blocks src/ writes unless open PR + no gate:awaiting-step21. Pre-commit enforces TDD phases. These are real enforcement, not honor system."],
+        ["Zero-context AI verifier", "GENUINELY NOVEL", "CI spawns separate claude process with no session context. Cannot confirm what builder told it. Independent verification is architecturally correct."],
+        ["BOSS auto-fix loop", "GOOD", "GitHub Actions reads pytest XML, posts structured JSON comments, escalates after 3 failures. Closes the 'AI wrote broken code and didn't notice' gap."],
+        ["Step decomposition (13-18)", "OVER-ENGINEERED", "Steps 13-18 are all one CI trigger. Numbered 1-18 to feel rigorous, but it's just 'CI runs, posts comment'. Could be 1 step."],
+        ["Manual gates (4, 19, 21, 27, 28)", "NECESSARY BUT TOO MANY", "5 human approval points. For a solo developer: steps 19+21 could merge into 'CI green + human removes label'. 3 gates is the real minimum."],
+        ["Total steps: 29", "MARKETING NUMBER", "Real distinct decisions: ~6. The rest is decomposition of automated steps for documentation purposes."],
+        ["Comparable systems", "NONE FOUND", "GitHub Copilot Workspace: no TDD enforcement. Devin: no zero-context audit. Amazon Q: no mechanical gate. The combination is novel, not the individual pieces."],
+        ["v2 proposal", "6 phases, 2 gates", "Phase 1: Proposal (human approves). Phase 2: Spec+stubs+CI audit (automated). Phase 3: Stub verification (gate:awaiting-impl, human removes). Phase 4: Implementation (automated tests). Phase 5: Zero-context verify (automated). Phase 6: Merge (human). That's the real structure."],
+      ]
+    }
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ISSUES RENDER
 // ─────────────────────────────────────────────────────────────────────────────
 function statusBadge(st) {
   const map = {done:'st-done',prog:'st-prog',partial:'st-partial',open:'st-open'};
@@ -405,7 +619,210 @@ document.getElementById('filter-status').addEventListener('change', applyFilters
 document.getElementById('filter-pri').addEventListener('change', applyFilters);
 document.getElementById('filter-search').addEventListener('input', applyFilters);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'captures') renderCaptures();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAPTURES ENGINE
+// ─────────────────────────────────────────────────────────────────────────────
+const LS_KEY = 'eigenview_captures_v1';
+
+function getUserCaptures() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveUserCaptures(arr) {
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
+}
+
+function allCaptures() {
+  const user = getUserCaptures();
+  // Merge Claude + User, sort by insertion order (Claude first by id, then user by timestamp)
+  const claude = CLAUDE_CAPTURES.map((c,i) => ({...c, _order: i}));
+  const merged = [
+    ...claude.map(c => ({...c, _src:'claude'})),
+    ...user.map((c,i) => ({...c, _src:'user', _order: claude.length + i}))
+  ];
+  return merged;
+}
+
+function seqNumber(idx) {
+  return 'C' + (idx + 1);
+}
+
+function authorBadge(author) {
+  return author === 'claude'
+    ? `<span class="cap-author-claude">CLAUDE</span>`
+    : `<span class="cap-author-user">USER</span>`;
+}
+
+function issueLinks(issues) {
+  if (!issues || !issues.length) return '';
+  return `<div class="cap-issues">${issues.map(i =>
+    `<a class="cap-issue-link" onclick="jumpToIssue('${i}')">${i}</a>`
+  ).join('')}</div>`;
+}
+
+function jumpToIssue(issueRef) {
+  // Switch to issues tab, clear filters, search for issue number
+  switchTab('issues', document.querySelectorAll('.tab-btn')[0]);
+  const num = issueRef.replace('#','');
+  document.getElementById('filter-search').value = '#' + num;
+  applyFilters();
+  // Scroll to top of issues
+  document.getElementById('main-content').scrollIntoView({behavior:'smooth'});
+}
+
+function renderCaptureCard(cap, idx, deletable) {
+  const num = seqNumber(idx);
+  let bodyHtml = '';
+
+  if (cap.type === 'table' && cap.table) {
+    const hdrs = cap.table.headers.map(h => `<th>${h}</th>`).join('');
+    const rows = cap.table.rows.map(r =>
+      `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`
+    ).join('');
+    bodyHtml = `<table class="cap-table"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table>`;
+  } else if (cap.type === 'image' && cap.dataUrl) {
+    bodyHtml = `<img class="cap-image" src="${cap.dataUrl}" alt="${cap.title||'capture'}">`;
+  } else if (cap.type === 'text' || cap.text) {
+    bodyHtml = `<div class="cap-text">${(cap.text||cap.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  } else if (cap.content) {
+    bodyHtml = `<div class="cap-text">${cap.content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  }
+
+  const delBtn = deletable
+    ? `<button class="cap-del" onclick="deleteUserCapture('${cap.id}')" title="Delete">✕</button>`
+    : '';
+
+  return `<div class="capture-card" id="capture-${cap.id}">
+    <div class="capture-card-hdr">
+      <span class="cap-num">${num}</span>
+      ${authorBadge(cap.author||cap._src)}
+      <span class="cap-type">${cap.type||'text'}</span>
+      <span class="cap-title">${cap.title||'Untitled'}</span>
+      ${issueLinks(cap.linked_issues||[])}
+      <span class="cap-ts" style="margin-left:auto;margin-right:8px">${cap.timestamp||''}</span>
+      ${delBtn}
+    </div>
+    <div class="capture-card-body">${bodyHtml}</div>
+  </div>`;
+}
+
+function renderCaptures() {
+  const caps = allCaptures();
+  const list = document.getElementById('captures-list');
+  if (!caps.length) {
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">No captures yet. Paste something above.</div>';
+  } else {
+    list.innerHTML = caps.map((c,i) => renderCaptureCard(c, i, c._src === 'user')).join('');
+  }
+  document.getElementById('cap-count-badge').textContent = caps.length;
+}
+
+function deleteUserCapture(id) {
+  const arr = getUserCaptures().filter(c => c.id !== id);
+  saveUserCaptures(arr);
+  renderCaptures();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE ZONE
+// ─────────────────────────────────────────────────────────────────────────────
+const pasteZone = document.getElementById('paste-zone');
+const pasteHint = document.getElementById('paste-hint');
+let pendingDataUrl = null;
+let pendingType = 'text';
+
+pasteZone.addEventListener('input', () => {
+  pasteHint.style.display = pasteZone.textContent.trim() || pasteZone.querySelector('img') ? 'none' : 'flex';
+});
+
+pasteZone.addEventListener('paste', (e) => {
+  e.preventDefault();
+  pasteHint.style.display = 'none';
+  const items = e.clipboardData.items;
+
+  // Check for image first
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        pendingDataUrl = ev.target.result;
+        pendingType = 'image';
+        const img = document.createElement('img');
+        img.src = pendingDataUrl;
+        img.style.maxWidth = '100%';
+        img.style.borderRadius = '4px';
+        pasteZone.innerHTML = '';
+        pasteZone.appendChild(img);
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+
+  // Plain text / HTML
+  const text = e.clipboardData.getData('text/plain') || e.clipboardData.getData('text/html') || '';
+  pendingType = 'text';
+  pendingDataUrl = null;
+  pasteZone.textContent = text;
+});
+
+function saveCapture() {
+  const title = document.getElementById('paste-title').value.trim() || 'User Capture';
+  const issueRaw = document.getElementById('paste-issues').value.trim();
+  const linked = issueRaw ? issueRaw.split(/[\s,]+/).filter(Boolean).map(s => s.startsWith('#') ? s : '#'+s) : [];
+  const ts = new Date().toISOString().slice(0,10);
+  const id = 'user-' + Date.now();
+
+  let cap;
+  if (pendingType === 'image' && pendingDataUrl) {
+    cap = {id, author:'user', type:'image', title, linked_issues:linked, timestamp:ts, dataUrl:pendingDataUrl};
+  } else {
+    const text = pasteZone.textContent.trim();
+    if (!text) { alert('Nothing to save — paste something first.'); return; }
+    cap = {id, author:'user', type:'text', title, linked_issues:linked, timestamp:ts, text};
+  }
+
+  const arr = getUserCaptures();
+  arr.push(cap);
+  saveUserCaptures(arr);
+
+  clearPasteZone();
+  renderCaptures();
+
+  // Scroll to new capture
+  setTimeout(() => {
+    const el = document.getElementById('capture-' + id);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 100);
+}
+
+function clearPasteZone() {
+  pasteZone.innerHTML = '';
+  pasteZone.textContent = '';
+  pendingDataUrl = null;
+  pendingType = 'text';
+  pasteHint.style.display = 'flex';
+  document.getElementById('paste-title').value = '';
+  document.getElementById('paste-issues').value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
 renderAll('','','','');
+document.getElementById('cap-count-badge').textContent = allCaptures().length;
 </script>
 </body>
 </html>
