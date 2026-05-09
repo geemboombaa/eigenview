@@ -4,21 +4,26 @@ Pre-commit enforcement tests — AC11.
 AC11: pre-commit GREEN phase blocks commit if src/ changed but no integration
       or playwright tests are staged.
 
-All tests raise NotImplementedError until implementation (green phase).
+Tests call check_integration_test_required() directly (pure function from
+src/eigenview/ci/precommit_checks.py) so no subprocess/git-staging simulation needed.
+The same function is called by .git/hooks/pre-commit GREEN phase.
 """
 from __future__ import annotations
+
+import sys
+import pathlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).parents[2] / "src"))
+from eigenview.ci.precommit_checks import check_integration_test_required
 
 
 def _invoke_precommit_green(staged_files: list[str]) -> dict:
     """
-    Invoke the pre-commit GREEN phase hook with the given staged file list.
+    Simulate the pre-commit GREEN phase check for given staged file list.
     Returns dict with keys: exit_code, output.
-    Raises NotImplementedError until GREEN phase integration-check is implemented.
     """
-    raise NotImplementedError(
-        "AC11: pre-commit GREEN integration check not yet implemented. "
-        "Implement in .git/hooks/pre-commit GREEN phase in green phase."
-    )
+    exit_code, output = check_integration_test_required(staged_files)
+    return {"exit_code": exit_code, "output": output}
 
 
 def test_AC11_blocks_when_src_staged_but_no_integration_test():
