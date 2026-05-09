@@ -2,7 +2,7 @@
   'use strict';
 
   const THEMES = ['dark', 'light', 'glass', 'bento'];
-  let themeIdx = 0;
+  let themeIdx = 3;
 
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
@@ -111,7 +111,6 @@
 
     if (picks && Array.isArray(picks) && picks.length > 0) {
       EV.Store.set('picks', picks);
-      EV.Store.set('selectedPick', picks[0]);
       const badge = document.getElementById('ev-scan-time');
       if (badge) {
         badge.textContent = `✓ ${picks.length} pick${picks.length !== 1 ? 's' : ''}`;
@@ -292,7 +291,7 @@
           EV.Store.set('searchQuery', t);
           EV.Store.set('selectedTicker', t);
           const match = (EV.Store.get('picks') || []).find(p => p.ticker === t);
-          if (match) EV.Store.set('selectedPick', match);
+          EV.Store.set('selectedPick', match || { ticker: t });
           searchEl.blur();
         }
       });

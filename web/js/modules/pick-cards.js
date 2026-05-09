@@ -168,7 +168,7 @@
     </div>
   </div>
 
-  <div class="card-setup-name">${setupName}</div>
+  <div class="card-setup-name">${setupName}${p.structure?.description ? ` · <span class="card-rec">${p.structure.description}</span>` : ''}</div>
 
   <div class="thesis-block">
     <span class="ai-badge">◆ AI</span>
@@ -379,7 +379,13 @@
           if (this._favorites.has(t)) this._favorites.delete(t);
           else this._favorites.add(t);
           localStorage.setItem('ev-favorites', JSON.stringify([...this._favorites]));
-          // Re-render to update star
+          const allPicks = window.EV?.Store.get('picks') || this._currentPicks;
+          const favPicks = {};
+          this._favorites.forEach(ft => {
+            const p = allPicks.find(pp => pp.ticker === ft);
+            if (p) favPicks[ft] = p;
+          });
+          localStorage.setItem('ev-fav-picks', JSON.stringify(favPicks));
           this._renderCards(this._currentPicks);
         });
       });

@@ -266,6 +266,7 @@
       this._sub('selectedPick', pick => {
         this._pick = pick;
         this._expanded = null;
+        this.el.classList.remove('expanded');
         this._render(pick);
       });
 
@@ -306,21 +307,17 @@
           const det = this.el.querySelector('#fs-det');
           if (this._expanded === fid) {
             this._expanded = null;
+            this.el.classList.remove('expanded');
             if (det) det.innerHTML = '';
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.remove('expanded'));
           } else {
             this._expanded = fid;
+            this.el.classList.add('expanded');
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.toggle('expanded', b.dataset.fid === fid));
             if (det) det.innerHTML = renderChecklist(fid, factors[fid] || {});
           }
         });
       });
-
-      // Auto-expand TA if it fired
-      const taBtn = this.el.querySelector('[data-fid="technical"]');
-      if (taBtn && factors.technical?.firing) {
-        setTimeout(() => taBtn.click(), 0);
-      }
     }
 
     unmount() {

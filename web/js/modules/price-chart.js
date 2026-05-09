@@ -101,17 +101,13 @@
 
       // subscribe to store
       this._sub('selectedTicker', ticker => {
-        if (ticker && ticker !== this._ticker) {
-          this._ticker = ticker;
-          this._load();
-        }
+        if (!ticker) { this._ticker = null; this._showState('empty', 'Select a pick to view chart'); return; }
+        if (ticker !== this._ticker) { this._ticker = ticker; this._load(); }
       });
       this._sub('selectedPick', pick => {
         const ticker = pick?.ticker;
-        if (ticker && ticker !== this._ticker) {
-          this._ticker = ticker;
-          this._load();
-        }
+        if (!ticker) { this._ticker = null; this._showState('empty', 'Select a pick to view chart'); return; }
+        if (ticker !== this._ticker) { this._ticker = ticker; this._load(); }
       });
 
       // initial ticker
@@ -168,7 +164,8 @@
           <div class="chart-toggles">
             <button class="chart-tog-btn${ts.ema21 ? ' active' : ''}" data-toggle="ema21">EMA21</button>
             <button class="chart-tog-btn${ts.ema50 ? ' active' : ''}" data-toggle="ema50">EMA50</button>
-            <button class="chart-tog-btn${ts.signals ? ' active' : ''}" data-toggle="signals">SIGNALS</button>
+            <button class="chart-tog-btn${ts.signals ? ' active' : ''}" data-toggle="signals">BACKTEST</button>
+            <button id="pc-all-off" class="chart-tog-btn" style="margin-left:auto">ALL OFF</button>
           </div>
           <div class="pc-body" id="pc-chart-body">
             <div class="pc-chart-container" id="pc-chart-container"></div>
@@ -193,7 +190,17 @@
       this._qs('.chart-toggles').addEventListener('click', e => {
         const btn = e.target.closest('.chart-tog-btn');
         if (!btn) return;
+        if (btn.id === 'pc-all-off') {
+          Object.keys(this._toggleState).forEach(key => {
+            this._toggleState[key] = false;
+            localStorage.setItem(`chart_${key}`, 'false');
+            this._applyToggle(key);
+          });
+          this._qsa('.chart-tog-btn[data-toggle]').forEach(b => b.classList.remove('active'));
+          return;
+        }
         const key = btn.dataset.toggle;
+        if (!key) return;
         this._toggleState[key] = !this._toggleState[key];
         localStorage.setItem(`chart_${key}`, JSON.stringify(this._toggleState[key]));
         btn.classList.toggle('active', this._toggleState[key]);

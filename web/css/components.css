@@ -156,11 +156,16 @@ html, body {
 
 /* ===== FACTOR STRIP SLOT (below chart) ===== */
 #ev-strip-slot {
-  height: 230px;
+  height: 44px;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
   overflow: hidden;
   background: var(--bg-2, var(--bg));
+  transition: height 0.18s ease;
+}
+
+#ev-strip-slot.expanded {
+  height: 230px;
 }
 
 #ev-strip-slot .ev-module {
