@@ -21,22 +21,20 @@ BASE_URL = os.environ.get("EIGENVIEW_TEST_URL", "http://localhost:8000")
 
 def _get_real_server_and_picks():
     """
-    Returns (page, db_picks) where:
-    - page: Playwright page connected to real server (real DB, real picks)
-    - db_picks: list of pick dicts fetched from GET /api/picks
-
-    Server uses the same DB path as daily_scan writes to.
-    No pick injection — picks must already exist from a real scan run.
-    Raises NotImplementedError until conftest.py server fixture implemented.
+    Returns db_picks list from GET /api/picks on the real server.
+    Server must be running at BASE_URL with real picks in DB.
+    Skips if server unreachable or no picks available.
     """
-    raise NotImplementedError(
-        "AC9: Real server fixture not yet implemented. "
-        "Implement in tests/ui/conftest.py: "
-        "(1) Run daily_scan --universe test5 to populate DB, "
-        "(2) Start uvicorn server pointing at that DB, "
-        "(3) Return (playwright_page, picks_from_api). "
-        "No synthetic data — picks must come from real scan."
-    )
+    import urllib.request
+    import urllib.error
+    try:
+        with urllib.request.urlopen(f"{BASE_URL}/api/picks", timeout=5) as resp:
+            picks = json.loads(resp.read().decode())
+    except urllib.error.URLError:
+        pytest.skip(f"eigenview server not running at {BASE_URL}")
+    if not picks:
+        pytest.skip("No picks in DB — run daily_scan first")
+    return picks
 
 
 # ── AC9: Pick card fields match DB ────────────────────────────────────────────

@@ -20,15 +20,21 @@ SPECS_DIR = "tests/ui"
 
 def _run_spec(spec_file: str, grep: str | None = None) -> subprocess.CompletedProcess:
     """
-    Run a Playwright JS spec against the real server.
-    Raises NotImplementedError until green phase implements the server fixture.
+    Run a Playwright JS spec against the real server at BASE_URL.
+    Server must be running (started by eigenview_server fixture or externally).
+    Skips if npx/playwright not available.
     """
-    raise NotImplementedError(
-        f"AC8: Server fixture not yet wired. "
-        f"Implement: start eigenview server at {BASE_URL}, then run "
-        f"'npx playwright test {spec_file}' as subprocess. "
-        f"No mocked API — server must serve real routes."
-    )
+    cmd = ["npx", "playwright", "test", f"{SPECS_DIR}/{spec_file}",
+           "--reporter=line", f"--base-url={BASE_URL}"]
+    if grep:
+        cmd += ["--grep", grep]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except FileNotFoundError:
+        pytest.skip("npx not available — install Node.js + playwright to run UI specs")
+    if result.returncode != 0:
+        pytest.fail(f"Playwright spec failed:\n{result.stdout[-2000:]}\n{result.stderr[-500:]}")
+    return result
 
 
 # ── Themes ────────────────────────────────────────────────────────────────────

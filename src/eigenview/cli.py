@@ -183,6 +183,21 @@ def daily_scan(
     asyncio.run(_run())
 
 
+@app.command(name="populate-forward-returns")
+def populate_forward_returns(
+    lookback_days: int = typer.Option(30, help="Number of days back to populate"),
+) -> None:
+    """Populate forward_returns table with T+5 and T+20 realized returns."""
+    from eigenview.synthesis.forward_returns import populate_recent
+
+    async def _run() -> None:
+        typer.echo(f"Populating forward returns for last {lookback_days} days...")
+        await populate_recent(lookback_days=lookback_days)
+        typer.echo("Done.")
+
+    asyncio.run(_run())
+
+
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host"),
