@@ -320,14 +320,13 @@
         });
       });
 
-      // Auto-expand TA checklist when technical factor fires on render
+      // Auto-fill TA checklist when technical factor fires on render.
+      // _expanded stays null so the first manual button click goes to expand branch.
       if (pick && factors.technical?.firing) {
         const det = this.el.querySelector('#fs-det');
         if (det && !det.innerHTML) {
           det.innerHTML = renderChecklist('technical', factors.technical || {});
-          this._expanded = 'technical';
           slot.classList.add('expanded');
-          this.el.querySelector('[data-fid="technical"]')?.classList.add('expanded');
         }
       }
     }
