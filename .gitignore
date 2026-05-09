@@ -24,3 +24,5 @@ node_modules/
 package-lock.json
 tests/ui/report/
 test-results/
+allure-results/
+allure-report/
