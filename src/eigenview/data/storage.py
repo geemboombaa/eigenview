@@ -294,6 +294,32 @@ async def write_signal_trigger(
     return trigger
 
 
+class ForwardReturn(Base):
+    """Realized returns for each pick — populated T+5 and T+20 by forward_returns.py cron."""
+    __tablename__ = "forward_returns"
+    __table_args__ = (UniqueConstraint("ticker", "scan_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    scan_date: Mapped[str] = mapped_column(String(10), nullable=False)  # YYYY-MM-DD
+    conviction: Mapped[int | None] = mapped_column(Integer)
+    setup_type: Mapped[str | None] = mapped_column(String(50))
+    direction: Mapped[str | None] = mapped_column(String(10))
+    entry_price: Mapped[float | None] = mapped_column(Float)
+    macro_regime: Mapped[str | None] = mapped_column(String(10))
+    # Populated T+5
+    return_5d: Mapped[float | None] = mapped_column(Float)
+    hit_target_5d: Mapped[bool | None] = mapped_column(Boolean)
+    hit_stop_5d: Mapped[bool | None] = mapped_column(Boolean)
+    # Populated T+20
+    return_20d: Mapped[float | None] = mapped_column(Float)
+    hit_target_20d: Mapped[bool | None] = mapped_column(Boolean)
+    hit_stop_20d: Mapped[bool | None] = mapped_column(Boolean)
+    # IC tracking snapshot
+    indicator_state: Mapped[str | None] = mapped_column(Text)  # JSON
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 async def create_tables() -> None:
     """Create all tables if they don't exist."""
     async with engine.begin() as conn:

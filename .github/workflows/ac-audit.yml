@@ -8,6 +8,8 @@ on:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -17,12 +19,26 @@ jobs:
       - name: Check test AC traceability
         run: |
           python3 - <<'EOF'
-          import ast, glob, sys, json
+          import ast, glob, sys, json, subprocess
+
+          # Only scan test files changed in this PR — not the entire 300+ test suite
+          result = subprocess.run(
+              ['git', 'diff', '--name-only', 'HEAD^1', 'HEAD'],
+              capture_output=True, text=True
+          )
+          changed = [f for f in result.stdout.strip().split('\n')
+                     if f.startswith('tests/') and f.endswith('.py')]
+
+          if not changed:
+              print("No changed test files — AC traceability check skipped")
+              with open('ac-audit-report.json', 'w') as fp:
+                  json.dump({'missing_ac_reference': [], 'trivial_tests': [], 'skipped': True}, fp)
+              sys.exit(0)
 
           missing_ac = []
           trivial = []
 
-          for f in glob.glob('tests/**/*.py', recursive=True):
+          for f in changed:
               try:
                   tree = ast.parse(open(f).read())
               except:
@@ -159,9 +175,10 @@ jobs:
 
           import anthropic
 
-          # Collect test files changed in this PR
+          # Collect test files changed in this PR (use GITHUB_BASE_REF for non-master PRs)
+          base_ref = os.environ.get('GITHUB_BASE_REF', 'master')
           result = subprocess.run(
-              ['git', 'diff', '--name-only', 'origin/master...HEAD'],
+              ['git', 'diff', '--name-only', f'origin/{base_ref}...HEAD'],
               capture_output=True, text=True
           )
           changed_tests = [f for f in result.stdout.strip().split('\n') if f.startswith('tests/')]
@@ -410,9 +427,9 @@ jobs:
           SHA="${{ github.sha }}"
 
           if [ "$PHASE" = "red" ]; then
-            NEXT_STEP="13"
-            NEXT_ACTION="Write design review doc (.boss/design-review.md) — architecture review, implementation checklist, gaps."
-            HUMAN_ACTION="**No action needed.** Claude can continue to step 13 automatically in next turn.\n\n> **Implementation is blocked** by \`gate:awaiting-step21\` label. Remove this label at step 21 after reviewing the CI audit report."
+            NEXT_STEP="20"
+            NEXT_ACTION="Write design review doc (.boss/design-review.md) — architecture review, implementation checklist, gaps A-Z."
+            HUMAN_ACTION="**Human action at step 19:** Review the CI audit report above.\n\n> **Implementation is blocked** by \`gate:awaiting-step21\` label. Review the CI audit, then **remove this label** at step 21 to unblock implementation."
           elif [ "$PHASE" = "green" ]; then
             NEXT_STEP="27"
             NEXT_ACTION="Review CI results and approve PR if everything looks good."
