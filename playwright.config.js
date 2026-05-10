@@ -8,7 +8,6 @@ module.exports = defineConfig({
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: 'tests/ui/report' }],
-    ['allure-playwright', { outputFolder: 'allure-results', suiteTitle: false }],
   ],
   use: {
     baseURL: 'http://localhost:8000',
