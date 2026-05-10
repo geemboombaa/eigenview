@@ -422,15 +422,20 @@
 
       // GEX horizontal lines on the candle series
       const gex = data.gex_levels || {};
+      let gexLineCount = 0;
       if (gex.call_wall) {
         candleSeries.createPriceLine({ price: gex.call_wall, color: '#22c55e', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Call Wall' });
+        gexLineCount++;
       }
       if (gex.put_wall) {
         candleSeries.createPriceLine({ price: gex.put_wall, color: '#ef4444', lineWidth: 1, lineStyle: LC.LineStyle?.Dashed ?? 1, axisLabelVisible: true, title: 'Put Wall' });
+        gexLineCount++;
       }
       if (gex.gamma_flip) {
         candleSeries.createPriceLine({ price: gex.gamma_flip, color: '#f59e0b', lineWidth: 1, lineStyle: LC.LineStyle?.Solid ?? 0, axisLabelVisible: true, title: 'Flip' });
+        gexLineCount++;
       }
+      if (container) container.setAttribute('data-gex-lines', String(gexLineCount));
 
       // Entry zone + stop level (from today's pick data)
       const ez = data.entry_zone || {};

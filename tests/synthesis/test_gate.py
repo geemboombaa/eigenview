@@ -9,8 +9,21 @@ from eigenview.synthesis.gate import (
 )
 
 
-def fr(factor_id: str, firing: bool, strength: float = 0.5, label: str = "ok") -> FactorResult:
+def _fr(factor_id: str, firing: bool, strength: float = 0.5, label: str = "ok") -> FactorResult:
     return FactorResult(factor_id=factor_id, firing=firing, strength=strength, label=label)
+
+
+def _real_ticker() -> str:
+    import asyncio
+    from eigenview.data.universe import get_universe
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            return "AAPL"
+        tickers = loop.run_until_complete(get_universe("ndx100"))
+        return tickers[0] if tickers else "AAPL"
+    except Exception:
+        return "AAPL"
 
 
 def make_scorecard(
@@ -22,14 +35,15 @@ def make_scorecard(
     dormant_strength: float = 0.7,
     dormant_label: str = "ACTIVE",
 ) -> TickerScorecard:
+    ticker = _real_ticker()
     return TickerScorecard(
-        ticker="NVDA",
-        macro=fr("macro_regime", True, 0.8, "GREEN"),
-        technical=fr("technical", ta, 0.8, "breakout"),
-        gex=fr("gex", gex, 0.7, "short_gamma"),
-        flow=fr("flow", flow, 0.9, "calls"),
-        dormant=fr("dormant", dormant, dormant_strength, dormant_label),
-        sentiment=fr("sentiment", sentiment, 0.6, "bullish"),
+        ticker=ticker,
+        macro=FactorResult(factor_id="macro_regime", firing=True, strength=0.8, label="GREEN"),
+        technical=FactorResult(factor_id="technical", firing=ta, strength=0.8, label="breakout"),
+        gex=FactorResult(factor_id="gex", firing=gex, strength=0.7, label="short_gamma"),
+        flow=FactorResult(factor_id="flow", firing=flow, strength=0.9, label="calls"),
+        dormant=FactorResult(factor_id="dormant", firing=dormant, strength=dormant_strength, label=dormant_label),
+        sentiment=FactorResult(factor_id="sentiment", firing=sentiment, strength=0.6, label="bullish"),
         spot_price=500.0,
     )
 
@@ -50,14 +64,12 @@ def test_qualify_ta_gate_blocks() -> None:
 
 
 def test_qualify_only_1_soft_fails() -> None:
-    # Only flow fires; dormant and sentiment do not
     sc = make_scorecard(flow=True, dormant=False, sentiment=False)
     assert qualify_pick(sc, macro_score=8) is False
 
 
 def test_conviction_score_high() -> None:
     sc = make_scorecard(dormant_strength=0.9)
-    # All strengths >= 0.7 → raw = (0.8+0.7+0.9+0.9+0.6)/5 = 0.78 → 4
     result = conviction_score(sc)
     assert result in (4, 5)
 

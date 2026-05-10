@@ -8,10 +8,9 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-_LAYOUTS_FILE = os.path.join(
+_LAYOUTS_FILE_DEFAULT = os.path.abspath(os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "data", "layouts.json"
-)
-_LAYOUTS_FILE = os.path.abspath(_LAYOUTS_FILE)
+))
 
 _DEFAULT_LAYOUTS = [
     {"id": "standard", "name": "Standard", "is_default": True},
@@ -22,19 +21,25 @@ _DEFAULT_LAYOUTS = [
 ]
 
 
+def _layouts_file() -> str:
+    return os.environ.get("EV_LAYOUTS_FILE", _LAYOUTS_FILE_DEFAULT)
+
+
 def _read_layouts() -> list:
-    if not os.path.exists(_LAYOUTS_FILE):
+    path = _layouts_file()
+    if not os.path.exists(path):
         return list(_DEFAULT_LAYOUTS)
     try:
-        with open(_LAYOUTS_FILE) as f:
+        with open(path) as f:
             return json.load(f)
     except Exception:
         return list(_DEFAULT_LAYOUTS)
 
 
 def _write_layouts(data: list) -> None:
-    os.makedirs(os.path.dirname(_LAYOUTS_FILE), exist_ok=True)
-    with open(_LAYOUTS_FILE, "w") as f:
+    path = _layouts_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
         json.dump(data, f, indent=2)
 
 

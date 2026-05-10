@@ -92,6 +92,12 @@
 .pc-empty strong{display:block;color:var(--text-dim);margin-bottom:6px;font-size:13px;}
 /* Caution badge on card */
 .caution-badge{display:inline-block;font-size:8px;color:var(--warn);border:1px solid rgba(255,200,87,.3);background:rgba(255,200,87,.06);padding:1px 5px;border-radius:2px;letter-spacing:1px;margin-left:6px;vertical-align:middle;}
+/* Freshness badges */
+.freshness-badge{display:inline-block;font-size:8px;padding:1px 5px;border-radius:2px;letter-spacing:1px;flex-shrink:0;}
+.freshness-fresh{color:#22c55e;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.06);}
+.freshness-valid{color:#3b82f6;border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.06);}
+.freshness-stale{color:var(--warn,#ffc857);border:1px solid rgba(255,200,87,.3);background:rgba(255,200,87,.06);}
+.freshness-unknown{color:var(--text-faint);border:1px solid var(--border);background:transparent;}
 /* Filter chips bar */
 .pc-filter-bar{display:flex;gap:4px;padding:4px 14px 8px;flex-wrap:wrap;flex-shrink:0;border-bottom:1px solid var(--border-soft);}
 .pc-filter-chip{background:transparent;border:1px solid var(--border);color:var(--text-faint);padding:2px 8px;border-radius:3px;font-family:var(--font-mono);font-size:9px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;}
@@ -148,6 +154,12 @@
     ).join('');
   }
 
+  function freshnessHtml(p) {
+    const f = p.freshness || 'unknown';
+    if (f === 'unknown') return '';
+    return `<span class="freshness-badge freshness-${f}" data-freshness="${f}">${f.toUpperCase()}</span>`;
+  }
+
   function cardHtml(p, isFav = false) {
     const dir = (p.direction || 'long').toLowerCase();
     const macro = p.factors?.macro_regime;
@@ -161,6 +173,7 @@
       <span class="card-ticker">${p.ticker}</span>
       <span class="direction-tag tag-${dir}">${dir.toUpperCase()}</span>
       ${caution}
+      ${freshnessHtml(p)}
     </div>
     <div class="card-conv">
       <div class="conv-dots">${convDots(p.conviction || 0)}</div>
@@ -333,12 +346,29 @@
       if (sub) sub.textContent = 'no picks';
       if (body) body.innerHTML = `<div class="pc-empty">
         <strong>No picks today</strong>
-        No tickers qualified all gates. Rare but real.<br>
-        Check Signal Bench for partial fires, or wait for next scan.
+        No tickers qualified all gates today.<br>
+        Run a fresh scan to fetch live data from yfinance and score all NDX stocks.
         <br><br>
-        <button class="pc-demo-btn" id="pc-demo-btn">▶ LOAD DEMO</button>
+        <button class="pc-run-scan-btn" id="pc-run-scan-btn">&#9654; RUN SCAN</button>
       </div>`;
-      this._qs('#pc-demo-btn')?.addEventListener('click', () => this._loadDemo());
+      this._qs('#pc-run-scan-btn')?.addEventListener('click', () => this._triggerScan());
+    }
+
+    async _triggerScan() {
+      const btn = this._qs('#pc-run-scan-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+      try {
+        await window.EV?.API.post('/api/ta-scan', { universe: 'ndx100', fetch_options: false });
+        const poll = setInterval(async () => {
+          const state = await window.EV?.API.get('/api/ta-scan/results');
+          if (!state?.running) {
+            clearInterval(poll);
+            await this._load();
+          }
+        }, 3000);
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = '&#9654; RUN SCAN'; }
+      }
     }
 
     _bindCardEvents(picks) {
@@ -453,60 +483,6 @@
         const d = dates[this._dateIdx];
         lbl.textContent = d === today ? 'TODAY' : d.slice(5);
       }
-    }
-
-    _loadDemo() {
-      const demo = [
-        {
-          ticker: 'NVDA', date: new Date().toISOString().slice(0, 10), conviction: 5,
-          setup_type: 'breakout', direction: 'long',
-          entry_low: 875, entry_high: 892, stop: 848,
-          thesis: 'NVDA holding above Q1 channel breakout with dealer gamma flip confirmed above $880. Unusual call flow at $900 strike signals institutional positioning ahead of AI capex cycle.',
-          spot: 884.20, iv_rank: 32,
-          structure: { type: 'bull_call_spread', description: 'Bull Call Spread', legs: 'Buy $880C / Sell $910C, 3 weeks', rationale: 'IV rank 32 — cheap spread captures momentum' },
-          factors: {
-            macro_regime: { firing: true, strength: 0.78, label: 'BULL', detail: { regime: 'bull', vix: 16.2, spy_trend: 'above_50d', breadth: 0.71 } },
-            technical: { firing: true, strength: 0.85, label: 'BREAKOUT', detail: { direction: 'long', pattern: 'bull_flag', rsi: 58.3, adx: 34.2, atr_rank: 0.72, ma20_cross: 'above', volume_ratio: 1.84 } },
-            gex: { firing: true, strength: 0.80, label: 'FLIP ↑', detail: { gamma_flip: 880.0, call_wall: 900.0, put_wall: 850.0, net_gex: 2.3, regime: 'positive' } },
-            flow: { firing: true, strength: 0.76, label: 'UNUSUAL', detail: { premium_usd: 4200000, call_put_ratio: 3.2, aggressive_side: 'call', unusual_score: 0.82, largest_strike: 900 } },
-            dormant: { firing: false, strength: 0.18, label: '—', detail: { position_age_days: 8, open_interest_rank: 0.22, activation_score: 0.18 } },
-            sentiment: { firing: true, strength: 0.79, label: 'NOVELTY', detail: { novelty_score: 0.78, catalyst_near: false, news_sentiment: 0.65, embedding_distance: 0.82 } },
-          }
-        },
-        {
-          ticker: 'META', date: new Date().toISOString().slice(0, 10), conviction: 4,
-          setup_type: 'pullback', direction: 'long',
-          entry_low: 498, entry_high: 510, stop: 482,
-          thesis: 'META pulling back to 50-day after earnings gap. GEX support band at $500 with call wall at $520 creates defined risk zone. Flow shows smart money reloading on dip.',
-          spot: 503.60, iv_rank: 28,
-          structure: { type: 'long_call', description: 'Long Call', legs: 'Buy $500C, 4 weeks', rationale: 'Low IV rank 28, pullback entry' },
-          factors: {
-            macro_regime: { firing: true, strength: 0.78, label: 'BULL', detail: { regime: 'bull', vix: 16.2, spy_trend: 'above_50d', breadth: 0.71 } },
-            technical: { firing: true, strength: 0.72, label: 'PULLBACK', detail: { direction: 'long', pattern: 'pullback_50d', rsi: 44.1, adx: 28.5, atr_rank: 0.55, ma20_cross: 'below', volume_ratio: 0.92 } },
-            gex: { firing: true, strength: 0.68, label: 'SUPPORT', detail: { gamma_flip: 495.0, call_wall: 520.0, put_wall: 480.0, net_gex: 1.4, regime: 'positive' } },
-            flow: { firing: true, strength: 0.81, label: 'SWEEP', detail: { premium_usd: 2800000, call_put_ratio: 2.8, aggressive_side: 'call', unusual_score: 0.75, largest_strike: 520 } },
-            dormant: { firing: false, strength: 0.12, label: '—', detail: { position_age_days: 3, open_interest_rank: 0.18, activation_score: 0.12 } },
-            sentiment: { firing: false, strength: 0.31, label: '—', detail: { novelty_score: 0.31, catalyst_near: false, news_sentiment: 0.48, embedding_distance: 0.44 } },
-          }
-        },
-        {
-          ticker: 'TSLA', date: new Date().toISOString().slice(0, 10), conviction: 3,
-          setup_type: 'compression', direction: 'long',
-          entry_low: 248, entry_high: 258, stop: 235,
-          thesis: 'TSLA forming weekly compression coil above $240 support. ATR contracting for 18 sessions. GEX neutral to positive above $250 with dormant position activating.',
-          spot: 252.10, iv_rank: 41,
-          structure: { type: 'bull_call_spread', description: 'Bull Call Spread', legs: 'Buy $255C / Sell $270C, 2 weeks', rationale: 'IV rank 41 — spread preferred over outright call' },
-          factors: {
-            macro_regime: { firing: true, strength: 0.78, label: 'BULL', detail: { regime: 'bull', vix: 16.2, spy_trend: 'above_50d', breadth: 0.71 } },
-            technical: { firing: true, strength: 0.61, label: 'COMPRESSION', detail: { direction: 'long', pattern: 'compression_coil', rsi: 49.8, adx: 18.4, atr_rank: 0.23, ma20_cross: 'above', volume_ratio: 0.61 } },
-            gex: { firing: true, strength: 0.55, label: 'NEUTRAL', detail: { gamma_flip: 250.0, call_wall: 270.0, put_wall: 230.0, net_gex: 0.4, regime: 'neutral' } },
-            flow: { firing: false, strength: 0.29, label: '—', detail: { premium_usd: 480000, call_put_ratio: 1.1, aggressive_side: 'mixed', unusual_score: 0.29, largest_strike: 260 } },
-            dormant: { firing: true, strength: 0.72, label: 'ACTIVATING', detail: { position_age_days: 45, open_interest_rank: 0.91, activation_score: 0.72 } },
-            sentiment: { firing: false, strength: 0.24, label: '—', detail: { novelty_score: 0.24, catalyst_near: false, news_sentiment: 0.38, embedding_distance: 0.35 } },
-          }
-        }
-      ];
-      window.EV?.Store.set('picks', demo);
     }
 
     resize(size) {

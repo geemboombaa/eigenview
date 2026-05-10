@@ -34,9 +34,33 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture
 def sample_ticker() -> str:
-    return "NVDA"
+    """First ticker from live NDX100 universe (falls back to AAPL on network failure)."""
+    import asyncio as _asyncio
+    from eigenview.data.universe import get_universe
+    try:
+        loop = _asyncio.get_event_loop()
+        if not loop.is_running():
+            tickers = loop.run_until_complete(get_universe("ndx100"))
+            if tickers:
+                return tickers[0]
+    except Exception:
+        pass
+    return "AAPL"
 
 
 @pytest.fixture
 def sample_tickers() -> list[str]:
-    return ["NVDA", "AAPL", "TSLA", "META", "AMD"]
+    """First 5 tickers from live NDX100 universe (falls back on network failure)."""
+    import asyncio as _asyncio
+    from eigenview.data.universe import get_universe
+    try:
+        loop = _asyncio.get_event_loop()
+        if not loop.is_running():
+            tickers = loop.run_until_complete(get_universe("ndx100"))
+            if tickers and len(tickers) >= 5:
+                return tickers[:5]
+            if tickers:
+                return tickers
+    except Exception:
+        pass
+    return ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"]

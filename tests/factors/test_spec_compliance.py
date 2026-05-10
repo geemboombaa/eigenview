@@ -57,10 +57,17 @@ def _fc(call_put: str, bid: float, ask: float, volume: int, oi: int) -> MockChai
                      gamma=0.001, bid=bid, ask=ask)
 
 
-def fr(factor_id: str, firing: bool, strength: float = 0.5, label: str = "ok",
-       detail: dict | None = None) -> FactorResult:
-    return FactorResult(factor_id=factor_id, firing=firing, strength=strength,
-                        label=label, detail=detail or {})
+def _real_ticker() -> str:
+    import asyncio
+    from eigenview.data.universe import get_universe
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            return "AAPL"
+        tickers = loop.run_until_complete(get_universe("ndx100"))
+        return tickers[0] if tickers else "AAPL"
+    except Exception:
+        return "AAPL"
 
 
 def make_sc(
@@ -72,15 +79,16 @@ def make_sc(
     swing_low: float = 480.0,
     swing_high: float = 520.0,
 ) -> TickerScorecard:
+    ticker = _real_ticker()
     return TickerScorecard(
-        ticker="NVDA",
-        macro=fr("macro_regime", True, 0.8, "GREEN"),
-        technical=fr("technical", ta, 0.8, ta_label,
-                     {"swing_low": swing_low, "swing_high": swing_high}),
-        gex=fr("gex", gex, 0.7, "short_gamma"),
-        flow=fr("flow", flow, flow_strength, "calls"),
-        dormant=fr("dormant", dormant, dormant_strength, "ACTIVE"),
-        sentiment=fr("sentiment", sentiment, 0.6, "bullish"),
+        ticker=ticker,
+        macro=FactorResult(factor_id="macro_regime", firing=True, strength=0.8, label="GREEN"),
+        technical=FactorResult(factor_id="technical", firing=ta, strength=0.8, label=ta_label,
+                               detail={"swing_low": swing_low, "swing_high": swing_high}),
+        gex=FactorResult(factor_id="gex", firing=gex, strength=0.7, label="short_gamma"),
+        flow=FactorResult(factor_id="flow", firing=flow, strength=flow_strength, label="calls"),
+        dormant=FactorResult(factor_id="dormant", firing=dormant, strength=dormant_strength, label="ACTIVE"),
+        sentiment=FactorResult(factor_id="sentiment", firing=sentiment, strength=0.6, label="bullish"),
         spot_price=500.0,
     )
 

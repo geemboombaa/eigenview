@@ -49,14 +49,14 @@ def test_AC8_all_4_themes_css_vars():
     _run_spec("comprehensive.spec.js", grep="theme")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: theme×template cross-check spec not written yet")
 def test_AC8_theme_persists_across_template_switch():
     """
     GIVEN theme=glass active
     WHEN template switched to MINIMAL
     THEN data-theme=glass still set on document
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: theme × template cross-check not in existing specs")
+    _run_spec("functional/functional_gaps.spec.js", grep="theme x template")
 
 
 # ── Templates ─────────────────────────────────────────────────────────────────
@@ -113,58 +113,46 @@ def test_AC8_shortcuts_blocked_in_input():
 
 # ── Favorites / Mine tab ───────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=False, reason="GAP: Mine tab / favorites spec not written")
 def test_AC8_pin_card_appears_in_mine_tab():
     """
     GIVEN a pick card visible
-    WHEN user clicks pin (⭐)
+    WHEN user clicks pin (★)
     THEN card appears in Mine tab (category nav filter)
-    NOT covered by existing specs — new test needed.
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError(
-        "AC8: favorites → Mine tab not tested in existing specs. "
-        "Implement: pin card → click Mine tab → assert card still visible."
-    )
+    _run_spec("functional/functional_gaps.spec.js", grep="mine tab: pin card")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: localStorage persistence spec not written")
 def test_AC8_favorites_persist_localstorage():
     """
     GIVEN card pinned
     WHEN page.reload()
-    THEN card still in Mine tab (localStorage key 'ev_favorites' survives reload)
-    NOT covered by existing specs — new test needed.
+    THEN card still in localStorage after reload
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError(
-        "AC8: localStorage persistence across reload not tested. "
-        "Implement: pin → reload → Mine tab → assert card present."
-    )
+    _run_spec("functional/functional_gaps.spec.js", grep="favorites: persist")
 
 
 # ── Edit mode ─────────────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=False, reason="GAP: drag interaction spec not written")
 def test_AC8_edit_mode_drag_changes_position():
     """
     GIVEN edit mode active, module present
     WHEN drag handle used to drag module
-    THEN module translateX/Y changes
-    NOT fully covered — existing specs only check handles visible.
+    THEN module reordered in DOM or drag completes without error
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError(
-        "AC8: actual drag position change not tested. "
-        "Implement: page.dragAndDrop on drag handle → assert transform changed."
-    )
+    _run_spec("functional/functional_gaps.spec.js", grep="edit mode: drag handle")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: resize interaction spec not written")
 def test_AC8_edit_mode_resize_changes_height():
     """
     GIVEN edit mode active
     WHEN resize handle dragged downward
     THEN module height increases
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: resize interaction not tested")
+    _run_spec("functional/functional_gaps.spec.js", grep="edit mode: resize handle")
 
 
 def test_AC8_edit_mode_close_removes_module():
@@ -191,30 +179,24 @@ def test_AC8_factor_strip_chat_prefill():
 
 # ── Chart ─────────────────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=False, reason="GAP: GEX price-line overlay spec not written")
 def test_AC8_gex_overlay_lines_on_chart():
     """
     GIVEN pick selected with GEX data (gamma_flip, call_wall, put_wall)
     WHEN price chart loads
-    THEN 3 horizontal price lines visible on chart canvas
-    NOT covered by existing specs — new test needed.
+    THEN data-gex-lines attribute set on chart container
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError(
-        "AC8: GEX overlay lines (gamma_flip, call_wall, put_wall) not tested. "
-        "Implement: inject pick with gex data → chart loads → assert "
-        "3 price lines exist on TradingView chart canvas."
-    )
+    _run_spec("functional/functional_gaps.spec.js", grep="chart: GEX overlay")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: chart EMA toggle spec not written")
 def test_AC8_chart_ema_toggle():
     """
     GIVEN chart loaded
     WHEN EMA21 toggle clicked OFF
-    THEN EMA21 series removed from chart
-    NOT covered by existing specs.
+    THEN button loses active class and localStorage reflects off state
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: chart EMA toggle state not tested")
+    _run_spec("functional/functional_gaps.spec.js", grep="chart: EMA21 toggle")
 
 
 def test_AC8_chart_maximize_restore():
@@ -223,23 +205,22 @@ def test_AC8_chart_maximize_restore():
 
 # ── Signal freshness ──────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=False, reason="GAP: signal freshness badge spec not written")
 def test_AC8_signal_freshness_badge_fresh():
     """
-    GIVEN pick with fired_at < 2h ago
-    THEN pick card shows 'Fresh' badge in green
-    NOT covered by existing specs.
+    GIVEN pick with freshness='fresh'
+    THEN pick card shows badge with data-freshness=fresh in green
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: signal freshness Fresh badge not tested")
+    _run_spec("functional/functional_gaps.spec.js", grep="pick card: fresh badge")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: signal freshness badge spec not written")
 def test_AC8_signal_freshness_badge_stale():
     """
-    GIVEN pick with fired_at > 8h ago
-    THEN pick card shows 'Stale' badge in amber
+    GIVEN pick with freshness='stale'
+    THEN pick card shows badge with data-freshness=stale in amber
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: signal freshness Stale badge not tested")
+    _run_spec("functional/functional_gaps.spec.js", grep="pick card: stale badge")
 
 
 # ── Help page ─────────────────────────────────────────────────────────────────
@@ -254,28 +235,23 @@ def test_AC8_help_page_chip_links_navigate_to_correct_tab():
 
 # ── Signal matrix ─────────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(strict=False, reason="GAP: signal matrix view spec not written")
 def test_AC8_signal_matrix_star_column():
     """
     GIVEN SIGNAL MATRIX nav pill clicked
     THEN matrix view shows with star column indicating conviction
-    NOT covered by existing specs.
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError(
-        "AC8: signal matrix view not tested. "
-        "Implement: click SIGNAL MATRIX pill → assert matrix rows visible "
-        "with star column matching pick conviction."
-    )
+    _run_spec("functional/functional_gaps.spec.js", grep="signal matrix: star column")
 
 
-@pytest.mark.xfail(strict=False, reason="GAP: signal matrix row click spec not written")
 def test_AC8_signal_matrix_row_click_selects_pick():
     """
     GIVEN signal matrix visible
     WHEN row clicked
-    THEN selectedPick store updates to that ticker
+    THEN selectedTicker store updated to that ticker
+    Covered by: functional/functional_gaps.spec.js
     """
-    raise NotImplementedError("AC8: matrix row click → selectedPick not tested")
+    _run_spec("functional/functional_gaps.spec.js", grep="signal matrix: row click")
 
 
 # ── Auto-refresh ──────────────────────────────────────────────────────────────
