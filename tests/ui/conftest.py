@@ -80,7 +80,7 @@ def eigenview_server_with_picks(eigenview_server):
     Skips if scan fails (live data unavailable).
     """
     result = subprocess.run(
-        [sys.executable, "-m", "eigenview.cli", "daily-scan", "--universe", "test5"],
+        [sys.executable, "-m", "eigenview.cli", "daily-scan", "--tickers", "NVDA,AAPL,TSLA,META,AMD"],
         capture_output=True, text=True, timeout=120,
     )
     if result.returncode != 0:

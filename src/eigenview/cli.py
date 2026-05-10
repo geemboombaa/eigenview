@@ -137,31 +137,24 @@ def status() -> None:
     asyncio.run(_run())
 
 
-NDX100 = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST",
-    "NFLX", "TMUS", "AMD", "ADBE", "QCOM", "AMAT", "INTU", "CSCO", "CMCSA", "BKNG",
-    "VRTX", "REGN", "GILD", "MDLZ", "ADP", "PANW", "ABNB", "LRCX", "MCHP", "CRWD",
-    "MU", "SNPS", "CDNS", "CTAS", "KLAC", "FTNT", "ROP", "ORLY", "PCAR", "PAYX",
-    "CPRT", "EXC", "CHTR", "CEG", "MRVL", "ROST", "BIIB", "KDP", "IDXX", "FAST",
-    "VRSK", "ODFL", "DDOG", "ANSS", "DLTR", "EA", "WDAY", "MRNA", "ZS", "TEAM",
-    "NXPI", "PYPL", "TTWO", "ULTA", "VEEV", "ON", "MNST", "MPWR", "TSCO", "TTD",
-    "CSGP", "DXCM", "ENPH", "ILMN", "MELI", "ASML", "CDW", "PDD", "FANG", "SIRI",
-    "EBAY", "MTCH", "APP", "HOOD", "COIN", "ARM", "SMCI", "MSTR", "PLTR", "RIVN",
-    "LCID", "ZM", "DOCU", "OKTA", "SNOW", "DKNG", "RBLX", "PINS", "SNAP", "UBER",
-]
-TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
-
 @app.command(name="daily-scan")
 def daily_scan(
-    universe: str = typer.Option("test5", help="test5 | ndx100"),
+    universe: str = typer.Option("ndx100", help="ndx100 | sp500"),
+    tickers_csv: str = typer.Option("", "--tickers", help="Comma-separated tickers (overrides universe)"),
 ) -> None:
     """Run full daily scan pipeline and print top picks."""
-    if universe == "ndx100":
-        tickers = NDX100
-    else:
-        tickers = TEST5
 
     async def _run() -> None:
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+            typer.echo(f"Scanning {len(tickers)} tickers: {','.join(tickers)}")
+        else:
+            from eigenview.data.universe import get_universe
+            tickers = await get_universe(universe)
+            if not tickers:
+                typer.echo(f"Failed to load universe '{universe}' from Wikipedia. Check network.")
+                return
+            typer.echo(f"Universe '{universe}': {len(tickers)} tickers loaded.")
         async with AsyncSessionLocal() as session:
             qualified = await run_daily_scan(tickers, session)
             await session.commit()

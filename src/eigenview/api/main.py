@@ -78,16 +78,12 @@ async def trigger_scan(universe: str = "ndx100") -> dict:
         global _scan_state
         _scan_state = {"running": True, "message": "Fetching data…", "picks": 0, "error": None, "last_scan_at": _scan_state.get("last_scan_at")}
         try:
-            from eigenview.cli import NDX100, TEST5
-            from eigenview.api.routes.ta_scan import _SP500 as SP500
+            from eigenview.data.universe import get_universe
             from eigenview.data.storage import AsyncSessionLocal
             from eigenview.synthesis.scanner import run_daily_scan
-            if universe == "ndx100":
-                tickers = NDX100
-            elif universe in ("sp500", "full"):
-                tickers = SP500
-            else:
-                tickers = TEST5
+            tickers = await get_universe(universe if universe in ("ndx100", "sp500") else "ndx100")
+            if not tickers:
+                raise RuntimeError(f"Failed to load universe '{universe}' from Wikipedia")
             _scan_state["message"] = f"Scanning {len(tickers)} tickers…"
             async with AsyncSessionLocal() as session:
                 qualified = await run_daily_scan(tickers, session)

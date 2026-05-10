@@ -51,15 +51,7 @@ def _fetch_sp500() -> list[str]:
         return []
 
 
-_STATIC_UNIVERSES: dict[str, list[str]] = {
-    "test5": ["NVDA", "AAPL", "TSLA", "META", "AMD"],
-}
-
-
 async def get_universe(name: str) -> list[str]:
-    if name in _STATIC_UNIVERSES:
-        return _STATIC_UNIVERSES[name]
-
     today = date.today()
     cached = _cache.get(name)
     if cached and cached[0] == today and cached[1]:

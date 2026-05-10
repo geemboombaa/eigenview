@@ -72,13 +72,13 @@ def test_status_chains_row_count_nonzero():
 
 @pytest.mark.data_dependent
 def test_daily_scan_exits_zero():
-    r = _run("daily-scan", "--universe", "test5", timeout=240)
+    r = _run("daily-scan", "--tickers", "NVDA,AAPL,TSLA,META,AMD", timeout=240)
     assert r.returncode == 0, f"daily-scan failed:\nstdout: {r.stdout[:500]}\nstderr: {r.stderr[:500]}"
 
 
 @pytest.mark.data_dependent
 def test_daily_scan_produces_picks():
-    r = _run("daily-scan", "--universe", "test5", timeout=240)
+    r = _run("daily-scan", "--tickers", "NVDA,AAPL,TSLA,META,AMD", timeout=240)
     out = r.stdout
     assert re.search(r"\d+ pick", out, re.IGNORECASE) or "conviction" in out.lower(), (
         f"No picks found in output.\nstdout: {out[:800]}"
@@ -88,7 +88,7 @@ def test_daily_scan_produces_picks():
 @pytest.mark.data_dependent
 def test_daily_scan_conviction_in_valid_range():
     """All conviction values in output must be 1–5."""
-    r = _run("daily-scan", "--universe", "test5", timeout=240)
+    r = _run("daily-scan", "--tickers", "NVDA,AAPL,TSLA,META,AMD", timeout=240)
     convictions = re.findall(r"conviction\s+(\d)/5", r.stdout, re.IGNORECASE)
     assert convictions, f"No conviction/5 pattern found.\nstdout: {r.stdout[:500]}"
     for val in convictions:
@@ -98,7 +98,7 @@ def test_daily_scan_conviction_in_valid_range():
 @pytest.mark.data_dependent
 def test_daily_scan_entry_stop_relationship():
     """Each pick must have entry_low < entry_high and stop < entry_low."""
-    r = _run("daily-scan", "--universe", "test5", timeout=240)
+    r = _run("daily-scan", "--tickers", "NVDA,AAPL,TSLA,META,AMD", timeout=240)
     entries = re.findall(r"Entry:\s*\$([\d.]+)–\$([\d.]+)", r.stdout)
     stops = re.findall(r"Stop:\s*\$([\d.]+)", r.stdout)
     assert entries, "No Entry: lines found in output"
