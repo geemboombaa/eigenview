@@ -10,7 +10,7 @@ import pandas as pd
 import structlog
 import yfinance as yf
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from eigenview.data.storage import AsyncSessionLocal, Chain
@@ -189,17 +189,14 @@ async def fetch_chain(ticker: str) -> dict[str, pd.DataFrame | float]:
             )
 
     if rows:
-        # asyncpg hard limit: 32767 query arguments. 12 cols × 2000 = 24k < 32767.
-        chunk_size = 2000
+        chunk_size = 500
         async with AsyncSessionLocal() as session:
             for i in range(0, len(rows), chunk_size):
                 chunk = rows[i : i + chunk_size]
                 stmt = (
-                    pg_insert(Chain)
+                    upsert(Chain)
                     .values(chunk)
-                    .on_conflict_do_nothing(
-                        index_elements=["ticker", "snapshot_date", "strike", "expiry", "call_put"]
-                    )
+                    .on_conflict_do_nothing()
                 )
                 await session.execute(stmt)
             await session.commit()

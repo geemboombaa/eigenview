@@ -1,0 +1,703 @@
+{
+  "exported_at": "2026-05-04T00:06:33.541Z",
+  "summary": {
+    "total": 127,
+    "done": 82,
+    "approved": 44,
+    "rejected": 0,
+    "question": 5
+  },
+  "all_state": {
+    "5": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "6": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "16": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "18": {
+      "approval": "approved",
+      "comment": "confirm what exactly is the logic used here for multi time frame analysis and when is it used",
+      "priority": ""
+    },
+    "19": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "20": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "21": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "23": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "26": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "27": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "28": {
+      "approval": "question",
+      "comment": "is this too restrictive or right level. what cases will be missed and how to address without curve fitting. priority is nois filter not curve fitting",
+      "priority": ""
+    },
+    "29": {
+      "approval": "question",
+      "comment": "is this too restrictive or right level. what cases will be missed and how to address without curve fitting. priority is nois filter not curve fitting",
+      "priority": ""
+    },
+    "30": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "31": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "32": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "33": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "34": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "35": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "36": {
+      "approval": "question",
+      "comment": "use weekly 8 dn 21 ema not 31 and 50 ema",
+      "priority": ""
+    },
+    "37": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "38": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "39": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "42": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "50": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "51": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "53": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "60": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "61": {
+      "approval": "question",
+      "comment": "does this add or help in filtering noise and improving signal qulity?",
+      "priority": ""
+    },
+    "72": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "73": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "79": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "80": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "82": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "83": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "84": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "94": {
+      "approval": "approved",
+      "comment": "visually needs to be displayed in chart",
+      "priority": ""
+    },
+    "96": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "97": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "98": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "99": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "102": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "103": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "104": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "107": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "120": {
+      "approval": "question",
+      "comment": "approved but already have  breakouts, pullbacks, compression, dormatn etc shown. this seems to be a combination of all in one pane. so decide whats the best way to display that is actionable to user. by the way when user clicks on stock it should show the details and actions that user can act upon.",
+      "priority": ""
+    },
+    "121": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "122": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "124": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    },
+    "127": {
+      "approval": "approved",
+      "comment": "",
+      "priority": ""
+    }
+  },
+  "approved_items": [
+    {
+      "id": 5,
+      "area": "Macro",
+      "title": "SPX breadth — % stocks above 50dma > 50% (+2 pts)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 6,
+      "area": "Macro",
+      "title": "Retail capitulation bonus — Citadel GMI (+1 pt)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 16,
+      "area": "TA",
+      "title": "EMA 200 (daily — long-term baseline)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 18,
+      "area": "TA",
+      "title": "Weekly ADX + RSI",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": "confirm what exactly is the logic used here for multi time frame analysis and when is it used"
+    },
+    {
+      "id": 19,
+      "area": "TA",
+      "title": "RSI divergence detector (bull + bear)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 20,
+      "area": "TA",
+      "title": "Fibonacci retracement levels",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 21,
+      "area": "TA",
+      "title": "MACD (daily)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 23,
+      "area": "TA",
+      "title": "Volume character indicator (declining vs expanding trend)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 26,
+      "area": "TA",
+      "title": "Pattern: compression_break — enhance MTF + vol filters",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 27,
+      "area": "TA",
+      "title": "Pattern: pullback_in_trend — add weekly gate + vol char",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 30,
+      "area": "TA",
+      "title": "Pattern: ema_reclaim (NEW)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 31,
+      "area": "TA",
+      "title": "Pattern: base_breakout / VCP (NEW)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 32,
+      "area": "TA",
+      "title": "Pattern: bullish_reversal (NEW)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 33,
+      "area": "TA",
+      "title": "Pattern: oversold_bounce (NEW — tactical)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 34,
+      "area": "TA",
+      "title": "Pattern: failed_breakdown (NEW)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 35,
+      "area": "TA",
+      "title": "Pattern: bearish_reversal (NEW — macro RED only)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 37,
+      "area": "TA",
+      "title": "Pattern close validation (close above, not intraday)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 38,
+      "area": "TA",
+      "title": "Volume character validation per pattern",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 39,
+      "area": "TA",
+      "title": "Extended RSI gate (RSI > 75 = low quality flag)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 42,
+      "area": "TA",
+      "title": "IV Rank computation at scan time",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 50,
+      "area": "GEX",
+      "title": "Max pain level",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 51,
+      "area": "GEX",
+      "title": "GEX by expiry bucket (0DTE / weekly / monthly)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 53,
+      "area": "GEX",
+      "title": "GEX strike density cluster near spot",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 60,
+      "area": "Flow",
+      "title": "Aggressive side detection (ask-side vs bid-side fill)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 72,
+      "area": "Dormant",
+      "title": "⚠ DormantBet table population — CRITICAL BUG",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 73,
+      "area": "Dormant",
+      "title": "Recent volume on dormant strike",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 79,
+      "area": "Sentiment",
+      "title": "Article count novelty proxy",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 80,
+      "area": "Sentiment",
+      "title": "Keyword bullish/bearish scoring",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 82,
+      "area": "Sentiment",
+      "title": "FinBERT NLP sentiment (replace keyword matching)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 83,
+      "area": "Sentiment",
+      "title": "LLM MATERIAL/NOISE filter (Claude API)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 84,
+      "area": "Sentiment",
+      "title": "Novelty embedding distance — MiniLM 30d baseline",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 94,
+      "area": "Synthesis",
+      "title": "Signal freshness — signal_fired_at + age badges",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": "visually needs to be displayed in chart"
+    },
+    {
+      "id": 96,
+      "area": "Synthesis",
+      "title": "Factor score storage for all scanned tickers",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 97,
+      "area": "HeatMap",
+      "title": "/api/signals/heat endpoint",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 98,
+      "area": "HeatMap",
+      "title": "signal-heat.js frontend module",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 99,
+      "area": "HeatMap",
+      "title": "Factor score storage (prerequisite for heat map)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 102,
+      "area": "Infra",
+      "title": "DB migration — new SignalBench columns",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 103,
+      "area": "Infra",
+      "title": "Windows Task Scheduler 8AM auto-scan",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 104,
+      "area": "Infra",
+      "title": "Backend pytest suite updates",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 107,
+      "area": "Infra",
+      "title": "SPX breadth data source (^MMFI)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 121,
+      "area": "UI",
+      "title": "Signal freshness badges — Fresh/Valid/Stale (TODO #5)",
+      "status": "done",
+      "priority": "done",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 122,
+      "area": "UI",
+      "title": "Favorites persistence (TODO #6)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 124,
+      "area": "UI",
+      "title": "Category filter — mylist / closed / alerts (TODO #9)",
+      "status": "missing",
+      "priority": "P2",
+      "approval": "approved",
+      "comment": ""
+    },
+    {
+      "id": 127,
+      "area": "UI",
+      "title": "Nav simplification — move category filters to inline chips",
+      "status": "missing",
+      "priority": "P1",
+      "approval": "approved",
+      "comment": ""
+    }
+  ],
+  "question_items": [
+    {
+      "id": 28,
+      "area": "TA",
+      "title": "Pattern: breakout — add proven level + close validation",
+      "status": "done",
+      "priority": "done",
+      "approval": "question",
+      "comment": "is this too restrictive or right level. what cases will be missed and how to address without curve fitting. priority is nois filter not curve fitting"
+    },
+    {
+      "id": 29,
+      "area": "TA",
+      "title": "Pattern: flag / bull_flag (NEW)",
+      "status": "done",
+      "priority": "done",
+      "approval": "question",
+      "comment": "is this too restrictive or right level. what cases will be missed and how to address without curve fitting. priority is nois filter not curve fitting"
+    },
+    {
+      "id": 36,
+      "area": "TA",
+      "title": "Weekly trend alignment gate",
+      "status": "done",
+      "priority": "done",
+      "approval": "question",
+      "comment": "use weekly 8 dn 21 ema not 31 and 50 ema"
+    },
+    {
+      "id": 61,
+      "area": "Flow",
+      "title": "Sweep vs block distinction",
+      "status": "done",
+      "priority": "done",
+      "approval": "question",
+      "comment": "does this add or help in filtering noise and improving signal qulity?"
+    },
+    {
+      "id": 120,
+      "area": "UI",
+      "title": "Signal heat map panel (TODO #3)",
+      "status": "done",
+      "priority": "done",
+      "approval": "question",
+      "comment": "approved but already have  breakouts, pullbacks, compression, dormatn etc shown. this seems to be a combination of all in one pane. so decide whats the best way to display that is actionable to user. by the way when user clicks on stock it should show the details and actions that user can act upon."
+    }
+  ],
+  "rejected_items": []
+}

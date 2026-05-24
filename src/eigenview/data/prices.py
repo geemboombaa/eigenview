@@ -7,7 +7,7 @@ import pandas as pd
 import structlog
 import yfinance as yf
 from sqlalchemy import select, text
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.data.exceptions import DataNotFoundError
@@ -97,11 +97,9 @@ async def fetch_prices(
     if rows:
         async with AsyncSessionLocal() as session:
             stmt = (
-                pg_insert(Price)
+                upsert(Price)
                 .values(rows)
-                .on_conflict_do_nothing(
-                    index_elements=["ticker", "date", "timeframe"]
-                )
+                .on_conflict_do_nothing()
             )
             await session.execute(stmt)
             await session.commit()

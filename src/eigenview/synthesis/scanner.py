@@ -7,10 +7,10 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import yfinance as yf
 from eigenview.data.calendar import get_catalysts
 from eigenview.data.chains import get_chain
 from eigenview.data.news import fetch_news
-from eigenview.data.prices import get_prices
 from eigenview.data.storage import Chain, DormantBet, write_signal_trigger
 from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, entry_zone, stop_level
 from eigenview.factors.dormant import score_dormant
@@ -70,6 +70,36 @@ async def _identify_dormant_bets(
             row.updated_at = datetime.utcnow()
 
 
+async def _fetch_live(ticker: str) -> "pd.DataFrame":
+    import pandas as pd
+    loop = asyncio.get_event_loop()
+    def _dl():
+        return yf.download(ticker, period="200d", interval="1d",
+                           auto_adjust=True, progress=False, threads=False)
+    raw = await loop.run_in_executor(None, _dl)
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+    df = raw.copy()
+    df.columns = df.columns.str.lower() if not hasattr(df.columns, 'levels') else \
+        df.xs(ticker, axis=1, level=1).columns.str.lower()
+    if hasattr(raw.columns, 'levels'):
+        df = raw.xs(ticker, axis=1, level=1).copy()
+        df.columns = df.columns.str.lower()
+    df.index.name = "date"
+    return df.dropna(subset=["close"])
+
+
+def _score_with_lookback(df: "pd.DataFrame", ticker: str, lookback: int = 10):
+    n = len(df)
+    max_back = min(lookback, n - 50)
+    for i in range(max(0, max_back) + 1):
+        sl = df.iloc[:n - i] if i > 0 else df
+        r = score_technical(sl, ticker)
+        if r.firing:
+            return r
+    return score_technical(df, ticker)
+
+
 async def _score_ticker(
     ticker: str,
     macro_result,
@@ -77,7 +107,7 @@ async def _score_ticker(
     session: AsyncSession,
 ) -> TickerScorecard | None:
     try:
-        df = await get_prices(ticker, timeframe="1d", days=90)
+        df = await _fetch_live(ticker)
         if df.empty:
             return None
         spot = float(df["close"].iloc[-1])
@@ -88,7 +118,7 @@ async def _score_ticker(
         )
         chains = chain_rows.scalars().all()
 
-        ta = score_technical(df, ticker)
+        ta = _score_with_lookback(df, ticker)
         gex = score_gex(list(chains), spot, ticker)
         flow = score_flow(list(chains), ticker)
 
