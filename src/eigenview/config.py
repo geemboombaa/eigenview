@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     alpha_vantage_key: str
     finnhub_key: str
     anthropic_api_key: str
+    databento_key: str = ""
 
     log_level: str = "INFO"
     universe: str = "NDX100"
