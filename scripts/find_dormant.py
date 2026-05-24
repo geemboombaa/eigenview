@@ -13,17 +13,42 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sqlalchemy import select, text
+from eigenview.config import settings
 from eigenview.data.storage import (
     AsyncSessionLocal, Chain, DormantBet, Catalyst, Price, create_tables
 )
+from eigenview.factors.dormant import (
+    candidate_dwoi_floor,
+    dwoi,
+    is_dormant_candidate,
+    score_bet_v2,
+)
+from py_vollib.black_scholes import black_scholes as _bs_price
+
+
+def _mark(c, spot: float) -> float:
+    """EOD mid; fall back to Black-Scholes price from stored IV when bid/ask absent."""
+    b, a = c.bid or 0, c.ask or 0
+    if b > 0 and a > 0:
+        return (b + a) / 2
+    if c.iv and c.iv > 0 and spot > 0:
+        t = max((c.expiry - TODAY).days, 1) / 365.0
+        try:
+            return _bs_price(c.call_put.lower(), spot, c.strike, t, 0.045, c.iv)
+        except Exception:
+            return 0.0
+    return 0.0
 
 
 MIN_OI = int(sys.argv[sys.argv.index("--min-oi") + 1]) if "--min-oi" in sys.argv else 500
-MIN_PREMIUM = float(sys.argv[sys.argv.index("--min-premium") + 1]) if "--min-premium" in sys.argv else 250_000
-MIN_DTE = 60  # lowered from 90 since we have limited chain data
+MIN_PREMIUM = float(sys.argv[sys.argv.index("--min-premium") + 1]) if "--min-premium" in sys.argv else 1_000_000
+MIN_DTE = 20  # min days-to-expiry filter
 TODAY = date.today()
 
 
@@ -49,63 +74,47 @@ async def get_catalyst_days(ticker: str, session) -> int | None:
     return int(val) if val is not None else None
 
 
-async def find_candidates(session) -> list[dict]:
+async def find_candidates(session) -> tuple[list[dict], dict[str, list]]:
     """
-    Scan chains table for large long-dated OI positions.
-    Returns sorted list of candidate dormant bets.
+    Scan chains for big-relative-to-ticker long-dated positions.
+    Bigness is per-ticker: ΔWOI ≥ max($1M tradeability, ticker's 80th pct).
+    Returns (sorted candidate dicts, {ticker: full chain rows}).
     """
-    # Get all far-dated chains with meaningful OI
     rows = await session.execute(
-        select(Chain)
-        .where(
-            Chain.expiry >= TODAY + timedelta(days=MIN_DTE),
-            Chain.oi >= MIN_OI,
-        )
-        .order_by(Chain.oi.desc())
+        select(Chain).where(Chain.expiry >= TODAY + timedelta(days=MIN_DTE))
     )
-    chains = rows.scalars().all()
+    by_ticker: dict[str, list] = {}
+    for c in rows.scalars().all():
+        by_ticker.setdefault(c.ticker, []).append(c)
 
-    candidates = []
-    for c in chains:
-        mid = ((c.bid or 0) + (c.ask or 0)) / 2
-        est_premium = (c.oi or 0) * mid * 100
-        if est_premium < MIN_PREMIUM:
+    candidates: list[dict] = []
+    ticker_chains: dict[str, list] = {}
+    for ticker, tch in by_ticker.items():
+        spot = await get_spot(ticker, session)
+        if spot <= 0:
             continue
-
-        # Filter deep ITM (stock substitutes, not directional bets)
-        # Call deep ITM = delta > 0.85; use delta if available, else strike/mid heuristic
-        if c.delta is not None:
-            if c.call_put.upper() == "C" and c.delta > 0.85:
+        ticker_chains[ticker] = tch
+        floor = candidate_dwoi_floor(tch, spot)
+        for c in tch:
+            if not is_dormant_candidate(c, spot, floor, TODAY, MIN_DTE):
                 continue
-            if c.call_put.upper() == "P" and c.delta < -0.85:
-                continue
-
-        dte = (c.expiry - TODAY).days
-
-        candidates.append({
-            "ticker": c.ticker,
-            "strike": c.strike,
-            "call_put": c.call_put,
-            "expiry": c.expiry,
-            "dte": dte,
-            "oi": c.oi,
-            "bid": c.bid,
-            "ask": c.ask,
-            "mid": mid,
-            "est_premium": est_premium,
-            "iv": c.iv,
-            "delta": c.delta,
-            "gamma": c.gamma,
-        })
+            mid = _mark(c, spot)
+            candidates.append({
+                "ticker": c.ticker, "strike": c.strike, "call_put": c.call_put,
+                "expiry": c.expiry, "dte": (c.expiry - TODAY).days, "oi": c.oi,
+                "mid": mid, "est_premium": (c.oi or 0) * mid * 100,
+                "dwoi": dwoi(c.delta, c.oi, spot),
+                "iv": c.iv, "delta": c.delta, "spot": spot,
+            })
 
     # Deduplicate: keep highest OI per ticker/strike/expiry/cp
-    seen = {}
+    seen: dict = {}
     for c in candidates:
         key = (c["ticker"], c["strike"], str(c["expiry"]), c["call_put"])
         if key not in seen or c["oi"] > seen[key]["oi"]:
             seen[key] = c
 
-    return sorted(seen.values(), key=lambda x: x["est_premium"], reverse=True)
+    return sorted(seen.values(), key=lambda x: x["dwoi"], reverse=True), ticker_chains
 
 
 async def write_dormant_bets(candidates: list[dict], session) -> int:
@@ -141,67 +150,100 @@ async def write_dormant_bets(candidates: list[dict], session) -> int:
     return written
 
 
-async def score_candidate(c: dict, session) -> dict:
-    """Score a candidate using available signals (bypass 30-day gate)."""
-    spot = await get_spot(c["ticker"], session)
-    catalyst_days = await get_catalyst_days(c["ticker"], session)
+class _BetShim:
+    """Adapts a candidate dict to the DormantBet interface score_bet_v2 expects."""
+    def __init__(self, c: dict):
+        self.ticker = c["ticker"]
+        self.strike = c["strike"]
+        self.call_put = c["call_put"]
+        self.expiry = c["expiry"]
+        self.original_oi = c["oi"]
+        self.original_premium = c["est_premium"]
+        self.original_date = TODAY
 
-    score = 0
-    signals = []
 
-    # sig1 — OI size (proxy for conviction — no historical comparison available yet)
-    if c["oi"] >= 5000:
-        score += 2
-        signals.append(f"OI={c['oi']:,} (very large)")
-    elif c["oi"] >= 1000:
-        score += 1
-        signals.append(f"OI={c['oi']:,} (large)")
+async def all_catalyst_days(session) -> dict[str, int]:
+    """One query: ticker -> nearest upcoming catalyst day count (>=0)."""
+    rows = await session.execute(
+        select(Catalyst.ticker, Catalyst.days_from_now).where(Catalyst.days_from_now >= 0)
+    )
+    out: dict[str, int] = {}
+    for tk, d in rows.all():
+        if d is None:
+            continue
+        if tk not in out or d < out[tk]:
+            out[tk] = int(d)
+    return out
 
-    # sig2 — catalyst proximity
-    if catalyst_days is not None:
-        if catalyst_days <= 14:
-            score += 2
-            signals.append(f"catalyst in {catalyst_days}d")
-        elif catalyst_days <= 30:
-            score += 1
-            signals.append(f"catalyst in {catalyst_days}d")
 
-    # sig3 — strike proximity to spot
-    if spot > 0:
-        pct = abs(c["strike"] - spot) / spot
-        if pct < 0.05:
-            score += 2
-            signals.append(f"strike {pct*100:.1f}% from spot ${spot:.0f}")
-        elif pct < 0.10:
-            score += 1
-            signals.append(f"strike {pct*100:.1f}% from spot ${spot:.0f}")
-
-    # sig4 — premium size
-    if c["est_premium"] >= 1_000_000:
-        score += 1
-        signals.append(f"${c['est_premium']/1e6:.1f}M est premium")
-
-    # sig5 — DTE
-    if c["dte"] >= 90:
-        score += 1
-        signals.append(f"{c['dte']}d to expiry")
-
-    # sig6 — time alive (today = 1 day since we just loaded)
-    score += 1  # always passes for new baseline bets
-
-    direction = "CALL BET" if c["call_put"].upper() == "C" else "PUT BET"
-    activation = score / 9
-
+def score_candidate(c: dict, ticker_chains: dict, cat_days: dict) -> dict:
+    """Score a candidate with the real engine (score_bet_v2). Bypasses the 30-day gate."""
+    catalyst_days = cat_days.get(c["ticker"])
+    catalyst_near = catalyst_days is not None and catalyst_days <= 14
+    tch = ticker_chains.get(c["ticker"], [])
+    score, detail = score_bet_v2(_BetShim(c), tch, c["spot"], catalyst_near)
+    _MAX = 7
     return {
         **c,
-        "spot": spot,
         "catalyst_days": catalyst_days,
-        "score": score,
-        "activation_pct": activation,
-        "signals": signals,
-        "direction": direction,
-        "fires": activation >= 0.4,  # lowered threshold from 0.6 for cold-start
+        "score": round(score, 2),
+        "activation_pct": score / _MAX,
+        "detail": detail,
+        "direction": "CALL BET" if c["call_put"].upper() == "C" else "PUT BET",
+        "fires": (score / _MAX) >= settings.dormant_firing_threshold,
     }
+
+
+def _flatten(s: dict) -> dict:
+    """Scored candidate dict -> flat row for the spreadsheet."""
+    d = s["detail"]
+    return {
+        "ticker": s["ticker"],
+        "direction": s["direction"],
+        "call_put": s["call_put"],
+        "strike": s["strike"],
+        "expiry": str(s["expiry"]),
+        "dte": s["dte"],
+        "oi": s["oi"],
+        "dwoi_usd": round(s.get("dwoi", 0)),
+        "est_premium_usd": round(s["est_premium"]),
+        "size_pct": d.get("size_pct"),
+        "iv": round(s["iv"], 4) if s.get("iv") is not None else None,
+        "iv_pct": d.get("iv_pct"),
+        "hedge_purity": d.get("hedge_purity"),
+        "isolation_mult": d.get("isolation_multiplier"),
+        "catalyst_days": s["catalyst_days"],
+        "spot": round(s["spot"], 2),
+        "score": s["score"],
+        "activation_pct": round(s["activation_pct"], 3),
+        "fires": s["fires"],
+    }
+
+
+def dump_xlsx(scored: list[dict], path: Path) -> None:
+    import pandas as pd
+
+    rows = [_flatten(s) for s in scored]
+    df = pd.DataFrame(rows)
+    fire_pct = settings.dormant_firing_threshold
+    firing = df[df["fires"]].sort_values(["score", "size_pct"], ascending=False)
+
+    by_ticker = (
+        df.groupby("ticker")
+        .agg(candidates=("score", "size"),
+             firing=("fires", "sum"),
+             best_score=("score", "max"),
+             max_size_pct=("size_pct", "max"),
+             total_est_premium=("est_premium_usd", "sum"),
+             max_oi=("oi", "max"))
+        .reset_index()
+        .sort_values(["firing", "best_score"], ascending=False)
+    )
+
+    with pd.ExcelWriter(path, engine="openpyxl") as xl:
+        df.sort_values(["score", "size_pct"], ascending=False).to_excel(xl, sheet_name="all_candidates", index=False)
+        firing.to_excel(xl, sheet_name="firing", index=False)
+        by_ticker.to_excel(xl, sheet_name="by_ticker", index=False)
 
 
 async def main() -> None:
@@ -209,66 +251,48 @@ async def main() -> None:
 
     async with AsyncSessionLocal() as session:
         print("Scanning chains for dormant bet candidates...")
-        print(f"  Filters: OI>={MIN_OI}, est_premium>=${MIN_PREMIUM:,.0f}, DTE>={MIN_DTE}\n")
+        print(f"  Filter: DWOI >= max($1M, ticker 80th pct), DTE >= {MIN_DTE}\n")
 
-        candidates = await find_candidates(session)
-        print(f"Found {len(candidates)} candidates across {len(set(c['ticker'] for c in candidates))} tickers")
+        candidates, ticker_chains = await find_candidates(session)
+        n_tickers = len(set(c["ticker"] for c in candidates))
+        print(f"Found {len(candidates)} candidates across {n_tickers} tickers")
 
-        # Write top 500 to dormant_bets table
-        written = await write_dormant_bets(candidates[:500], session)
-        print(f"Wrote {written} new bets to dormant_bets table\n")
+        cat_days = await all_catalyst_days(session)
+        print(f"Catalysts available for {len(cat_days)} tickers\n")
 
-        # Score top 50 by premium
-        print(f"{'='*90}")
-        print(f"{'TICKER':<8} {'CP':<3} {'STRIKE':>8} {'EXPIRY':<12} {'DTE':>5} {'OI':>8} {'EST_PREM':>12} {'SCORE':>7} {'SIGNALS'}")
-        print(f"{'='*90}")
+        # Score EVERY candidate (no top-N cap) with the real relative engine.
+        scored = [score_candidate(c, ticker_chains, cat_days) for c in candidates]
+        firing = [s for s in scored if s["fires"]]
+        fire_tickers = sorted(set(s["ticker"] for s in firing))
+        print(f"FIRING (activation >= {settings.dormant_firing_threshold:.0%}): "
+              f"{len(firing)} contracts across {len(fire_tickers)} tickers\n")
 
-        firing = []
-        all_scored = []
-        for c in candidates[:50]:
-            scored = await score_candidate(c, session)
-            all_scored.append(scored)
-            if scored["fires"]:
-                firing.append(scored)
+        # Persist all firing bets as the tracking baseline.
+        firing_sorted = sorted(firing, key=lambda x: x["score"], reverse=True)
+        written = await write_dormant_bets(firing_sorted, session)
+        print(f"Wrote {written} firing bets to dormant_bets table")
 
-            print(
-                f"{scored['ticker']:<8} "
-                f"{scored['call_put']:<3} "
-                f"{scored['strike']:>8.0f} "
-                f"{str(scored['expiry']):<12} "
-                f"{scored['dte']:>5} "
-                f"{scored['oi']:>8,} "
-                f"${scored['est_premium']:>10,.0f} "
-                f"  {scored['score']}/9 "
-                f"  {', '.join(scored['signals'])}"
-            )
+        out = Path(__file__).parent.parent / "data" / "dormant_scan.xlsx"
+        dump_xlsx(scored, out)
+        print(f"Dumped {len(scored)} candidates to {out}\n")
 
-        print(f"\n{'='*90}")
-        print(f"\nFIRING (activation ≥ 40%): {len(firing)}/{min(50,len(candidates))} scored")
-        print()
-        for c in sorted(firing, key=lambda x: x["score"], reverse=True):
-            print(f"  *** {c['ticker']} {c['direction']} — ${c['strike']:.0f} exp {c['expiry']} "
-                  f"| OI={c['oi']:,} | ${c['est_premium']/1e6:.2f}M | score={c['score']}/9 | "
-                  f"spot=${c['spot']:.0f} cat={c['catalyst_days']}d")
-            for sig in c["signals"]:
-                print(f"       • {sig}")
-            print()
-
-        # Summary stats
-        print(f"{'='*90}")
-        print(f"SUMMARY — all {len(candidates)} candidates:")
-        by_ticker = {}
-        for c in candidates:
-            by_ticker.setdefault(c["ticker"], []).append(c)
-
-        top_tickers = sorted(by_ticker.items(), key=lambda x: sum(c["est_premium"] for c in x[1]), reverse=True)[:20]
-        print(f"\nTop 20 tickers by total dormant premium:")
-        for ticker, bets in top_tickers:
-            total = sum(b["est_premium"] for b in bets)
-            max_oi = max(b["oi"] for b in bets)
-            calls = sum(1 for b in bets if b["call_put"].upper() == "C")
-            puts = sum(1 for b in bets if b["call_put"].upper() == "P")
-            print(f"  {ticker:<8} ${total/1e6:>8.1f}M | {len(bets)} contracts | calls={calls} puts={puts} | max_oi={max_oi:,}")
+        # Breadth check: are non-mega-caps firing? Show firing tickers by best score.
+        best_by_ticker: dict[str, dict] = {}
+        for s in firing:
+            t = s["ticker"]
+            if t not in best_by_ticker or s["score"] > best_by_ticker[t]["score"]:
+                best_by_ticker[t] = s
+        ranked = sorted(best_by_ticker.values(), key=lambda x: (x["score"], x["detail"].get("size_pct", 0)), reverse=True)
+        print(f"{'='*92}")
+        print(f"FIRING TICKERS ({len(ranked)}) — best dormant bet each, ranked by score then relative size")
+        print(f"{'TICKER':<8}{'DIR':<10}{'STRIKE':>8}{'EXPIRY':>12}{'OI':>9}{'SIZE%':>7}{'IV%':>7}{'CATd':>6}{'SCORE':>7}")
+        print(f"{'-'*92}")
+        for s in ranked:
+            d = s["detail"]
+            ivp = d.get("iv_pct")
+            print(f"{s['ticker']:<8}{s['direction']:<10}{s['strike']:>8.0f}{str(s['expiry']):>12}"
+                  f"{s['oi']:>9,}{d.get('size_pct',0):>7.2f}{(ivp if ivp is not None else -1):>7.2f}"
+                  f"{(s['catalyst_days'] if s['catalyst_days'] is not None else -1):>6}{s['score']:>7}")
 
 
 if __name__ == "__main__":

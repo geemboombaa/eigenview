@@ -23,6 +23,15 @@ from eigenview.config import settings
 
 _is_sqlite = settings.database_url.startswith("sqlite")
 
+if _is_sqlite and "///" in settings.database_url:
+    # data/ is gitignored, so the dir is absent on fresh CI runners — create it
+    # before connect or sqlite raises "unable to open database file".
+    from pathlib import Path
+
+    _db_file = settings.database_url.split("///", 1)[1]
+    if _db_file and _db_file != ":memory:":
+        Path(_db_file).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+
 _engine_kwargs: dict = {} if _is_sqlite else {
     "pool_size": 5,
     "max_overflow": 10,
@@ -78,6 +87,25 @@ class Chain(Base):
     iv: Mapped[float | None] = mapped_column(Float)
     delta: Mapped[float | None] = mapped_column(Float)
     gamma: Mapped[float | None] = mapped_column(Float)
+
+
+class ContractHistory(Base):
+    """Daily per-contract series (OI / volume / close / IV) for watched dormant bets.
+
+    Keyed by OSI symbol so the activation engine can diff day-over-day from real
+    Databento history (no need to wait for snapshots to accumulate).
+    """
+    __tablename__ = "contract_history"
+    __table_args__ = (UniqueConstraint("osi_symbol", "date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    osi_symbol: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    oi: Mapped[int | None] = mapped_column(Integer)
+    volume: Mapped[int | None] = mapped_column(Integer)
+    close: Mapped[float | None] = mapped_column(Float)
+    iv: Mapped[float | None] = mapped_column(Float)
 
 
 class NewsItem(Base):

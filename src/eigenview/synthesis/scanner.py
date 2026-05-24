@@ -13,7 +13,12 @@ from eigenview.data.chains import get_chain
 from eigenview.data.news import fetch_news
 from eigenview.data.storage import Chain, DormantBet, write_signal_trigger
 from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, entry_zone, stop_level
-from eigenview.factors.dormant import score_dormant
+from eigenview.factors.dormant import (
+    candidate_dwoi_floor,
+    is_dormant_candidate,
+    mark_price,
+    score_dormant,
+)
 from eigenview.factors.flow import score_flow
 from eigenview.factors.gex import score_gex
 from eigenview.factors.macro_regime import score_macro_regime
@@ -24,31 +29,37 @@ from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
 
-_DORMANT_MIN_PREMIUM = 300_000.0
-_DORMANT_MIN_DTE = 60
+_DORMANT_MIN_DTE = 20
 
 
 async def _identify_dormant_bets(
     ticker: str,
     chains: list,
+    spot: float,
     today: date,
     session: AsyncSession,
 ) -> None:
-    """Upsert qualifying large long-dated positions into dormant_bets table."""
+    """Upsert qualifying large long-dated positions into dormant_bets table.
+
+    Qualification is relative to the ticker's own chain (ΔWOI ≥ 80th pct, with a
+    $1M tradeability floor) — shared with the find_dormant screen via dormant.py.
+    """
+    if not chains or spot <= 0:
+        return
+    floor = candidate_dwoi_floor(list(chains), spot)
     for c in chains:
-        dte = (c.expiry - today).days if hasattr(c, "expiry") and c.expiry else 0
-        if dte < _DORMANT_MIN_DTE:
+        if not is_dormant_candidate(c, spot, floor, today, _DORMANT_MIN_DTE):
             continue
-        mid = ((c.bid or 0) + (c.ask or 0)) / 2
+        mid = mark_price(c.bid, c.ask, c.iv, spot, c.strike, c.expiry, c.call_put, today)
         premium = mid * (c.oi or 0) * 100
-        if premium < _DORMANT_MIN_PREMIUM:
-            continue
         contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
+        # Match on the contract only (NOT original_date) so the first-seen row is
+        # found and its OI carried forward — otherwise original_oi == current_oi
+        # every day and OI change is always zero.
         existing = await session.execute(
             select(DormantBet).where(
                 DormantBet.ticker == ticker,
                 DormantBet.contract == contract,
-                DormantBet.original_date == today,
             )
         )
         row = existing.scalars().first()
@@ -117,6 +128,9 @@ async def _score_ticker(
             select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == date.today())
         )
         chains = chain_rows.scalars().all()
+
+        # Accumulate dormant-bet candidates from today's chain (Day-1 onward).
+        await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
 
         ta = _score_with_lookback(df, ticker)
         gex = score_gex(list(chains), spot, ticker)
