@@ -515,6 +515,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
+    { name = "aiosqlite" },
     { name = "alembic" },
     { name = "anthropic" },
     { name = "asyncpg" },
@@ -535,6 +536,8 @@ dependencies = [
     { name = "pytest-vcr" },
     { name = "requests" },
     { name = "ruff" },
+    { name = "scipy" },
+    { name = "smartmoneyconcepts" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "sse-starlette" },
     { name = "structlog" },
@@ -553,14 +556,10 @@ ml = [
     { name = "transformers" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "aiosqlite" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=23.2" },
+    { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "anthropic", specifier = ">=0.40" },
     { name = "asyncpg", specifier = ">=0.29" },
@@ -581,7 +580,9 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31" },
     { name = "ruff", specifier = ">=0.4" },
     { name = "scikit-learn", marker = "extra == 'ml'", specifier = ">=1.4" },
+    { name = "scipy", specifier = ">=1.11" },
     { name = "sentence-transformers", marker = "extra == 'ml'", specifier = ">=2.7" },
+    { name = "smartmoneyconcepts", specifier = ">=0.0.27" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "sse-starlette", specifier = ">=2.1" },
     { name = "structlog", specifier = ">=24.0" },
@@ -596,7 +597,7 @@ requires-dist = [
 provides-extras = ["ml"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "aiosqlite", specifier = ">=0.22.1" }]
+dev = []
 
 [[package]]
 name = "fastapi"
@@ -2177,6 +2178,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "smartmoneyconcepts"
+version = "0.0.27"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "pandas", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/41/93/a9906685ce9b42811d18c611dd1e65727030d0558aa7b4476b855b1f696b/smartmoneyconcepts-0.0.27.tar.gz", hash = "sha256:f1b28cdbe869de5f5eb845d2cf2c99f74f18f9c9d7d948d12ec5ada42af5abd9", size = 15492, upload-time = "2026-04-03T14:17:10.844Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/58/557cfca89e901d13f1d3c7a27e1a6ef6fedac5ac188301049f06f28c8897/smartmoneyconcepts-0.0.27-py3-none-any.whl", hash = "sha256:aa5094fa3a361abbbbba358fe885d859537e2eba27374a934e28db353b97ae9b", size = 13655, upload-time = "2026-04-03T14:17:09.912Z" },
 ]
 
 [[package]]

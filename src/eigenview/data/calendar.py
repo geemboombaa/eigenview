@@ -9,7 +9,7 @@ import pandas as pd
 import structlog
 import yfinance as yf
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.config import settings
@@ -150,13 +150,10 @@ async def get_catalysts(ticker: str) -> list[dict]:
             for e in all_events
         ]
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(Catalyst)
-                .values(rows)
-                .on_conflict_do_update(
-                    index_elements=["ticker", "event_type", "event_date"],
-                    set_={"days_from_now": pg_insert(Catalyst).excluded.days_from_now},
-                )
+            ins = upsert(Catalyst).values(rows)
+            stmt = ins.on_conflict_do_update(
+                index_elements=["ticker", "event_type", "event_date"],
+                set_={"days_from_now": ins.excluded.days_from_now},
             )
             await session.execute(stmt)
             await session.commit()

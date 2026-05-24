@@ -13,57 +13,9 @@ from eigenview.factors.technical import score_technical
 
 router = APIRouter()
 
-# ── Universes ─────────────────────────────────────────────────────────────────
+# ── Universes — loaded dynamically from Wikipedia, no hardcoding ──────────────
 
-_NDX100 = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST",
-    "NFLX", "TMUS", "AMD", "ADBE", "QCOM", "AMAT", "INTU", "CSCO", "CMCSA", "BKNG",
-    "VRTX", "REGN", "GILD", "MDLZ", "ADP", "PANW", "ABNB", "LRCX", "MCHP", "CRWD",
-    "MU", "SNPS", "CDNS", "CTAS", "KLAC", "FTNT", "ROP", "ORLY", "PCAR", "PAYX",
-    "CPRT", "EXC", "CHTR", "CEG", "MRVL", "ROST", "BIIB", "KDP", "IDXX", "FAST",
-    "VRSK", "ODFL", "DDOG", "ANSS", "DLTR", "EA", "WDAY", "MRNA", "ZS", "TEAM",
-    "NXPI", "PYPL", "TTWO", "ULTA", "VEEV", "ON", "MNST", "MPWR", "TSCO", "TTD",
-    "CSGP", "DXCM", "ENPH", "ILMN", "MELI", "ASML", "CDW", "PDD", "FANG", "SIRI",
-    "EBAY", "MTCH", "APP", "HOOD", "COIN", "ARM", "SMCI", "MSTR", "PLTR", "RIVN",
-    "LCID", "ZM", "DOCU", "OKTA", "SNOW", "DKNG", "RBLX", "PINS", "SNAP", "UBER",
-]
-
-_SP500_EXTRA = [
-    "BRK-B", "JPM", "JNJ", "V", "UNH", "XOM", "WMT", "MA", "PG", "HD",
-    "CVX", "ABBV", "LLY", "BAC", "KO", "PFE", "MRK", "DIS", "WFC", "PEP",
-    "TMO", "ABT", "DHR", "MCD", "NEE", "ACN", "VZ", "TXN", "BMY",
-    "AMGN", "RTX", "PM", "SCHW", "HON", "UPS", "MS", "GS", "BLK", "LOW",
-    "CAT", "AXP", "SPGI", "GE", "T", "DE", "SYK", "ISRG", "MDT",
-    "AMT", "SO", "CI", "CVS", "TJX", "SBUX", "PLD", "NOW", "CB",
-    "CL", "ELV", "ZTS", "ICE", "NOC", "USB", "TGT", "CME",
-    "PNC", "F", "GM", "NKE", "HUM", "SLB", "COF", "D", "EQIX", "WM",
-    "ETN", "ITW", "MMM", "APD", "GD", "HCA", "AON", "WELL", "FDX", "NSC",
-    "EMR", "MCO", "PSA", "TRV", "ALL", "DD",
-    "AFL", "OXY", "SHW", "BK", "GIS", "MET", "ADM", "HSY",
-    "SPG", "FICO", "DUK", "AEP", "PEG", "STZ", "EXR", "YUM", "KMB",
-    "SPY", "QQQ", "IWM", "GLD", "TLT", "IYR", "XLF", "XLE", "XLK", "XLV",
-]
-
-_SP500 = list(dict.fromkeys([*_NDX100, *_SP500_EXTRA]))
-
-_DEFAULT = [
-    "NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "AVGO", "AMD",
-    "TSLA", "NFLX", "PLTR", "COIN", "ORCL",
-    "JPM", "GS", "BAC",
-    "LLY", "UNH", "JNJ",
-    "XOM", "CVX",
-    "SPY", "QQQ", "IWM", "GLD", "TLT",
-    "MCD", "SBUX", "NKE", "HOOD",
-]
-
-_TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
-
-UNIVERSES: dict[str, list[str]] = {
-    "default": _DEFAULT,
-    "ndx100": _NDX100,
-    "sp500": _SP500,
-    "test5": _TEST5,
-}
+from eigenview.data.universe import get_universe as _get_universe
 
 # ── Global state ──────────────────────────────────────────────────────────────
 
@@ -291,10 +243,11 @@ async def start_ta_scan(req: TaScanRequest) -> dict:
 
     if req.tickers:
         ticker_list = [t.strip().upper() for t in req.tickers if t.strip()]
-    elif req.universe and req.universe in UNIVERSES:
-        ticker_list = UNIVERSES[req.universe]
     else:
-        ticker_list = _DEFAULT
+        universe_name = req.universe or "ndx100"
+        ticker_list = await _get_universe(universe_name)
+        if not ticker_list:
+            return {"status": "error", "message": f"Failed to load universe '{universe_name}'"}
 
     _state = {
         "running": True, "results": [], "scanned_at": None, "error": None,
@@ -304,7 +257,7 @@ async def start_ta_scan(req: TaScanRequest) -> dict:
 
     task = asyncio.create_task(_run_scan(ticker_list, req.min_volume_m, req.fetch_options, req.lookback_bars))
     _bg_tasks.add(task)
-    task.add_done_callback(_bg_tasks.discard)  # auto-cleanup; no GC risk during run
+    task.add_done_callback(_bg_tasks.discard)
 
     return {"status": "started", "count": len(ticker_list)}
 
@@ -316,4 +269,6 @@ async def get_ta_scan_results() -> dict:
 
 @router.get("/ta-scan/universes")
 async def list_universes() -> dict:
-    return {k: len(v) for k, v in UNIVERSES.items()}
+    ndx = await _get_universe("ndx100")
+    sp5 = await _get_universe("sp500")
+    return {"ndx100": len(ndx), "sp500": len(sp5)}

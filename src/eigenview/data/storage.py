@@ -21,17 +21,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from eigenview.config import settings
 
-# Windows asyncio fix — asyncpg requires SelectorEventLoop
-if sys.platform == "win32":
-    import asyncio
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+_is_sqlite = settings.database_url.startswith("sqlite")
 
-engine = create_async_engine(
-    settings.database_url,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-)
+_engine_kwargs: dict = {} if _is_sqlite else {
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_pre_ping": True,
+}
+
+engine = create_async_engine(settings.database_url, **_engine_kwargs)
 
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     engine, expire_on_commit=False

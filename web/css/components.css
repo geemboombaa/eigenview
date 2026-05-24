@@ -1084,3 +1084,8 @@ html, body {
 .freshness-valid{color:#ffc857;background:rgba(255,200,87,.08);border:1px solid rgba(255,200,87,.25);}
 .freshness-stale{color:var(--text-faint);background:var(--chip-bg);border:1px solid var(--border);}
 .freshness-unknown{color:var(--text-faint);background:transparent;border:1px solid var(--border);}
+#ev-scan-progress.indeterminate{animation:ev-indet 1.4s linear infinite;width:30% !important;}
+@keyframes ev-indet{0%{transform:translateX(-100%);}100%{transform:translateX(400%);}}
+
+#ev-scan-progress.indeterminate{animation:ev-indet 1.4s linear infinite;width:30% !important;}
+@keyframes ev-indet{0%{transform:translateX(-100%);}100%{transform:translateX(400%);}}

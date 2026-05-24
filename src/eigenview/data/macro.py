@@ -11,7 +11,7 @@ import structlog
 import yfinance as yf
 from bs4 import BeautifulSoup
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.data.storage import AsyncSessionLocal, CotWeekly, MacroDaily
@@ -314,25 +314,16 @@ async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
             continue
 
     async with AsyncSessionLocal() as session:
-        stmt = (
-            pg_insert(CotWeekly)
-            .values(
-                [
-                    {
-                        "week_ending": week_ending,
-                        "instrument": "ES",
-                        "net_long_pct": net_long_pct,
-                        "net_long_contracts": net_long_contracts,
-                    }
-                ]
-            )
-            .on_conflict_do_update(
-                index_elements=["week_ending", "instrument"],
-                set_={
-                    "net_long_pct": net_long_pct,
-                    "net_long_contracts": net_long_contracts,
-                },
-            )
+        ins = upsert(CotWeekly).values([{
+            "week_ending": week_ending,
+            "instrument": "ES",
+            "net_long_pct": net_long_pct,
+            "net_long_contracts": net_long_contracts,
+        }])
+        stmt = ins.on_conflict_do_update(
+            index_elements=["week_ending", "instrument"],
+            set_={"net_long_pct": ins.excluded.net_long_pct,
+                  "net_long_contracts": ins.excluded.net_long_contracts},
         )
         await session.execute(stmt)
         await session.commit()
@@ -407,28 +398,18 @@ async def fetch_macro() -> dict:
     }
 
     async with AsyncSessionLocal() as session:
-        stmt = (
-            pg_insert(MacroDaily)
-            .values(
-                [
-                    {
-                        k: v
-                        for k, v in payload.items()
-                        if k != "cot_es_net_long_pct"
-                    }
-                ]
-            )
-            .on_conflict_do_update(
-                index_elements=["date"],
-                set_={
-                    "dix": dix,
-                    "gex_index": gex_index,
-                    "vix_m1": vix_m1,
-                    "vix_m2": vix_m2,
-                    "vix_m3": vix_m3,
-                    "vix_contango_pct": vix_contango_pct,
-                },
-            )
+        row = {k: v for k, v in payload.items() if k != "cot_es_net_long_pct"}
+        ins = upsert(MacroDaily).values([row])
+        stmt = ins.on_conflict_do_update(
+            index_elements=["date"],
+            set_={
+                "dix": ins.excluded.dix,
+                "gex_index": ins.excluded.gex_index,
+                "vix_m1": ins.excluded.vix_m1,
+                "vix_m2": ins.excluded.vix_m2,
+                "vix_m3": ins.excluded.vix_m3,
+                "vix_contango_pct": ins.excluded.vix_contango_pct,
+            },
         )
         await session.execute(stmt)
         await session.commit()
