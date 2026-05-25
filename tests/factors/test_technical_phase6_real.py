@@ -7,6 +7,8 @@ from eigenview.data.prices import fetch_prices
 from eigenview.factors.base import FactorResult
 from eigenview.factors.technical import score_technical
 
+pytestmark = pytest.mark.data_dependent
+
 KNOWN_LABELS = {
     "pullback_in_trend", "pullback_deep", "pullback_to_structure",
     "flag_continuation", "rally_in_downtrend",

@@ -7,6 +7,8 @@ import pandas as pd
 from eigenview.data.exceptions import DataNotFoundError
 from eigenview.data.prices import fetch_prices
 
+pytestmark = pytest.mark.data_dependent
+
 
 @pytest.mark.asyncio
 async def test_fetch_prices_nvda_returns_dataframe():

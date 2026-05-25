@@ -7,6 +7,8 @@ from eigenview.data.prices import fetch_prices
 from eigenview.factors.base import FactorResult
 from eigenview.factors.technical import score_technical
 
+pytestmark = pytest.mark.data_dependent
+
 TICKERS = ["NVDA", "AAPL", "AMD"]
 
 
