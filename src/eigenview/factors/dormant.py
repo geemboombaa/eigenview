@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eigenview.config import settings
-from eigenview.data.storage import Catalyst, DormantBet
+from eigenview.data.storage import Catalyst, ContractHistory, DormantBet, Price
 from eigenview.factors.base import FactorResult
 
 log = structlog.get_logger(__name__)
@@ -332,6 +332,122 @@ async def score_dormant(
             "best_bet_expiry": str(best_bet.expiry),
             "best_score": round(best_score, 2),
             **best_detail,
+        },
+        narrative=" ".join(parts),
+    )
+
+
+async def score_dormant_from_history(
+    ticker: str,
+    session: AsyncSession,
+    spot_price: float,
+    current_chains: list,
+    target: date | None = None,
+) -> FactorResult:
+    """Score dormant bets using activation engine (contract_history).
+
+    Uses real baseline→recent comparison via score_activation(). Falls back to
+    static score_bet_v2 if contract_history is insufficient (<15 rows).
+    """
+    from eigenview.factors.activation import score_activation
+    from eigenview.data.databento_history import osi_symbol as _osi
+
+    if target is None:
+        target = date.today()
+
+    bet_rows = await session.execute(select(DormantBet).where(DormantBet.ticker == ticker))
+    bets = bet_rows.scalars().all()
+
+    if not bets:
+        return FactorResult(
+            factor_id=_FACTOR_ID, firing=False, strength=0.0, label="ACCUMULATING",
+            detail={}, narrative="No dormant bets tracked yet.",
+        )
+
+    # Underlying price series (for activation engine's directional move check)
+    und_rows = await session.execute(
+        select(Price)
+        .where(Price.ticker == ticker.upper(), Price.timeframe == "1d")
+        .order_by(Price.date.asc())
+    )
+    underlying = [
+        {"date": r.date, "close": r.close, "volume": r.volume}
+        for r in und_rows.scalars().all()
+    ]
+
+    # Map each bet to its OSI symbol and fetch contract history in one query
+    bet_by_osi: dict[str, DormantBet] = {
+        _osi(b.ticker, b.expiry, b.call_put, b.strike): b for b in bets
+    }
+    hist_rows = await session.execute(
+        select(ContractHistory)
+        .where(ContractHistory.osi_symbol.in_(list(bet_by_osi.keys())))
+        .order_by(ContractHistory.date.asc())
+    )
+    hist_by_osi: dict[str, list[dict]] = {}
+    for r in hist_rows.scalars().all():
+        hist_by_osi.setdefault(r.osi_symbol, []).append(
+            {"date": r.date, "oi": r.oi, "volume": r.volume, "close": r.close, "iv": r.iv}
+        )
+
+    catalyst_near = await _has_catalyst_near(ticker, session)
+
+    best_score = 0.0
+    best_result = None
+    best_bet: DormantBet | None = None
+    activation_used = False
+
+    for osi, bet in bet_by_osi.items():
+        hist = hist_by_osi.get(osi, [])
+        if len(hist) >= 15:
+            activation_used = True
+            act = score_activation(hist, underlying, bet.call_put, target)
+            if act.strength > best_score:
+                best_score = act.strength
+                best_result = act
+                best_bet = bet
+        else:
+            s, _ = score_bet_v2(bet, current_chains, spot_price, catalyst_near)
+            normalized = s / _MAX_SCORE
+            if not activation_used and normalized > best_score:
+                best_score = normalized
+                best_bet = bet
+
+    # Not enough contract_history anywhere — use static fallback
+    if not activation_used:
+        return await score_dormant(ticker, session, spot_price, current_chains, 30)
+
+    if best_result is None or not best_result.fired:
+        return FactorResult(
+            factor_id=_FACTOR_ID, firing=False, strength=best_score, label="DORMANT",
+            detail={"bets_checked": len(bet_by_osi), "activation_ran": True},
+            narrative="Dormant positions tracked — no activation signals firing.",
+        )
+
+    assert best_bet is not None
+    premium_m = (best_bet.original_premium or 0) / 1_000_000
+    parts = [
+        f"Dormant ${premium_m:.1f}M {best_bet.call_put} at ${best_bet.strike:.0f} "
+        f"(exp {best_bet.expiry}) — activation {best_result.strength:.0%}."
+    ]
+    if best_result.triggers:
+        parts.append(f"Signals: {', '.join(best_result.triggers)}.")
+    if best_result.age_days:
+        parts.append(f"Position age: {best_result.age_days}d.")
+
+    return FactorResult(
+        factor_id=_FACTOR_ID,
+        firing=True,
+        strength=best_result.strength,
+        label="ACTIVE",
+        detail={
+            "activation_probability": round(best_result.strength, 3),
+            "triggers": best_result.triggers,
+            "age_days": best_result.age_days,
+            "born_on": str(best_result.born_on) if best_result.born_on else None,
+            "best_bet_strike": best_bet.strike,
+            "best_bet_expiry": str(best_bet.expiry),
+            **best_result.detail,
         },
         narrative=" ".join(parts),
     )

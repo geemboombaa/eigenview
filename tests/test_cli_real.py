@@ -6,12 +6,24 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
 import subprocess
+import sys
 
 import pytest
 
 _ROOT = pathlib.Path(__file__).parents[1]
-_EXE = str(_ROOT / ".venv" / "Scripts" / "eigenview.exe")
+
+
+def _resolve_exe() -> str:
+    found = shutil.which("eigenview")
+    if found:
+        return found
+    sub = "Scripts/eigenview.exe" if sys.platform == "win32" else "bin/eigenview"
+    return str(_ROOT / ".venv" / sub)
+
+
+_EXE = _resolve_exe()
 
 
 def _run(*args, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -41,8 +53,9 @@ def test_status_lists_all_expected_tables():
         assert table in r.stdout, f"Table '{table}' missing from status output"
 
 
+@pytest.mark.data_dependent
 def test_status_prices_row_count_nonzero():
-    """DB has real OHLCV — prices must have actual rows."""
+    """DB has real OHLCV — prices must have actual rows. Needs populated DB (nightly)."""
     r = _run("status")
     for line in r.stdout.splitlines():
         if "prices" in line:
@@ -54,7 +67,9 @@ def test_status_prices_row_count_nonzero():
     pytest.fail("No 'prices' line found in status output")
 
 
+@pytest.mark.data_dependent
 def test_status_chains_row_count_nonzero():
+    """Needs populated DB (nightly)."""
     r = _run("status")
     for line in r.stdout.splitlines():
         if "chains" in line:
