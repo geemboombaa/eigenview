@@ -7,6 +7,8 @@ import pytest
 
 from eigenview.data.calendar import days_to_next_catalyst, get_catalysts
 
+pytestmark = pytest.mark.data_dependent
+
 
 @pytest.mark.asyncio
 async def test_get_catalysts_nvda_returns_list():

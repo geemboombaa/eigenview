@@ -6,6 +6,8 @@ import pandas as pd
 
 from eigenview.data.chains import fetch_chain
 
+pytestmark = pytest.mark.data_dependent
+
 
 @pytest.mark.asyncio
 async def test_fetch_chain_nvda_returns_dict():
