@@ -442,84 +442,22 @@ MACRO_REGIME_RED_THRESHOLD=3
 
 ---
 
-## 29-STEP ENGINEERING PROCESS — MANDATORY FOR ALL WORK
+## ENGINEERING PROCESS — 5-STEP LEAN
 
-Every non-trivial change follows this sequence. No deviations. No skipping steps.
-Full reference: `docs/engineering-process.html` (v1.1).
+**feature/** branches (new behavior): all 5 steps.
+**fix/** branches (confirmed bug/typo/config): steps 1, 4, 5 only.
 
-### Two-Tier PR System
-- `feature/` branches: full 29 steps (new behavior, new factor, non-trivial change)
-- `fix/` branches: lightweight (skip steps 5–14: no spec/stub phases, no CI audit gate). Still need branch + PR + human merge.
+1. **Propose** — Claude reads codebase + git log. Writes proposal in chat: what, how, out-of-scope. User approves before any code.
+2. **Branch + PR** — `git checkout -b feature/<name>`. Open draft PR immediately (`gh pr create --draft`).
+3. **Tests first** — write failing tests before touching `src/`. Commit tests. Confirm they fail.
+4. **Implement** — write `src/` code. Run full test suite locally. Must pass before pushing.
+5. **Review + Merge** — push, wait for CI green, user merges. No self-merge on master.
 
-### Per-Feature Tracking
-At step 5, copy `.boss/PROCESS-TEMPLATE.md` → `.boss/CURRENT-STEP.md`. Fill in feature name, issue, PR, branch. Update current step after every step completes. Commit it with the `.boss/` docs.
-
-### Phase 0 — Research & Proposal (steps 1–4)
-1. User describes need in conversation
-2. Claude reads codebase + docs + git log — deep research, NO code written yet
-3. Claude writes proposal in chat: what, how, what's out of scope
-4. **[MANUAL GATE]** User approves or sends back. Do not proceed to step 5 without approval.
-
-### Phase 1 — Lock Requirements (steps 5–8)
-5. Claude writes `spec.md`, ACs in GIVEN/THEN format, `design.md` → committed to `.boss/`. Copy `.boss/PROCESS-TEMPLATE.md` → `.boss/CURRENT-STEP.md`.
-6. `pre-build-gate.ps1` activates — blocks ALL `src/` + `tests/` edits unless on feature branch with open PR and no `gate:awaiting-step21` label. `.boss/` and `.github/` exempt.
-7. Claude creates GitHub issue: full GIVEN/THEN ACs, `AC1`/`AC2` labels
-8. Claude opens draft PR linking the issue (`gh pr create --draft`)
-
-### Phase 2 — Test Stubs, Red (steps 9–12)
-9. Claude writes test stubs ONLY — function names must contain `AC1`/`AC2`/`REQ` — no implementation
-10. `git commit` fires `.git/hooks/pre-commit` (RED phase): only tests/ staged → existing tests must pass + new stubs must FAIL. Stubs passing = commit blocked (wrong phase).
-11. `stop-gate.ps1` (order fixed): (1) instant dirty `src/` check — if dirty, blocks immediately with exact commit commands. (2) runs test suite only if `src/` is clean. No 90s penalty on docs-only turns.
-12. `auto-push.ps1` pushes to GitHub automatically after commit
-
-### Phase 3 — Pre-Implementation CI Audit (steps 13–19)
-13. GitHub Actions (`ac-audit.yml`) triggers on push — two jobs on separate machine
-14. CI: AST scan checks test function names for `AC`/`REQ` refs; trivial test detection
-15. CI: fetches GitHub issue body via `gh api`; fails if no GIVEN/THEN/AC labels
-16. CI: Claude API call (zero project context) audits spec + issue ACs + design doc + test stubs
-17. CI: posts audit report as inline PR comment; uploads `ac-audit-report.json`, `claude-audit-report.md`
-18. CI `verify-red-phase` job: detects phase, sets `phase:red` label, **sets `gate:awaiting-step21` label** (GITHUB_TOKEN — Claude cannot set this). Label blocks all `src/` edits via pre-build-gate until human removes it at step 21.
-19. **[MANUAL GATE]** User reads PR comment + CI audit. Approves or sends back with specific gaps to fix.
-
-### Phase 4 — Design Review (steps 20–21)
-20. Claude writes `.boss/design-review.md` — confirms has everything for implementation A-Z, lists gaps. Triggered by step-trigger comment from step 18.
-21. **[MANUAL GATE]** User approves: **removes `gate:awaiting-step21` label from PR** (GitHub UI). This is the mechanical approval gate. pre-build-gate checks for this label on every write. If sent back: return to step 5.
-
-### Phase 5 — Implementation (steps 22–29)
-22. Claude implements `src/` code — pre-build-gate confirms: open PR + no `gate:awaiting-step21` label → edits allowed
-23. `git commit` fires pre-commit (GREEN phase): `src/` staged → all tests must pass, coverage ≥75%
-24. `stop-gate.ps1`: dirty `src/` check first (instant), then tests if clean
-25. `auto-push.ps1` pushes → GitHub Actions (`test.yml`) runs full suite: pytest + coverage + Playwright
-26. `ac-audit.yml` also runs — post-implementation Claude audit of test quality vs spec ACs
-27. **[MANUAL GATE]** User reviews: green CI badge + clean audit report + AC coverage complete
-28. **[MANUAL GATE]** User merges PR. Branch protection requires ≥1 approval + CI green. No self-merge.
-29. CI re-runs on master post-merge — final verification
-
-### Process rules
-- Steps 1–4 and 9–14 are Claude's responsibility to execute in order without skipping
-- Steps 6, 10, 11, 12, 13–18, 25–26 are mechanically enforced — cannot be bypassed
-- Manual gates (4, 19, 21, 27, 28) require explicit human approval before proceeding
-- Never use `git commit --no-verify`
-- Never edit `src/` on master branch
-- Never claim a step done without the enforcing mechanism having fired
-- Never remove the `gate:awaiting-step21` label — only human removes it at step 21
-- `fix/` prefix is only for confirmed bugs with known fix, typos, config/dep bumps — NOT for new behavior or features. Using `fix/` to skip spec/stub phases on a feature is a process violation.
-- Subprocess-based enforcement tests (stop-gate, pre-build-gate, pre-commit) go in `tests/integration/enforcement/` — excluded from default pytest via pyproject.toml `addopts`. Do not put them in the normal test tree or stop-gate will fail every turn.
-- Implementation (src/ changes) is NOT complete until BOTH `tests/integration/test_<feature>.py` AND `tests/ui/` test files are added. Pre-commit GREEN phase blocks commit if either is missing alongside src/ changes.
-- Integration tests run against LIVE real data (real API calls, real DB, real scanner). No synthetic fixtures or cassette replays in the integration layer. See GitHub issue #123 for the deferred synthetic alternative.
-
-### Session start protocol — MANDATORY on feature branches
-At the start of every session, before any other work:
-1. Run `gh pr list --head $(git branch --show-current) --state open --json labels --jq '.[0].labels[].name'` to check PR labels
-2. If `status:ci-failing` label exists: read the BOSS_FIX_REQUEST comment on the PR → fix the failing tests → commit → push → wait for CI result → do NOT proceed with other work until CI is green or escalated
-3. If `status:needs-human-debug` label exists: tell user immediately, do not attempt further auto-fixes
-4. If `status:yellow-flags-pending` label exists: note it, remind user at step 27 review
-
-### Auto-fix loop rules
-- When CI fails RED (code bug): Claude reads BOSS_FIX_REQUEST next session → fixes → commits → pushes → CI re-runs automatically
-- Maximum 3 auto-fix attempts per RED failure. After 3: CI sets `status:needs-human-debug`, Claude stops and tells human.
-- YELLOW flags (data-dependent test failures marked `@pytest.mark.data_dependent`): Claude does NOT attempt to fix. Explain to human at step 27. Human decides: accept the skip OR investigate as a possible bug.
-- Never change tests to make them pass. Never weaken assertions. Never add `pytest.skip()` to a RED test without human approval.
+### Rules
+- Never edit `src/` on master
+- Never `git commit --no-verify`
+- Integration tests hit real data — no mocks, no cassettes, no synthetic fixtures
+- One module = one file = one PR
 
 ---
 

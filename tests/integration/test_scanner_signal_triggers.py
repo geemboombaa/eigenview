@@ -40,7 +40,7 @@ def test_signal_triggers_populated_after_scan():
 @pytest.mark.data_dependent
 def test_signal_triggers_setup_type_is_known_pattern():
     """All setup_types in signal_triggers must be from the known TA taxonomy."""
-    from eigenview.ci.condition_coverage import REQUIRED_PATTERNS
+    from eigenview.factors.technical import SETUP_TAXONOMY as REQUIRED_PATTERNS
 
     async def _check():
         from eigenview.data.storage import AsyncSessionLocal

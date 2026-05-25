@@ -151,7 +151,7 @@ def test_AC9_setup_type_is_known_pattern():
     """
     import sys, pathlib
     sys.path.insert(0, str(pathlib.Path(__file__).parents[3] / "src"))
-    from eigenview.ci.condition_coverage import REQUIRED_PATTERNS
+    from eigenview.factors.technical import SETUP_TAXONOMY as REQUIRED_PATTERNS
 
     picks = _fetch_picks()
     for p in picks:

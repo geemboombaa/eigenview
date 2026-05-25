@@ -1401,3 +1401,17 @@ def detect_pattern(
             return {"pattern": "ema200_snap_short", "confidence": confidence, "detail": detail}
 
     return {"pattern": "no_pattern", "confidence": 0.0, "detail": detail}
+
+
+SETUP_TAXONOMY: list[str] = [
+    "pullback_in_trend", "pullback_deep", "pullback_to_structure",
+    "flag_continuation", "rally_in_downtrend",
+    "breakout", "breakdown", "compression_break", "compression_break_down",
+    "base_breakout", "base_breakdown", "ema_reclaim", "ema_rejection",
+    "bos_bullish", "bos_bearish",
+    "bullish_reversal", "bearish_reversal", "overbought_reversal",
+    "oversold_bounce", "failed_breakdown", "failed_breakout",
+    "choch_bullish", "choch_bearish",
+    "bb_mean_reversion_long", "bb_mean_reversion_short",
+    "ema200_snap_long", "ema200_snap_short",
+]
