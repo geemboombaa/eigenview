@@ -10,6 +10,17 @@ from scipy.signal import argrelextrema
 from eigenview.config import settings
 from eigenview.factors.base import FactorResult
 
+# Empirical RSI/ADX percentile estimates for low-history tickers (<60 bars).
+# Used ONLY as fallbacks when the rolling-percentile window is too short to
+# compute per-ticker percentiles, mirroring the rolling-percentile design in
+# CLAUDE.md's TA spec. Keys are percentile ranks; values are the estimated levels.
+_RSI_FALLBACK_PCTL: dict[int, float] = {
+    10: 28.0, 12: 30.0, 15: 32.0, 20: 32.0, 25: 38.0, 40: 45.0, 43: 47.0,
+    55: 55.0, 60: 57.0, 62: 58.0, 65: 60.0, 80: 68.0, 85: 72.0, 88: 75.0,
+    90: 78.0, 93: 80.0,
+}
+_ADX_FALLBACK_PCTL: dict[int, float] = {25: 15.0, 30: 17.0, 40: 20.0, 70: 25.0, 75: 30.0}
+
 
 @dataclass
 class WeeklyContext:
@@ -204,22 +215,22 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         rsi_p90  = float(np.percentile(_rsi, 90))
         rsi_p93  = float(np.percentile(_rsi, 93))
     else:
-        rsi_p10  = 28.0
-        rsi_p12  = 30.0
-        rsi_p15  = 32.0
-        rsi_p20  = 32.0
-        rsi_p25  = 38.0
-        rsi_p40  = 45.0
-        rsi_p43  = 47.0
-        rsi_p55  = 55.0
-        rsi_p60  = 57.0
-        rsi_p62  = 58.0
-        rsi_p65  = 60.0
-        rsi_p80  = 68.0
-        rsi_p85  = 72.0
-        rsi_p88  = 75.0
-        rsi_p90  = 78.0
-        rsi_p93  = 80.0
+        rsi_p10  = _RSI_FALLBACK_PCTL[10]
+        rsi_p12  = _RSI_FALLBACK_PCTL[12]
+        rsi_p15  = _RSI_FALLBACK_PCTL[15]
+        rsi_p20  = _RSI_FALLBACK_PCTL[20]
+        rsi_p25  = _RSI_FALLBACK_PCTL[25]
+        rsi_p40  = _RSI_FALLBACK_PCTL[40]
+        rsi_p43  = _RSI_FALLBACK_PCTL[43]
+        rsi_p55  = _RSI_FALLBACK_PCTL[55]
+        rsi_p60  = _RSI_FALLBACK_PCTL[60]
+        rsi_p62  = _RSI_FALLBACK_PCTL[62]
+        rsi_p65  = _RSI_FALLBACK_PCTL[65]
+        rsi_p80  = _RSI_FALLBACK_PCTL[80]
+        rsi_p85  = _RSI_FALLBACK_PCTL[85]
+        rsi_p88  = _RSI_FALLBACK_PCTL[88]
+        rsi_p90  = _RSI_FALLBACK_PCTL[90]
+        rsi_p93  = _RSI_FALLBACK_PCTL[93]
 
     adx_series = df['ADX_14'].dropna()
     if len(adx_series) >= 60:
@@ -231,11 +242,11 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         adx_p70 = float(np.percentile(_adx, 70))
         adx_p75 = float(np.percentile(_adx, 75))
     else:
-        adx_p25 = 15.0
-        adx_p30 = 17.0
-        adx_p40 = 20.0
-        adx_p70 = 25.0
-        adx_p75 = 30.0
+        adx_p25 = _ADX_FALLBACK_PCTL[25]
+        adx_p30 = _ADX_FALLBACK_PCTL[30]
+        adx_p40 = _ADX_FALLBACK_PCTL[40]
+        adx_p70 = _ADX_FALLBACK_PCTL[70]
+        adx_p75 = _ADX_FALLBACK_PCTL[75]
 
     # ATR ratio series: atr_last5 / atr_20avg for each rolling window
     atr_col = df['ATRr_14'].dropna()

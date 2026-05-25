@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 
+import structlog
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select, distinct
 
 from eigenview.data.storage import AsyncSessionLocal, Pick
 
+log = structlog.get_logger(__name__)
 router = APIRouter()
 
 
@@ -50,8 +52,8 @@ def _pick_to_dict(p: Pick) -> dict:
     if p.factors_json:
         try:
             factors_raw = json.loads(p.factors_json)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("picks_factors_parse_error", ticker=p.ticker, error=str(exc))
 
     # Compute signal freshness
     signal_fired_at = p.signal_fired_at
@@ -156,5 +158,6 @@ async def get_pick_factors(ticker: str) -> dict:
         return {}
     try:
         return json.loads(pick.factors_json)
-    except Exception:
+    except Exception as exc:
+        log.warning("picks_factors_json_error", ticker=ticker, error=str(exc))
         return {}

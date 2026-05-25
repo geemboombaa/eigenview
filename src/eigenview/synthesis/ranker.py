@@ -112,7 +112,7 @@ async def write_picks(
         stype = setup_type(sc)
         entry_lo, entry_hi = entry_zone(sc)
         stop = stop_level(sc)
-        conv = max(1, min(3, soft_firing + (1 if sc.technical.firing else 0) + (1 if sc.gex.firing else 0) - 1))
+        conv = min(3, conviction_score(sc))
         factors = {
             f.factor_id: {"firing": f.firing, "strength": f.strength, "label": f.label, "detail": f.detail}
             for f in [sc.macro, sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]

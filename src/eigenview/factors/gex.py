@@ -21,6 +21,9 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
     today = _date.today()
 
     for c in valid:
+        # Dealer Gamma Exposure (dollar-gamma per 1% spot move), standard SqueezeMetrics/SpotGamma convention:
+        # per-share gamma * open interest * 100 (shares/contract) * spot^2 (dollar-gamma) * 0.01 (scale to 1% move).
+        # Units: $ of delta change per 1% move in spot.
         gex_val = c.gamma * c.oi * 100 * spot_price ** 2 * 0.01
         if c.call_put.lower() == "c":
             call_gex_by_strike[c.strike] = call_gex_by_strike.get(c.strike, 0.0) + gex_val

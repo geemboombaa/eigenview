@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
+import structlog
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -12,6 +13,7 @@ from sqlalchemy import func, select
 from eigenview.data.storage import AsyncSessionLocal, Chain, Price
 from eigenview.factors.technical import score_technical
 
+log = structlog.get_logger(__name__)
 router = APIRouter()
 
 from eigenview.data.universe import get_universe as _get_universe
@@ -125,6 +127,7 @@ def _score_one(ticker: str, df: pd.DataFrame, lookback_bars: int = 10, spy_ret: 
             "call_vol": None, "put_vol": None, "pcr": None,
         }
     except Exception as exc:
+        log.warning("ta_scan_score_error", ticker=ticker, error=str(exc))
         return {
             "ticker": ticker, "pattern": "ERROR", "firing": False,
             "confidence": 0, "direction": "—", "weekly_state": "—",
@@ -202,6 +205,7 @@ async def _run_scan(ticker_list: list[str], min_volume_m: float, fetch_options: 
             "message": f"Done — {firing_n} firing / {len(results)} scanned",
         }
     except Exception as exc:
+        log.warning("ta_scan_run_error", error=str(exc))
         _state = {
             **_state, "running": False,
             "error": str(exc),

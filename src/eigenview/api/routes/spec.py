@@ -3,11 +3,15 @@ from __future__ import annotations
 import pathlib
 import re
 
+import structlog
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from eigenview.data.storage import AsyncSessionLocal
 
+log = structlog.get_logger(__name__)
 router = APIRouter()
 
 
@@ -94,24 +98,28 @@ async def audit_ta() -> dict:
 
 # ── /api/spec/notes  (POST) ──────────────────────────────────────────────────
 
-from pydantic import BaseModel  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 
 class NotePayload(BaseModel):
-    spec_id: str
-    note: str
+    spec_id: str = Field(..., max_length=100)
+    note: str = Field(..., max_length=5000)
 
 
 @router.post("/spec/notes")
 async def save_spec_note(payload: NotePayload) -> dict:
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            text(
-                "INSERT INTO spec_notes (spec_id, note) VALUES (:spec_id, :note)"
-            ),
-            {"spec_id": payload.spec_id, "note": payload.note},
-        )
-        await session.commit()
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO spec_notes (spec_id, note) VALUES (:spec_id, :note)"
+                ),
+                {"spec_id": payload.spec_id, "note": payload.note},
+            )
+            await session.commit()
+    except SQLAlchemyError as exc:
+        log.warning("spec_note_db_error", spec_id=payload.spec_id, error=str(exc))
+        return JSONResponse(status_code=500, content={"status": "error", "detail": "DB write failed"})
     return {"status": "ok"}
 
 

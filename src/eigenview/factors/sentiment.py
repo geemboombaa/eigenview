@@ -70,8 +70,8 @@ async def score_sentiment(
     else:
         sentiment_direction = "neutral"
 
-    novelty_proxy = len(news) / max(1, lookback_days)
-    novelty_z = novelty_proxy - 1.0
+    expected = settings.sentiment_expected_articles_per_day * lookback_days
+    novelty_z = (len(news) - expected) / max(1.0, expected)
 
     fires = catalyst_near or (len(news) >= 3 and total_bull > total_bear)
 

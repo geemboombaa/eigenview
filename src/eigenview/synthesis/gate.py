@@ -76,9 +76,9 @@ def tier_score(scorecard: TickerScorecard, macro_score: int) -> str | None:
     if (ta or gex) and soft >= 1:
         return "C"
     # D: strong unusual single signal (no hard gates needed)
-    if scorecard.flow.firing and scorecard.flow.strength >= 0.7:
+    if scorecard.flow.firing and scorecard.flow.strength >= settings.tier_d_flow_strength:
         return "D"
-    if scorecard.dormant.firing and scorecard.dormant.strength >= 0.6:
+    if scorecard.dormant.firing and scorecard.dormant.strength >= settings.tier_d_dormant_strength:
         return "D"
     return None
 

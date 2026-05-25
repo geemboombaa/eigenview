@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from datetime import date
 
+import structlog
 from fastapi import APIRouter, Query
 from sqlalchemy import select, distinct
 
 from eigenview.api.routes.picks import recommend_structure
 from eigenview.data.storage import AsyncSessionLocal, SignalBench
 
+log = structlog.get_logger(__name__)
 router = APIRouter()
 
 TIER_LABELS = {"B": "FORMING", "C": "SETUP", "D": "UNUSUAL"}
@@ -19,8 +21,8 @@ def _bench_to_dict(b: SignalBench) -> dict:
     if b.factors_json:
         try:
             factors_raw = json.loads(b.factors_json)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("bench_factors_parse_error", ticker=b.ticker, error=str(exc))
 
     structure = recommend_structure(
         b.setup_type or "breakout",
