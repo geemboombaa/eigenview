@@ -61,7 +61,7 @@ async def write_picks(
         stop = stop_level(sc)
         factors = {
             f.factor_id: {"firing": f.firing, "strength": f.strength, "label": f.label, "detail": f.detail}
-            for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
+            for f in [sc.macro, sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
         }
         factors_json = json.dumps(factors, default=_json_safe)
 
@@ -115,7 +115,7 @@ async def write_picks(
         conv = max(1, min(3, soft_firing + (1 if sc.technical.firing else 0) + (1 if sc.gex.firing else 0) - 1))
         factors = {
             f.factor_id: {"firing": f.firing, "strength": f.strength, "label": f.label, "detail": f.detail}
-            for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
+            for f in [sc.macro, sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
         }
         gates_missing = []
         if not sc.technical.firing:

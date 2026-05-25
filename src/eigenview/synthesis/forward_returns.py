@@ -100,16 +100,14 @@ async def populate_forward_returns_for_date(scan_date: date) -> int:
                     if pick.direction == "short":
                         ret_5d = -ret_5d
                     existing.return_5d = round(ret_5d, 5)
-                    # Hit target/stop checks using intraday high/low
-                    if pick.stop and pick.target:
+                    # Hit-stop check using intraday high/low (no target computed in pipeline)
+                    if pick.stop:
                         highs = df["high"].iloc[1:6].values
                         lows  = df["low"].iloc[1:6].values
                         if pick.direction == "long":
-                            existing.hit_target_5d = bool(any(h >= pick.target for h in highs))
-                            existing.hit_stop_5d   = bool(any(l <= pick.stop  for l in lows))
+                            existing.hit_stop_5d = bool(any(l <= pick.stop for l in lows))
                         else:
-                            existing.hit_target_5d = bool(any(l <= pick.target for l in lows))
-                            existing.hit_stop_5d   = bool(any(h >= pick.stop   for h in highs))
+                            existing.hit_stop_5d = bool(any(h >= pick.stop for h in highs))
 
                 # T+20 return
                 if len(df) >= 21 and today >= _trading_day_offset(scan_dt, 20):
@@ -118,15 +116,13 @@ async def populate_forward_returns_for_date(scan_date: date) -> int:
                     if pick.direction == "short":
                         ret_20d = -ret_20d
                     existing.return_20d = round(ret_20d, 5)
-                    if pick.stop and pick.target:
+                    if pick.stop:
                         highs = df["high"].iloc[1:21].values
                         lows  = df["low"].iloc[1:21].values
                         if pick.direction == "long":
-                            existing.hit_target_20d = bool(any(h >= pick.target for h in highs))
-                            existing.hit_stop_20d   = bool(any(l <= pick.stop   for l in lows))
+                            existing.hit_stop_20d = bool(any(l <= pick.stop for l in lows))
                         else:
-                            existing.hit_target_20d = bool(any(l <= pick.target for l in lows))
-                            existing.hit_stop_20d   = bool(any(h >= pick.stop   for h in highs))
+                            existing.hit_stop_20d = bool(any(h >= pick.stop for h in highs))
 
                 updated += 1
                 log.info("forward_return_updated", ticker=ticker, scan_date=str(scan_dt),

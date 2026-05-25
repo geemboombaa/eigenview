@@ -265,13 +265,16 @@ async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
         or best_row.get("As_of_Date_In_Form_YYMMDD", "")
         or ""
     ).strip()
-    week_ending: date = date.today()
+    week_ending: date | None = None
     for fmt in ("%m/%d/%Y", "%y%m%d", "%Y-%m-%d"):
         try:
             week_ending = datetime.strptime(date_str, fmt).date()
             break
         except ValueError:
             continue
+    if week_ending is None:
+        log.error("fetch_cot.date_parse_failed", raw_date=date_str)
+        raise ValueError(f"Cannot parse COT date: {date_str!r}")
 
     async with AsyncSessionLocal() as session:
         ins = upsert(CotWeekly).values([{

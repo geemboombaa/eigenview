@@ -27,5 +27,22 @@ class Settings(BaseSettings):
     ta_pattern_confidence_threshold: float = 0.6
     gex_short_gamma_threshold: float = 0.0
 
+    # Risk-free rate — single source for all options pricing (BS mark, IV solve)
+    risk_free_rate: float = 0.045
+
+    # Conviction scoring (synthesis/gate.py conviction_score)
+    conviction_strength_weight: float = 0.65
+    conviction_count_weight: float = 0.35
+    conviction_t5_threshold: float = 0.80
+    conviction_t4_threshold: float = 0.60
+    conviction_t3_threshold: float = 0.40
+    conviction_t2_threshold: float = 0.20
+
+    # Entry-zone / stop construction (synthesis/gate.py)
+    entry_zone_long_frac: float = 0.30    # long band depth above swing_low, as frac of swing range
+    entry_zone_short_frac: float = 0.15   # short band depth below swing_high, as frac of swing range
+    stop_buffer_pct: float = 0.02         # stop = swing_low*(1-buf) long / swing_high*(1+buf) short
+    swing_fallback_pct: float = 0.02      # fallback swing levels = spot*(1±this) when detail missing
+
 
 settings = Settings()
