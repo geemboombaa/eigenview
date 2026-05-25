@@ -57,8 +57,9 @@ def mark_price(
         from py_vollib.black_scholes import black_scholes
         t = max((expiry - today).days, 1) / 365.0
         try:
-            return black_scholes(str(call_put).lower()[:1], spot, strike, t, 0.045, iv)
-        except Exception:
+            return black_scholes(str(call_put).lower()[:1], spot, strike, t, settings.risk_free_rate, iv)
+        except Exception as exc:
+            log.warning("mark_price.bs_failed", spot=spot, strike=strike, iv=iv, t=t, call_put=call_put, error=str(exc))
             return 0.0
     return 0.0
 

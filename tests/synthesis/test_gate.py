@@ -77,3 +77,18 @@ def test_conviction_score_high() -> None:
 def test_setup_type_priority() -> None:
     sc = make_scorecard(dormant_strength=0.8)
     assert setup_type(sc) == "dormant_activation"
+
+
+def test_qualify_absent_macro_blocks_even_shorts() -> None:
+    # Absent macro (no_data) must block ALL picks — including shorts that a RED macro would allow.
+    sc = TickerScorecard(
+        ticker=_real_ticker(),
+        macro=FactorResult.no_data("macro_regime", "no macro data in DB"),
+        technical=FactorResult(factor_id="technical", firing=True, strength=0.8, label="breakdown"),
+        gex=FactorResult(factor_id="gex", firing=True, strength=0.7, label="short_gamma"),
+        flow=FactorResult(factor_id="flow", firing=True, strength=0.9, label="puts"),
+        dormant=FactorResult(factor_id="dormant", firing=True, strength=0.7, label="ACTIVE"),
+        sentiment=FactorResult(factor_id="sentiment", firing=True, strength=0.6, label="bearish"),
+        spot_price=500.0,
+    )
+    assert qualify_pick(sc, macro_score=8) is False

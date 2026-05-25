@@ -5,10 +5,13 @@ from datetime import date, datetime, timezone
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
+import structlog
 from fastapi import APIRouter
 from sqlalchemy import select
 
 from eigenview.data.storage import AsyncSessionLocal, Chain, Pick, Price, SignalTrigger
+
+log = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -96,8 +99,8 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
         indicators["ema50"] = series_to_tv("EMA_50")
         indicators["bb_upper"] = series_to_tv("BBU_20_2.0")
         indicators["bb_lower"] = series_to_tv("BBL_20_2.0")
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("chart_indicators_failed", ticker=ticker, tf=tf, error=str(exc))
 
     # GEX levels from pick factors
     gex_levels: dict = {}
@@ -118,8 +121,8 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
                 "type": ta_detail.get("pattern", ta_data.get("label", "")),
                 "confidence": ta_detail.get("confidence", ta_data.get("strength", 0)),
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("chart_gex_factors_parse_failed", ticker=ticker, error=str(exc))
 
     # Fallback: compute GEX levels from Chain table
     if not any(gex_levels.values()) and chains_for_gex:
@@ -133,8 +136,8 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
                 "put_wall": d.get("put_wall"),
                 "gamma_flip": d.get("gamma_flip"),
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("chart_gex_fallback_failed", ticker=ticker, error=str(exc))
 
     entry_zone: dict = {}
     stop_price: float | None = None

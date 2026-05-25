@@ -112,10 +112,11 @@ def _compute_contract_iv(
 ) -> float | None:
     if not (close and close > 0 and spot and spot > 0):
         return None
+    from eigenview.config import settings
     from py_vollib.black_scholes.implied_volatility import implied_volatility
     t = max((expiry - d).days, 1) / 365.0
     try:
-        return implied_volatility(close, spot, strike, t, 0.045, call_put.lower()[:1])
+        return implied_volatility(close, spot, strike, t, settings.risk_free_rate, call_put.lower()[:1])
     except Exception:
         return None
 
@@ -216,6 +217,7 @@ async def _score_ticker(
     try:
         df = await _fetch_live(ticker)
         if df.empty:
+            log.warning("ticker_score_skipped", ticker=ticker, reason="no price data")
             return None
         spot = float(df["close"].iloc[-1])
 
@@ -311,6 +313,7 @@ async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[Tick
 
         for sc in qualified:
             if sc.technical.label == "NO DATA":
+                log.warning("thesis_skipped_no_data", ticker=sc.ticker)
                 continue
             factors_dict = {
                 f.factor_id: {"firing": f.firing, "label": f.label, "detail": f.detail}

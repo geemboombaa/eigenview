@@ -25,6 +25,9 @@ class TickerScorecard:
 
 
 def qualify_pick(scorecard: TickerScorecard, macro_score: int) -> bool:
+    # Macro data entirely absent → regime cannot be validated → no picks (long or short)
+    if scorecard.macro.label == "NO DATA":
+        return False
     is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
     # RED macro: no long picks (short picks still qualify)
     if macro_score < settings.macro_regime_red_threshold and not is_short:
@@ -47,14 +50,14 @@ def conviction_score(scorecard: TickerScorecard) -> int:
     # count_ratio: 0 when minimum 2 fire, 1 when all 5 fire
     # qualify_pick requires TA+GEX+≥2soft = min 4, so effective range 4-5
     count_ratio = max(0.0, (len(firing) - 2) / (len(factors) - 2))
-    composite = avg_strength * 0.65 + count_ratio * 0.35
-    if composite >= 0.80:
+    composite = avg_strength * settings.conviction_strength_weight + count_ratio * settings.conviction_count_weight
+    if composite >= settings.conviction_t5_threshold:
         return 5
-    if composite >= 0.60:
+    if composite >= settings.conviction_t4_threshold:
         return 4
-    if composite >= 0.40:
+    if composite >= settings.conviction_t3_threshold:
         return 3
-    if composite >= 0.20:
+    if composite >= settings.conviction_t2_threshold:
         return 2
     return 1
 
@@ -107,21 +110,21 @@ def setup_type(scorecard: TickerScorecard) -> str:
 
 def entry_zone(scorecard: TickerScorecard) -> tuple[float, float]:
     is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
-    swing_low = scorecard.technical.detail.get("swing_low", scorecard.spot_price * 0.98)
-    swing_high = scorecard.technical.detail.get("swing_high", scorecard.spot_price * 1.02)
+    swing_low = scorecard.technical.detail.get("swing_low", scorecard.spot_price * (1 - settings.swing_fallback_pct))
+    swing_high = scorecard.technical.detail.get("swing_high", scorecard.spot_price * (1 + settings.swing_fallback_pct))
     if is_short:
         entry_high = swing_high
-        entry_low = swing_high - (swing_high - swing_low) * 0.15
+        entry_low = swing_high - (swing_high - swing_low) * settings.entry_zone_short_frac
         return round(entry_low, 2), round(entry_high, 2)
     entry_low = swing_low
-    entry_high = swing_low + (swing_high - swing_low) * 0.3
+    entry_high = swing_low + (swing_high - swing_low) * settings.entry_zone_long_frac
     return round(entry_low, 2), round(entry_high, 2)
 
 
 def stop_level(scorecard: TickerScorecard) -> float:
     is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
-    swing_low = scorecard.technical.detail.get("swing_low", scorecard.spot_price * 0.98)
-    swing_high = scorecard.technical.detail.get("swing_high", scorecard.spot_price * 1.02)
+    swing_low = scorecard.technical.detail.get("swing_low", scorecard.spot_price * (1 - settings.swing_fallback_pct))
+    swing_high = scorecard.technical.detail.get("swing_high", scorecard.spot_price * (1 + settings.swing_fallback_pct))
     if is_short:
-        return round(swing_high * 1.02, 2)
-    return round(swing_low * 0.98, 2)
+        return round(swing_high * (1 + settings.stop_buffer_pct), 2)
+    return round(swing_low * (1 - settings.stop_buffer_pct), 2)
