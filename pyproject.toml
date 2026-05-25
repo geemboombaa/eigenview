@@ -27,6 +27,7 @@ dependencies = [
     "tenacity>=8.2",
     "typer>=0.12",
     "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
     "asyncpg>=0.29",
     "alembic>=1.13",
     "ruff>=0.4",
@@ -37,6 +38,8 @@ dependencies = [
     "vcrpy>=6.0",
     "pytest-snapshot>=0.9",
     "aiofiles>=23.2",
+    "databento>=0.78.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]
@@ -78,6 +81,4 @@ source = ["src/eigenview"]
 fail_under = 80
 
 [dependency-groups]
-dev = [
-    "aiosqlite>=0.22.1",
-]
+dev = []

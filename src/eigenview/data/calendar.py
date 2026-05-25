@@ -5,11 +5,9 @@ from datetime import date, timedelta
 from typing import Any
 
 import httpx
-import pandas as pd
 import structlog
-import yfinance as yf
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.config import settings
@@ -20,46 +18,6 @@ log = structlog.get_logger(__name__)
 _sem = asyncio.Semaphore(10)
 
 FINNHUB_EARNINGS_URL = "https://finnhub.io/api/v1/calendar/earnings"
-
-
-def _yf_calendar(ticker: str) -> list[dict]:
-    """Blocking: pull yfinance calendar and return normalised event dicts."""
-    obj = yf.Ticker(ticker)
-    calendar = obj.calendar  # dict or None
-    events: list[dict] = []
-    if not calendar:
-        return events
-
-    # "Earnings Date" may be a single Timestamp, a list, or absent
-    earnings_raw = calendar.get("Earnings Date")
-    if earnings_raw is None:
-        return events
-
-    if isinstance(earnings_raw, (list, tuple)):
-        dates = earnings_raw
-    else:
-        dates = [earnings_raw]
-
-    today = date.today()
-    for d in dates:
-        try:
-            if isinstance(d, pd.Timestamp):
-                ev_date = d.date()
-            elif isinstance(d, date):
-                ev_date = d
-            else:
-                ev_date = pd.Timestamp(d).date()
-        except Exception:
-            continue
-        events.append(
-            {
-                "ticker": ticker.upper(),
-                "event_type": "earnings",
-                "event_date": ev_date,
-                "days_from_now": (ev_date - today).days,
-            }
-        )
-    return events
 
 
 @retry(
@@ -119,16 +77,11 @@ def _dedup(events: list[dict]) -> list[dict]:
 
 
 async def get_catalysts(ticker: str) -> list[dict]:
-    """Fetch and upsert catalyst events for a ticker.
+    """Fetch and upsert catalyst events for a ticker via Finnhub.
 
-    Combines yfinance calendar and Finnhub earnings endpoint.
     Returns list of dicts with keys: ticker, event_type, event_date, days_from_now.
     """
     log.info("get_catalysts.start", ticker=ticker)
-
-    loop = asyncio.get_event_loop()
-    async with _sem:
-        yf_events: list[dict] = await loop.run_in_executor(None, _yf_calendar, ticker)
 
     try:
         fh_events = await _finnhub_earnings(ticker)
@@ -136,7 +89,7 @@ async def get_catalysts(ticker: str) -> list[dict]:
         log.warning("get_catalysts.finnhub_error", ticker=ticker, error=str(exc))
         fh_events = []
 
-    all_events = _dedup(yf_events + fh_events)
+    all_events = _dedup(fh_events)
 
     if all_events:
         today = date.today()
@@ -150,13 +103,10 @@ async def get_catalysts(ticker: str) -> list[dict]:
             for e in all_events
         ]
         async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(Catalyst)
-                .values(rows)
-                .on_conflict_do_update(
-                    index_elements=["ticker", "event_type", "event_date"],
-                    set_={"days_from_now": pg_insert(Catalyst).excluded.days_from_now},
-                )
+            ins = upsert(Catalyst).values(rows)
+            stmt = ins.on_conflict_do_update(
+                index_elements=["ticker", "event_type", "event_date"],
+                set_={"days_from_now": ins.excluded.days_from_now},
             )
             await session.execute(stmt)
             await session.commit()

@@ -8,10 +8,9 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 import structlog
-import yfinance as yf
 from bs4 import BeautifulSoup
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.data.storage import AsyncSessionLocal, CotWeekly, MacroDaily
@@ -110,43 +109,6 @@ async def _fetch_dix_gex(client: httpx.AsyncClient) -> tuple[float | None, float
 # ---------------------------------------------------------------------------
 
 
-def _vix_from_yfinance() -> tuple[float | None, float | None, float | None]:
-    """Return (vix_m1, vix_m2, vix_m3) using yfinance spot + crude estimates."""
-    try:
-        loop_needed = False
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            loop_needed = True
-
-        def _dl() -> float | None:
-            try:
-                ticker = yf.Ticker("^VIX")
-                hist = ticker.history(period="1d")
-                if not hist.empty:
-                    return float(hist["Close"].iloc[-1])
-            except Exception:
-                pass
-            return None
-
-        if loop_needed:
-            spot = _dl()
-        else:
-            spot = asyncio.get_event_loop().run_in_executor(None, _dl)
-            # run_in_executor returns a coroutine here — fall back to sync
-            spot = _dl()
-
-        if spot:
-            # Conservative term structure approximation when futures unavailable
-            m1 = spot
-            m2 = round(spot * 1.02, 2)
-            m3 = round(spot * 1.04, 2)
-            return m1, m2, m3
-    except Exception as exc:
-        log.warning("fetch_vix.yfinance_failed", error=str(exc))
-    return None, None, None
-
-
 @retry(
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     stop=stop_after_attempt(3),
@@ -155,7 +117,7 @@ def _vix_from_yfinance() -> tuple[float | None, float | None, float | None]:
 async def _fetch_vix_term(
     client: httpx.AsyncClient,
 ) -> tuple[float | None, float | None, float | None]:
-    """Return (vix_m1, vix_m2, vix_m3). Falls back to yfinance spot."""
+    """Return (vix_m1, vix_m2, vix_m3) from VIXCentral scrape. Returns (None,None,None) on failure."""
     try:
         resp = await client.get(_VIXCENTRAL_URL, headers=_BROWSER_HEADERS, timeout=15.0)
         if resp.status_code == 200:
@@ -204,10 +166,8 @@ async def _fetch_vix_term(
     except Exception as exc:
         log.warning("fetch_vix.scrape_failed", error=str(exc))
 
-    log.info("fetch_vix.falling_back_to_yfinance")
-    loop = asyncio.get_event_loop()
-    m1, m2, m3 = await loop.run_in_executor(None, _vix_from_yfinance)
-    return m1, m2, m3
+    log.warning("fetch_vix.scrape_failed_no_fallback")
+    return None, None, None
 
 
 # ---------------------------------------------------------------------------
@@ -314,25 +274,16 @@ async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
             continue
 
     async with AsyncSessionLocal() as session:
-        stmt = (
-            pg_insert(CotWeekly)
-            .values(
-                [
-                    {
-                        "week_ending": week_ending,
-                        "instrument": "ES",
-                        "net_long_pct": net_long_pct,
-                        "net_long_contracts": net_long_contracts,
-                    }
-                ]
-            )
-            .on_conflict_do_update(
-                index_elements=["week_ending", "instrument"],
-                set_={
-                    "net_long_pct": net_long_pct,
-                    "net_long_contracts": net_long_contracts,
-                },
-            )
+        ins = upsert(CotWeekly).values([{
+            "week_ending": week_ending,
+            "instrument": "ES",
+            "net_long_pct": net_long_pct,
+            "net_long_contracts": net_long_contracts,
+        }])
+        stmt = ins.on_conflict_do_update(
+            index_elements=["week_ending", "instrument"],
+            set_={"net_long_pct": ins.excluded.net_long_pct,
+                  "net_long_contracts": ins.excluded.net_long_contracts},
         )
         await session.execute(stmt)
         await session.commit()
@@ -407,28 +358,18 @@ async def fetch_macro() -> dict:
     }
 
     async with AsyncSessionLocal() as session:
-        stmt = (
-            pg_insert(MacroDaily)
-            .values(
-                [
-                    {
-                        k: v
-                        for k, v in payload.items()
-                        if k != "cot_es_net_long_pct"
-                    }
-                ]
-            )
-            .on_conflict_do_update(
-                index_elements=["date"],
-                set_={
-                    "dix": dix,
-                    "gex_index": gex_index,
-                    "vix_m1": vix_m1,
-                    "vix_m2": vix_m2,
-                    "vix_m3": vix_m3,
-                    "vix_contango_pct": vix_contango_pct,
-                },
-            )
+        row = {k: v for k, v in payload.items() if k != "cot_es_net_long_pct"}
+        ins = upsert(MacroDaily).values([row])
+        stmt = ins.on_conflict_do_update(
+            index_elements=["date"],
+            set_={
+                "dix": ins.excluded.dix,
+                "gex_index": ins.excluded.gex_index,
+                "vix_m1": ins.excluded.vix_m1,
+                "vix_m2": ins.excluded.vix_m2,
+                "vix_m3": ins.excluded.vix_m3,
+                "vix_contango_pct": ins.excluded.vix_contango_pct,
+            },
         )
         await session.execute(stmt)
         await session.commit()

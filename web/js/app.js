@@ -149,69 +149,68 @@
         if (_scanPoll) { clearInterval(_scanPoll); _scanPoll = null; }
       }
 
+      const _progBar = document.getElementById('ev-scan-progress');
+
+      function _setProgress(pct, indeterminate) {
+        if (!_progBar) return;
+        if (indeterminate) {
+          _progBar.classList.add('indeterminate');
+          _progBar.style.width = '';
+        } else {
+          _progBar.classList.remove('indeterminate');
+          _progBar.style.width = Math.min(100, pct) + '%';
+        }
+      }
+
       async function _pollScanStatus() {
         const badge = document.getElementById('ev-scan-time');
-        const status = await EV.API.get('/api/scan/status');
+        const status = await EV.API.get('/api/ta-scan/results');
         if (!status) return;
+        const scanned = status.tickers_scanned || 0;
+        const total   = status.tickers_total   || 1;
+        const pct     = total > 0 ? (scanned / total) * 100 : 0;
+        _setProgress(pct, status.running && pct === 0);
         if (badge) badge.textContent = status.message || '…';
         if (!status.running) {
           _stopScanPoll();
+          _setProgress(100, false);
           scanBtn.disabled = false;
-          if (scanTest) scanTest.disabled = false;
           scanBtn.textContent = 'SCAN';
           if (status.error) {
             if (badge) { badge.textContent = 'Scan failed'; badge.style.color = 'var(--warn,#ffc857)'; }
           } else {
-            if (badge) badge.style.color = status.picks > 0 ? 'var(--accent)' : 'var(--text-dim)';
-            // Reload picks + matrix
+            const firing = (status.results || []).filter(r => r.firing).length;
+            if (badge) { badge.textContent = `${firing} firing / ${status.tickers_scanned} scanned`; badge.style.color = 'var(--accent)'; }
             const todayStr = new Date().toISOString().slice(0, 10);
             const fresh = await EV.API.get(`/api/picks?date=${todayStr}`);
             if (fresh && fresh.length > 0) {
               EV.Store.set('picks', fresh);
               EV.Store.set('selectedPick', fresh[0]);
-              if (badge) { badge.textContent = `✓ ${fresh.length} pick${fresh.length !== 1 ? 's' : ''}`; badge.style.color = 'var(--accent)'; }
             }
             window.EV_FactorPulse?.load?.();
+            setTimeout(() => { _setProgress(0, false); if (_progBar) _progBar.style.width = '0%'; }, 3000);
           }
         }
-      }
-
-      // Also wire SCAN·5 quick button
-      const scanTest = document.getElementById('ev-scan-test-btn');
-      if (scanTest) {
-        scanTest.addEventListener('click', () => {
-          scanBtn.dataset.universe = 'test5';
-          scanBtn.click();
-          scanBtn.dataset.universe = 'ndx100';
-        });
       }
 
       scanBtn.addEventListener('click', async () => {
         const universe = scanBtn.dataset.universe || 'ndx100';
         const badge = document.getElementById('ev-scan-time');
         scanBtn.disabled = true;
-        if (scanTest) scanTest.disabled = true;
-        const universeLabel = universe === 'test5' ? '5' : universe === 'ndx100' ? 'NDX100' : universe === 'sp500' ? 'SP500' : 'SP500+NDX';
-        scanBtn.textContent = `SCANNING…`;
-        if (badge) { badge.textContent = `Scanning ${universeLabel}…`; badge.style.color = 'var(--text-dim)'; }
+        scanBtn.textContent = 'SCANNING…';
+        _setProgress(0, true);
+        if (badge) { badge.textContent = `Loading ${universe.toUpperCase()} from yfinance…`; badge.style.color = 'var(--text-dim)'; }
         try {
-          const resp = await fetch(`/api/scan?universe=${universe}`, { method: 'POST' });
-          const data = await resp.json();
-          if (data.status === 'already_running') {
+          const resp = await EV.API.post('/api/ta-scan', { universe, fetch_options: false });
+          if (resp?.status === 'already_running') {
             if (badge) badge.textContent = 'Already scanning…';
-          } else if (data.status === 'too_recent') {
-            scanBtn.disabled = false;
-            if (scanTest) scanTest.disabled = false;
-            scanBtn.textContent = 'SCAN';
-            if (badge) { badge.textContent = data.message || 'Too soon'; badge.style.color = 'var(--text-dim)'; }
-            return;
           }
-          // Poll status every 4s regardless
           _stopScanPoll();
-          _scanPoll = setInterval(_pollScanStatus, 4000);
+          _scanPoll = setInterval(_pollScanStatus, 3000);
         } catch {
           scanBtn.disabled = false;
           scanBtn.textContent = 'SCAN';
+          _setProgress(0, false);
           if (badge) { badge.textContent = 'Scan failed'; badge.style.color = 'var(--warn,#ffc857)'; }
         }
       });

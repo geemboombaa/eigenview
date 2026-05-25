@@ -94,10 +94,6 @@ async def audit_ta() -> dict:
 
 # ── /api/spec/notes  (POST) ──────────────────────────────────────────────────
 
-class NoteIn:
-    pass
-
-
 from pydantic import BaseModel  # noqa: E402
 
 

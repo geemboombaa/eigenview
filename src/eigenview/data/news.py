@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import structlog
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from eigenview.config import settings
@@ -174,9 +174,9 @@ async def fetch_news(ticker: str, lookback_days: int = 3) -> list[dict]:
         ]
         async with AsyncSessionLocal() as session:
             stmt = (
-                pg_insert(NewsItem)
+                upsert(NewsItem)
                 .values(rows)
-                .on_conflict_do_nothing(index_elements=["url_hash"])
+                .on_conflict_do_nothing()
             )
             await session.execute(stmt)
             await session.commit()
