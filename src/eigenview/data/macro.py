@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as upsert
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from eigenview.config import settings
 from eigenview.data.storage import AsyncSessionLocal, CotWeekly, MacroDaily
 
 log = structlog.get_logger(__name__)
@@ -174,16 +175,19 @@ async def _fetch_vix_term(
 # CFTC COT
 # ---------------------------------------------------------------------------
 
-_COT_INSTRUMENTS = ("E-MINI S&P 500", "S&P 500 STOCK INDEX", "S&P 500 MINI")
+# Maps an instrument code to the CFTC "Market_and_Exchange_Names" substrings that identify it.
+_COT_MARKET_FILTERS = {
+    "ES": ("E-MINI S&P 500", "S&P 500 STOCK INDEX", "S&P 500 MINI"),
+}
 
 
-async def _cot_cache_valid() -> tuple[bool, float | None]:
+async def _cot_cache_valid(instrument: str = settings.cot_default_instrument) -> tuple[bool, float | None]:
     """Return (is_fresh, cached_net_long_pct). Fresh = latest row < 7 days old."""
     cutoff = date.today() - timedelta(days=7)
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(CotWeekly)
-            .where(CotWeekly.instrument == "ES")
+            .where(CotWeekly.instrument == instrument)
             .order_by(CotWeekly.week_ending.desc())
             .limit(1)
         )
@@ -199,9 +203,12 @@ async def _cot_cache_valid() -> tuple[bool, float | None]:
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=30),
 )
-async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
-    """Return net_long_pct for ES from CFTC. Upserts to cot_weekly."""
-    is_fresh, cached_pct = await _cot_cache_valid()
+async def _fetch_cot(
+    client: httpx.AsyncClient, instrument: str = settings.cot_default_instrument
+) -> float | None:
+    """Return net_long_pct for `instrument` from CFTC. Upserts to cot_weekly."""
+    market_filter = _COT_MARKET_FILTERS[instrument]
+    is_fresh, cached_pct = await _cot_cache_valid(instrument)
     if is_fresh:
         log.info("fetch_cot.cache_hit", net_long_pct=cached_pct)
         return cached_pct
@@ -225,7 +232,7 @@ async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
             or ""
         )
         name_upper = name_field.strip().upper()
-        if any(inst in name_upper for inst in _COT_INSTRUMENTS):
+        if any(inst in name_upper for inst in market_filter):
             best_row = row
             break
 
@@ -279,7 +286,7 @@ async def _fetch_cot(client: httpx.AsyncClient) -> float | None:
     async with AsyncSessionLocal() as session:
         ins = upsert(CotWeekly).values([{
             "week_ending": week_ending,
-            "instrument": "ES",
+            "instrument": instrument,
             "net_long_pct": net_long_pct,
             "net_long_contracts": net_long_contracts,
         }])

@@ -44,8 +44,8 @@ async def _build_picks_summary(session) -> str:
                 f = json.loads(p.factors_json)
                 firing = [k for k, v in f.items() if v.get("firing")]
                 factors_str = f" [{', '.join(firing)}]"
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("chat_factors_parse_error", ticker=p.ticker, error=str(exc))
         lines.append(
             f"- {p.ticker}: conviction {p.conviction}/5, {p.setup_type}, "
             f"entry ${p.entry_low}–${p.entry_high}, stop ${p.stop}{factors_str}"

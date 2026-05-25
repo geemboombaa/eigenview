@@ -44,5 +44,15 @@ class Settings(BaseSettings):
     stop_buffer_pct: float = 0.02         # stop = swing_low*(1-buf) long / swing_high*(1+buf) short
     swing_fallback_pct: float = 0.02      # fallback swing levels = spot*(1±this) when detail missing
 
+    # Tier-D (strong single-signal) thresholds (synthesis/gate.py tier_score)
+    tier_d_flow_strength: float = 0.70
+    tier_d_dormant_strength: float = 0.60
+
+    # COT (data/macro.py) — default futures instrument for CFTC COT fetch
+    cot_default_instrument: str = "ES"
+
+    # Sentiment novelty baseline (factors/sentiment.py) — expected articles/day
+    sentiment_expected_articles_per_day: float = 1.0
+
 
 settings = Settings()
