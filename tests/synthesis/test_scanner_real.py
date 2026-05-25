@@ -8,6 +8,8 @@ from eigenview.data.universe import get_universe
 from eigenview.synthesis.gate import TickerScorecard
 from eigenview.synthesis.scanner import run_daily_scan
 
+pytestmark = pytest.mark.data_dependent
+
 
 async def _ndx_sample(n: int = 2) -> list[str]:
     tickers = await get_universe("ndx100")
