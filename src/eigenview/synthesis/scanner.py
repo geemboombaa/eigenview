@@ -40,35 +40,36 @@ async def _identify_dormant_bets(
     if not chains or spot <= 0:
         return
     floor = candidate_dwoi_floor(list(chains), spot)
-    for c in chains:
-        if not is_dormant_candidate(c, spot, floor, today, _DORMANT_MIN_DTE):
-            continue
-        mid = mark_price(c.bid, c.ask, c.iv, spot, c.strike, c.expiry, c.call_put, today)
-        premium = mid * (c.oi or 0) * 100
-        contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
-        existing = await session.execute(
-            select(DormantBet).where(
-                DormantBet.ticker == ticker,
-                DormantBet.contract == contract,
+    with session.no_autoflush:
+        for c in chains:
+            if not is_dormant_candidate(c, spot, floor, today, _DORMANT_MIN_DTE):
+                continue
+            mid = mark_price(c.bid, c.ask, c.iv, spot, c.strike, c.expiry, c.call_put, today)
+            premium = mid * (c.oi or 0) * 100
+            contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
+            existing = await session.execute(
+                select(DormantBet).where(
+                    DormantBet.ticker == ticker,
+                    DormantBet.contract == contract,
+                )
             )
-        )
-        row = existing.scalars().first()
-        if row is None:
-            session.add(DormantBet(
-                ticker=ticker,
-                contract=contract,
-                original_date=today,
-                strike=c.strike,
-                expiry=c.expiry,
-                call_put=c.call_put,
-                original_premium=round(premium, 2),
-                current_oi=c.oi,
-                original_oi=c.oi,
-                updated_at=datetime.utcnow(),
-            ))
-        else:
-            row.current_oi = c.oi
-            row.updated_at = datetime.utcnow()
+            row = existing.scalars().first()
+            if row is None:
+                session.add(DormantBet(
+                    ticker=ticker,
+                    contract=contract,
+                    original_date=today,
+                    strike=c.strike,
+                    expiry=c.expiry,
+                    call_put=c.call_put,
+                    original_premium=round(premium, 2),
+                    current_oi=c.oi,
+                    original_oi=c.oi,
+                    updated_at=datetime.utcnow(),
+                ))
+            else:
+                row.current_oi = c.oi
+                row.updated_at = datetime.utcnow()
 
 
 async def _fetch_live(ticker: str) -> pd.DataFrame:
