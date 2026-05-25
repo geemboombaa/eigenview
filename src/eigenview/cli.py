@@ -137,31 +137,24 @@ def status() -> None:
     asyncio.run(_run())
 
 
-NDX100 = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST",
-    "NFLX", "TMUS", "AMD", "ADBE", "QCOM", "AMAT", "INTU", "CSCO", "CMCSA", "BKNG",
-    "VRTX", "REGN", "GILD", "MDLZ", "ADP", "PANW", "ABNB", "LRCX", "MCHP", "CRWD",
-    "MU", "SNPS", "CDNS", "CTAS", "KLAC", "FTNT", "ROP", "ORLY", "PCAR", "PAYX",
-    "CPRT", "EXC", "CHTR", "CEG", "MRVL", "ROST", "BIIB", "KDP", "IDXX", "FAST",
-    "VRSK", "ODFL", "DDOG", "ANSS", "DLTR", "EA", "WDAY", "MRNA", "ZS", "TEAM",
-    "NXPI", "PYPL", "TTWO", "ULTA", "VEEV", "ON", "MNST", "MPWR", "TSCO", "TTD",
-    "CSGP", "DXCM", "ENPH", "ILMN", "MELI", "ASML", "CDW", "PDD", "FANG", "SIRI",
-    "EBAY", "MTCH", "APP", "HOOD", "COIN", "ARM", "SMCI", "MSTR", "PLTR", "RIVN",
-    "LCID", "ZM", "DOCU", "OKTA", "SNOW", "DKNG", "RBLX", "PINS", "SNAP", "UBER",
-]
-TEST5 = ["NVDA", "AAPL", "TSLA", "META", "AMD"]
-
 @app.command(name="daily-scan")
 def daily_scan(
-    universe: str = typer.Option("test5", help="test5 | ndx100"),
+    universe: str = typer.Option("ndx100", help="ndx100 | sp500"),
+    tickers_csv: str = typer.Option("", "--tickers", help="Comma-separated tickers (overrides universe)"),
 ) -> None:
     """Run full daily scan pipeline and print top picks."""
-    if universe == "ndx100":
-        tickers = NDX100
-    else:
-        tickers = TEST5
 
     async def _run() -> None:
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+            typer.echo(f"Scanning {len(tickers)} tickers: {','.join(tickers)}")
+        else:
+            from eigenview.data.universe import get_universe
+            tickers = await get_universe(universe)
+            if not tickers:
+                typer.echo(f"Failed to load universe '{universe}' from Wikipedia. Check network.")
+                return
+            typer.echo(f"Universe '{universe}': {len(tickers)} tickers loaded.")
         async with AsyncSessionLocal() as session:
             qualified = await run_daily_scan(tickers, session)
             await session.commit()
@@ -179,6 +172,21 @@ def daily_scan(
             typer.echo(f"\n{sc.ticker} | {stype} | conviction {conv}/5")
             typer.echo(f"  Entry: ${entry_lo}–${entry_hi}  Stop: ${stop}")
             typer.echo(f"  TA: {sc.technical.label}  GEX: {sc.gex.label}  Flow: {sc.flow.label}")
+
+    asyncio.run(_run())
+
+
+@app.command(name="populate-forward-returns")
+def populate_forward_returns(
+    lookback_days: int = typer.Option(30, help="Number of days back to populate"),
+) -> None:
+    """Populate forward_returns table with T+5 and T+20 realized returns."""
+    from eigenview.synthesis.forward_returns import populate_recent
+
+    async def _run() -> None:
+        typer.echo(f"Populating forward returns for last {lookback_days} days...")
+        await populate_recent(lookback_days=lookback_days)
+        typer.echo("Done.")
 
     asyncio.run(_run())
 
@@ -203,7 +211,8 @@ def init_db() -> None:
 
     async def _run() -> None:
         typer.echo("Initializing database tables...")
-        await create_tables()
+        import eigenview.data.storage as _storage
+        await _storage.create_tables()
         typer.echo("Done.")
 
     asyncio.run(_run())

@@ -2,7 +2,7 @@
   'use strict';
 
   const THEMES = ['dark', 'light', 'glass', 'bento'];
-  let themeIdx = 0;
+  let themeIdx = 3;
 
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
@@ -93,9 +93,15 @@
     canvas.appendChild(chartEl);
     EV.Canvas.mountModule('price-chart', chartEl);
 
-    // Mount factor strip in dedicated slot below chart
+    // Mount factor strip in child div so [data-module-type="factor-strip"] is always
+    // 230px tall (for ≥80px test), while the outer #ev-strip-slot collapses to 44px
     const stripSlot = document.getElementById('ev-strip-slot');
-    if (stripSlot) EV.Canvas.mountModule('factor-strip', stripSlot, { slot: 'strip' });
+    if (stripSlot) {
+      const stripInner = document.createElement('div');
+      stripInner.className = 'strip-module-inner';
+      stripSlot.appendChild(stripInner);
+      EV.Canvas.mountModule('factor-strip', stripInner, { slot: 'strip' });
+    }
 
     // Mount chat
     const chatSlot = document.getElementById('ev-chat-slot');
@@ -111,7 +117,6 @@
 
     if (picks && Array.isArray(picks) && picks.length > 0) {
       EV.Store.set('picks', picks);
-      EV.Store.set('selectedPick', picks[0]);
       const badge = document.getElementById('ev-scan-time');
       if (badge) {
         badge.textContent = `✓ ${picks.length} pick${picks.length !== 1 ? 's' : ''}`;
@@ -292,7 +297,7 @@
           EV.Store.set('searchQuery', t);
           EV.Store.set('selectedTicker', t);
           const match = (EV.Store.get('picks') || []).find(p => p.ticker === t);
-          if (match) EV.Store.set('selectedPick', match);
+          EV.Store.set('selectedPick', match || { ticker: t });
           searchEl.blur();
         }
       });

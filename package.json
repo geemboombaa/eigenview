@@ -8,7 +8,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test",
+    "test:report": "npx playwright test && npx playwright show-report tests/ui/report",
+    "report": "npx playwright show-report tests/ui/report"
   },
   "repository": {
     "type": "git",
@@ -23,6 +25,8 @@
   },
   "homepage": "https://github.com/geemboombaa/eigenview#readme",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "allure-playwright": "^3.7.2",
+    "wait-on": "^9.0.5"
   }
 }

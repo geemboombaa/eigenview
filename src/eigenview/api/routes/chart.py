@@ -38,6 +38,25 @@ async def get_chart(ticker: str, tf: str = "1d") -> dict:
         )
         rows = result.scalars().all()
 
+        # Staleness check: if no rows or latest row predates today on a weekday, refresh
+        today = date.today()
+        is_weekday = today.weekday() < 5
+        latest_row_date = max((r.date for r in rows), default=None)
+        needs_refresh = (not rows) or (is_weekday and latest_row_date is not None and latest_row_date < today)
+        if needs_refresh:
+            try:
+                from eigenview.data.prices import fetch_prices
+                await fetch_prices(ticker)
+                result = await session.execute(
+                    select(Price)
+                    .where(Price.ticker == ticker, Price.timeframe == timeframe)
+                    .order_by(Price.date.asc())
+                    .limit(limit)
+                )
+                rows = result.scalars().all()
+            except Exception:
+                pass  # serve whatever is in DB if refresh fails
+
         # Get GEX levels from today's pick factors_json
         today = date.today()
         pick_result = await session.execute(

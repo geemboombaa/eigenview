@@ -147,7 +147,6 @@
     function mountModule(id, containerEl, config = {}) {
       const Cls = registry.get(id);
       if (!Cls) { console.warn('EV: unknown module', id); return null; }
-      containerEl.classList.add('ev-module');
       containerEl.setAttribute('data-module-type', id);
       const mod = new Cls(containerEl, config);
       mod.mount();  // module renders its own innerHTML
@@ -158,6 +157,7 @@
       // Inject chrome overlay AFTER mount (so innerHTML doesn't wipe it)
       // Only for canvas modules, not nav/chat slots
       if (!config.slot) {
+        containerEl.classList.add('ev-module');
         const bar = document.createElement('div');
         bar.className = 'ev-module-bar';
         bar.innerHTML = `

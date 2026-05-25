@@ -1007,6 +1007,27 @@ def detect_pattern(
             detail.update({"rsi_p45": round(rsi_p45_dp, 2), "rsi_p65": round(rsi_p65_dp, 2)})
             return {"pattern": "flag_continuation", "confidence": confidence, "detail": detail}
 
+    # ── P6.3b bull_flag — long-only, requires weekly BULLISH ─────────────────
+    if (
+        weekly_state == "BULLISH"
+        and rsif is not None
+        and 45 <= rsif <= 65
+        and vol_ratio < 1.2
+        and _sq_on_dp
+        and len(ddf) >= 12
+    ):
+        _impulse = (float(ddf["close"].iloc[-1]) / float(ddf["close"].iloc[-11]) - 1) * 100
+        if _impulse > 5.0:
+            confidence = 0.72
+            if _impulse > 10.0:
+                confidence += 0.05
+            if weekly_state == "BULLISH":
+                confidence += 0.03
+            confidence = round(min(1.0, confidence), 3)
+            detail["impulse_pct"] = round(_impulse, 2)
+            detail.update({"rsi_p45": round(rsi_p45_dp, 2), "rsi_p65": round(rsi_p65_dp, 2)})
+            return {"pattern": "bull_flag", "confidence": confidence, "detail": detail}
+
     # ── P6.4 compression_break ───────────────────────────────────────────────
     if (
         _squeeze_released_dp
@@ -1380,3 +1401,17 @@ def detect_pattern(
             return {"pattern": "ema200_snap_short", "confidence": confidence, "detail": detail}
 
     return {"pattern": "no_pattern", "confidence": 0.0, "detail": detail}
+
+
+SETUP_TAXONOMY: list[str] = [
+    "pullback_in_trend", "pullback_deep", "pullback_to_structure",
+    "flag_continuation", "rally_in_downtrend",
+    "breakout", "breakdown", "compression_break", "compression_break_down",
+    "base_breakout", "base_breakdown", "ema_reclaim", "ema_rejection",
+    "bos_bullish", "bos_bearish",
+    "bullish_reversal", "bearish_reversal", "overbought_reversal",
+    "oversold_bounce", "failed_breakdown", "failed_breakout",
+    "choch_bullish", "choch_bearish",
+    "bb_mean_reversion_long", "bb_mean_reversion_short",
+    "ema200_snap_long", "ema200_snap_short",
+]

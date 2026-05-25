@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date as _date
+
 from eigenview.factors.base import FactorResult
 
 
@@ -15,6 +17,8 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
     put_gex_by_strike: dict[float, float] = {}
     call_oi_by_strike: dict[float, float] = {}
     put_oi_by_strike: dict[float, float] = {}
+    gex_by_expiry: dict[str, float] = {}
+    today = _date.today()
 
     for c in valid:
         gex_val = c.gamma * c.oi * 100 * spot_price ** 2 * 0.01
@@ -24,6 +28,10 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
         else:
             put_gex_by_strike[c.strike] = put_gex_by_strike.get(c.strike, 0.0) + gex_val
             put_oi_by_strike[c.strike] = put_oi_by_strike.get(c.strike, 0.0) + (c.oi or 0)
+        if getattr(c, "expiry", None):
+            dte = (c.expiry - today).days
+            bucket = "0dte" if dte <= 0 else "weekly" if dte <= 7 else "monthly" if dte <= 30 else "quarterly"
+            gex_by_expiry[bucket] = gex_by_expiry.get(bucket, 0.0) + gex_val
 
     net_gex = sum(call_gex_by_strike.values()) - sum(put_gex_by_strike.values())
 
@@ -59,7 +67,7 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
         strength = min(1.0, abs(net_gex) / 1e9)
     else:
         regime = "long_gamma"
-        firing = False
+        firing = True
         strength = 0.1
 
     cw_str = f"${call_wall:,.0f}" if call_wall else "N/A"
@@ -82,6 +90,16 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
             f"Call wall {cw_str}, put wall {pw_str}. Moves likely suppressed."
         )
 
+    # Pinning risk: price within 1% of the strike with highest absolute GEX
+    all_gex = {s: abs(call_gex_by_strike.get(s, 0.0) - put_gex_by_strike.get(s, 0.0))
+               for s in set(call_gex_by_strike) | set(put_gex_by_strike)}
+    pin_strike: float | None = max(all_gex, key=all_gex.__getitem__) if all_gex else None
+    pinning_risk = (
+        pin_strike is not None and spot_price > 0
+        and abs(spot_price - pin_strike) / spot_price <= 0.01
+    )
+    gamma_cluster = {"pinning_risk": pinning_risk, "pin_strike": pin_strike}
+
     return FactorResult(
         factor_id="gex",
         firing=firing,
@@ -93,6 +111,8 @@ def score_gex(chains: list, spot_price: float, ticker: str = "") -> FactorResult
             "put_wall": put_wall,
             "gamma_flip": gamma_flip,
             "regime": regime,
+            "gex_by_expiry": gex_by_expiry,
+            "gamma_cluster": gamma_cluster,
         },
         narrative=narrative,
     )
@@ -116,9 +136,11 @@ def _find_gamma_flip(
     for strike in all_strikes:
         curr_net = net_by_strike[strike]
         if prev_net is not None and prev_net * curr_net < 0:
-            # linear interpolation
+            # linear interpolation across sign change
             frac = abs(prev_net) / (abs(prev_net) + abs(curr_net))
             return prev_strike + frac * (strike - prev_strike)
         prev_strike = strike
         prev_net = curr_net
-    return None
+
+    # No sign change — return the strike closest to zero net GEX (nearest potential flip)
+    return min(all_strikes, key=lambda s: abs(net_by_strike[s]))

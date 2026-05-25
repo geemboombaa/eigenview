@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec
+from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec, ta_scan
 from eigenview.data.storage import create_tables
 
 
@@ -36,6 +36,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(layouts.router, prefix="/api")
 app.include_router(heat.router, prefix="/api")
 app.include_router(spec.router, prefix="/api")
+app.include_router(ta_scan.router, prefix="/api")
 
 
 @app.get("/api/health")
@@ -48,6 +49,7 @@ _SCAN_COOLDOWN_SECS = 4 * 3600  # 4 hours
 _scan_state: dict = {
     "running": False, "message": "idle", "picks": 0, "error": None, "last_scan_at": None
 }
+_scan_bg_tasks: set = set()
 
 
 @app.get("/api/scan/status")
@@ -76,17 +78,12 @@ async def trigger_scan(universe: str = "ndx100") -> dict:
         global _scan_state
         _scan_state = {"running": True, "message": "Fetching data…", "picks": 0, "error": None, "last_scan_at": _scan_state.get("last_scan_at")}
         try:
-            from eigenview.cli import NDX100, SP500, TEST5, _SP500_NDX100
+            from eigenview.data.universe import get_universe
             from eigenview.data.storage import AsyncSessionLocal
             from eigenview.synthesis.scanner import run_daily_scan
-            if universe == "ndx100":
-                tickers = NDX100
-            elif universe == "sp500":
-                tickers = SP500
-            elif universe == "full":
-                tickers = _SP500_NDX100
-            else:
-                tickers = TEST5
+            tickers = await get_universe(universe if universe in ("ndx100", "sp500") else "ndx100")
+            if not tickers:
+                raise RuntimeError(f"Failed to load universe '{universe}' from Wikipedia")
             _scan_state["message"] = f"Scanning {len(tickers)} tickers…"
             async with AsyncSessionLocal() as session:
                 qualified = await run_daily_scan(tickers, session)
@@ -105,7 +102,9 @@ async def trigger_scan(universe: str = "ndx100") -> dict:
                 "error": str(exc), "last_scan_at": _scan_state.get("last_scan_at"),
             }
 
-    asyncio.create_task(_do_scan())
+    task = asyncio.create_task(_do_scan())
+    _scan_bg_tasks.add(task)
+    task.add_done_callback(_scan_bg_tasks.discard)
     return {"status": "started"}
 
 

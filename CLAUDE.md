@@ -442,6 +442,25 @@ MACRO_REGIME_RED_THRESHOLD=3
 
 ---
 
+## ENGINEERING PROCESS — 5-STEP LEAN
+
+**feature/** branches (new behavior): all 5 steps.
+**fix/** branches (confirmed bug/typo/config): steps 1, 4, 5 only.
+
+1. **Propose** — Claude reads codebase + git log. Writes proposal in chat: what, how, out-of-scope. User approves before any code.
+2. **Branch + PR** — `git checkout -b feature/<name>`. Open draft PR immediately (`gh pr create --draft`).
+3. **Tests first** — write failing tests before touching `src/`. Commit tests. Confirm they fail.
+4. **Implement** — write `src/` code. Run full test suite locally. Must pass before pushing.
+5. **Review + Merge** — push, wait for CI green, user merges. No self-merge on master.
+
+### Rules
+- Never edit `src/` on master
+- Never `git commit --no-verify`
+- Integration tests hit real data — no mocks, no cassettes, no synthetic fixtures
+- One module = one file = one PR
+
+---
+
 ## CRITICAL RULES — NEVER BREAK
 
 1. **Wireframe v2 is the visual source of truth.** When building UI, match it. Don't redesign.

@@ -38,21 +38,23 @@ def qualify_pick(scorecard: TickerScorecard, macro_score: int) -> bool:
 
 
 def conviction_score(scorecard: TickerScorecard) -> int:
-    base = sum([
-        scorecard.technical.strength,
-        scorecard.gex.strength,
-        scorecard.flow.strength,
-        scorecard.dormant.strength,
-        scorecard.sentiment.strength,
-    ])
-    raw = base / 5.0
-    if raw >= 0.8:
+    factors = [scorecard.technical, scorecard.gex, scorecard.flow,
+               scorecard.dormant, scorecard.sentiment]
+    firing = [f for f in factors if f.firing]
+    if not firing:
+        return 1
+    avg_strength = sum(f.strength for f in firing) / len(firing)
+    # count_ratio: 0 when minimum 2 fire, 1 when all 5 fire
+    # qualify_pick requires TA+GEX+≥2soft = min 4, so effective range 4-5
+    count_ratio = max(0.0, (len(firing) - 2) / (len(factors) - 2))
+    composite = avg_strength * 0.65 + count_ratio * 0.35
+    if composite >= 0.80:
         return 5
-    if raw >= 0.6:
+    if composite >= 0.60:
         return 4
-    if raw >= 0.4:
+    if composite >= 0.40:
         return 3
-    if raw >= 0.2:
+    if composite >= 0.20:
         return 2
     return 1
 

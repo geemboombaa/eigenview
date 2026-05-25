@@ -10,12 +10,23 @@ from eigenview.synthesis.gate import TickerScorecard
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 
-def fr(factor_id: str, firing: bool, strength: float = 0.5, label: str = "ok") -> FactorResult:
-    return FactorResult(factor_id=factor_id, firing=firing, strength=strength, label=label)
+def _real_tickers(n: int = 3) -> list[str]:
+    import asyncio
+    from eigenview.data.universe import get_universe
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            return ["AAPL", "MSFT", "NVDA"][:n]
+        tickers = loop.run_until_complete(get_universe("ndx100"))
+        if tickers and len(tickers) >= n:
+            return tickers[:n]
+        return tickers or ["AAPL", "MSFT", "NVDA"]
+    except Exception:
+        return ["AAPL", "MSFT", "NVDA"]
 
 
 def make_scorecard(
-    ticker: str = "NVDA",
+    ticker: str = "AAPL",
     ta: bool = True,
     gex: bool = True,
     flow: bool = True,
@@ -25,65 +36,68 @@ def make_scorecard(
 ) -> TickerScorecard:
     return TickerScorecard(
         ticker=ticker,
-        macro=fr("macro_regime", True, 0.8, "GREEN"),
-        technical=fr("technical", ta, strength, "breakout"),
-        gex=fr("gex", gex, strength, "short_gamma"),
-        flow=fr("flow", flow, strength, "calls"),
-        dormant=fr("dormant", dormant, strength, "ACTIVE"),
-        sentiment=fr("sentiment", sentiment, strength, "bullish"),
+        macro=FactorResult(factor_id="macro_regime", firing=True, strength=0.8, label="GREEN"),
+        technical=FactorResult(factor_id="technical", firing=ta, strength=strength, label="breakout"),
+        gex=FactorResult(factor_id="gex", firing=gex, strength=strength, label="short_gamma"),
+        flow=FactorResult(factor_id="flow", firing=flow, strength=strength, label="calls"),
+        dormant=FactorResult(factor_id="dormant", firing=dormant, strength=strength, label="ACTIVE"),
+        sentiment=FactorResult(factor_id="sentiment", firing=sentiment, strength=strength, label="bullish"),
         spot_price=500.0,
     )
 
 
 def test_rank_sorts_by_conviction() -> None:
-    low = make_scorecard("AAPL", strength=0.3)
-    mid = make_scorecard("TSLA", strength=0.6)
-    high = make_scorecard("NVDA", strength=0.9)
+    tickers = _real_tickers(3)
+    low = make_scorecard(tickers[2], strength=0.3)
+    mid = make_scorecard(tickers[1], strength=0.6)
+    high = make_scorecard(tickers[0], strength=0.9)
 
     ranked = rank_picks([low, mid, high], macro_score=8)
-    assert ranked[0].ticker == "NVDA"
-    assert ranked[-1].ticker == "AAPL"
+    assert ranked[0].ticker == tickers[0]
+    assert ranked[-1].ticker == tickers[2]
 
 
 def test_rank_filters_unqualified() -> None:
-    qualified = make_scorecard("NVDA")
-    # GEX not firing → fails Gate 2 → unqualified
-    unqualified = make_scorecard("AAPL", gex=False)
+    tickers = _real_tickers(2)
+    qualified = make_scorecard(tickers[0])
+    unqualified = make_scorecard(tickers[1], gex=False)
 
     ranked = rank_picks([qualified, unqualified], macro_score=8)
-    tickers = [s.ticker for s in ranked]
-    assert "NVDA" in tickers
-    assert "AAPL" not in tickers
+    result_tickers = [s.ticker for s in ranked]
+    assert tickers[0] in result_tickers
+    assert tickers[1] not in result_tickers
 
 
 @pytest.mark.asyncio
 async def test_write_picks_inserts_rows(db_session: AsyncSession) -> None:
-    sc1 = make_scorecard("NVDA")
-    sc2 = make_scorecard("AAPL")
+    tickers = _real_tickers(2)
+    sc1 = make_scorecard(tickers[0])
+    sc2 = make_scorecard(tickers[1])
 
     await write_picks([sc1, sc2], macro_score=8, session=db_session)
     await db_session.flush()
 
     result = await db_session.execute(select(Pick))
     rows = result.scalars().all()
-    tickers = {r.ticker for r in rows}
-    assert "NVDA" in tickers
-    assert "AAPL" in tickers
+    row_tickers = {r.ticker for r in rows}
+    assert tickers[0] in row_tickers
+    assert tickers[1] in row_tickers
     assert len(rows) == 2
 
 
 @pytest.mark.asyncio
 async def test_write_picks_updates_existing(db_session: AsyncSession) -> None:
-    sc = make_scorecard("NVDA", strength=0.5)
+    tickers = _real_tickers(1)
+    ticker = tickers[0]
+    sc = make_scorecard(ticker, strength=0.5)
     await write_picks([sc], macro_score=8, session=db_session)
     await db_session.flush()
 
-    # Call again with higher strength — should update, not insert a second row
-    sc_updated = make_scorecard("NVDA", strength=0.9)
+    sc_updated = make_scorecard(ticker, strength=0.9)
     await write_picks([sc_updated], macro_score=8, session=db_session)
     await db_session.flush()
 
-    result = await db_session.execute(select(Pick).where(Pick.ticker == "NVDA"))
+    result = await db_session.execute(select(Pick).where(Pick.ticker == ticker))
     rows = result.scalars().all()
     assert len(rows) == 1
     assert rows[0].conviction is not None

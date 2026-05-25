@@ -51,6 +51,14 @@
     base_breakdown:'Stage 2 Breakdown', overbought_reversal:'Overbought Reversal',
     failed_breakout:'Failed Breakout', bearish_reversal:'Bearish Reversal',
     no_pattern:'No Pattern',
+    flag_continuation:'Flag Continuation', bull_flag:'Bull Flag',
+    pullback_deep:'Deep Pullback', pullback_to_structure:'Pullback to Structure',
+    compression_break_down:'Squeeze Breakdown',
+    base_breakdown:'Stage 2 Breakdown', base_breakout:'Stage 2 Breakout',
+    choch_bullish:'CHoCH Bullish', choch_bearish:'CHoCH Bearish',
+    bos_bullish:'BOS Bullish', bos_bearish:'BOS Bearish',
+    bb_mean_reversion_long:'BB Mean Reversion Long', bb_mean_reversion_short:'BB Mean Reversion Short',
+    ema200_snap_long:'EMA200 Snap Long', ema200_snap_short:'EMA200 Snap Short',
   };
 
   function _chk(label, pass, val) { return { label, pass, val }; }
@@ -158,6 +166,19 @@
       _chk('RSI elevated (>72)',             d.rsi != null && d.rsi > 72,                  rf(d.rsi)),
       _chk('Volume spike (>1.6×)',           (d.vol_ratio||0) > 1.6,                       vf(d.vol_ratio)),
     ],
+    bull_flag: d => [
+      _chk('Uptrend intact (EMA 21 > 50)',   d.trend === 'bullish',                         tf(d.trend)),
+      _chk('Prior impulse >5%',              (d.impulse_pct||0) > 5,                        d.impulse_pct != null ? `${d.impulse_pct.toFixed(1)}%` : '—'),
+      _chk('Consolidating (vol <1.2×)',      (d.vol_ratio||0) < 1.2,                        vf(d.vol_ratio)),
+      _chk('RSI holding (45–65)',            d.rsi != null && d.rsi >= 45 && d.rsi <= 65,  rf(d.rsi)),
+      _chk('Weekly trend bullish',           d.weekly_trend === 'bullish',                  tf(d.weekly_trend)),
+    ],
+    flag_continuation: d => [
+      _chk('Prior impulse >5%',              (d.impulse_pct||0) > 5,                        d.impulse_pct != null ? `${d.impulse_pct.toFixed(1)}%` : '—'),
+      _chk('Consolidating (vol <1.2×)',      (d.vol_ratio||0) < 1.2,                        vf(d.vol_ratio)),
+      _chk('RSI holding (45–65)',            d.rsi != null && d.rsi >= 45 && d.rsi <= 65,  rf(d.rsi)),
+      _chk('Weekly not bearish',             d.weekly_trend !== 'bearish',                  tf(d.weekly_trend)),
+    ],
   };
 
   function renderChecklist(factorId, fdata) {
@@ -245,6 +266,7 @@
       this._sub('selectedPick', pick => {
         this._pick = pick;
         this._expanded = null;
+        (this.el.parentElement || this.el).classList.remove('expanded');
         this._render(pick);
       });
 
@@ -279,26 +301,32 @@
       this.el.innerHTML = `<div class="fs-wrap"><div class="fs-top">${dotsHtml}<span class="fs-sep"></span>${summary}</div><div class="fs-detail" id="fs-det"></div></div>`;
 
       // Wire clicks
+      const slot = this.el.parentElement || this.el;
       this.el.querySelectorAll('.fs-dot-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.fid;
           const det = this.el.querySelector('#fs-det');
           if (this._expanded === fid) {
             this._expanded = null;
+            slot.classList.remove('expanded');
             if (det) det.innerHTML = '';
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.remove('expanded'));
           } else {
             this._expanded = fid;
+            slot.classList.add('expanded');
             this.el.querySelectorAll('.fs-dot-btn').forEach(b => b.classList.toggle('expanded', b.dataset.fid === fid));
             if (det) det.innerHTML = renderChecklist(fid, factors[fid] || {});
           }
         });
       });
 
-      // Auto-expand TA if it fired
-      const taBtn = this.el.querySelector('[data-fid="technical"]');
-      if (taBtn && factors.technical?.firing) {
-        setTimeout(() => taBtn.click(), 0);
+      // Pre-fill TA checklist when technical factor fires — det has content
+      // without expanding the slot, so the strip stays collapsed until user clicks.
+      if (pick && factors.technical?.firing) {
+        const det = this.el.querySelector('#fs-det');
+        if (det && !det.innerHTML) {
+          det.innerHTML = renderChecklist('technical', factors.technical || {});
+        }
       }
     }
 

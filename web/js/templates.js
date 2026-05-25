@@ -9,7 +9,9 @@
       description: 'Context + picks + detail + chat',
       mainModules: ['market-context', 'pick-cards', 'price-chart', 'factor-strip'],
       nav: true,
-      chat: true
+      chat: true,
+      showPicks: true,
+      showMain: true
     },
     {
       id: 'minimal',
@@ -18,7 +20,9 @@
       description: 'Picks only + chat (no detail)',
       mainModules: ['pick-cards'],
       nav: false,
-      chat: true
+      chat: true,
+      showPicks: true,
+      showMain: false
     },
     {
       id: 'pro',
@@ -27,7 +31,10 @@
       description: 'Dense table + chart + compact nav',
       mainModules: ['market-context', 'pick-cards', 'price-chart'],
       nav: true,
-      chat: true
+      chat: true,
+      showPicks: true,
+      showMain: true,
+      showStrip: false
     },
     {
       id: 'research',
@@ -36,7 +43,9 @@
       description: 'Dormant bets + history + deep chat',
       mainModules: ['market-context', 'pick-cards', 'factor-strip'],
       nav: true,
-      chat: true
+      chat: true,
+      showPicks: true,
+      showMain: true
     },
     {
       id: 'focus',
@@ -45,7 +54,9 @@
       description: 'Single pick full-screen',
       mainModules: ['price-chart', 'factor-strip'],
       nav: false,
-      chat: true
+      chat: true,
+      showPicks: false,
+      showMain: true
     }
   ];
 
@@ -66,17 +77,26 @@
     document.querySelectorAll('.tpl-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.tpl === id)
     );
-    // Body grid: hide nav if !tpl.nav
-    const body = document.getElementById('ev-body');
+
+    const showPicks = tpl.showPicks !== false;
+    const showMain  = tpl.showMain  !== false;
+
+    const mainCol   = document.getElementById('ev-main-col');
+    const picksSlot = document.getElementById('ev-picks-slot');
+    const nav       = document.getElementById('ev-nav-slot');
+    const stripSlot = document.getElementById('ev-strip-slot');
+    const body      = document.getElementById('ev-body');
+
+    if (mainCol)   mainCol.style.display   = showMain  ? '' : 'none';
+    if (picksSlot) picksSlot.style.display = showPicks ? '' : 'none';
+    if (nav)       nav.style.display       = tpl.nav   ? '' : 'none';
+    if (stripSlot) stripSlot.style.display = tpl.showStrip !== false ? '' : 'none';
+
     if (body) {
-      if (tpl.nav) {
-        body.style.gridTemplateColumns = '220px 1fr 340px';
-      } else {
-        body.style.gridTemplateColumns = '0 1fr 340px';
-      }
+      const pc = showPicks ? '380px' : '0';
+      const mc = showMain  ? '1fr'   : '0';
+      body.style.gridTemplateColumns = `${pc} ${mc} 340px`;
     }
-    const nav = document.getElementById('ev-nav-slot');
-    if (nav) nav.style.display = tpl.nav ? '' : 'none';
 
     EV.Store.set('activeTemplate', id);
     EV.Store.set('templateDef', tpl);

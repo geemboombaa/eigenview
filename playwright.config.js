@@ -5,12 +5,16 @@ module.exports = defineConfig({
   testDir: './tests/ui',
   timeout: 30000,
   retries: 0,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'tests/ui/report' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'tests/ui/report' }],
+  ],
   use: {
     baseURL: 'http://localhost:8000',
     headless: true,
-    screenshot: 'only-on-failure',
-    video: 'off',
+    screenshot: 'on',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

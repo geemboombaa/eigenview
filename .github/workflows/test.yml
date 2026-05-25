@@ -1,0 +1,38 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
+          ALPHA_VANTAGE_KEY: placeholder
+          FINNHUB_KEY: placeholder
+          ANTHROPIC_API_KEY: placeholder
+        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=55 --cov-report=term-missing:skip-covered --ignore=tests/integration -m "not data_dependent"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.sha }}
+          path: |
+            results/
+            playwright-report/
+            test-results/

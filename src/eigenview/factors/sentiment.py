@@ -99,6 +99,8 @@ async def score_sentiment(
             "novelty_z": round(novelty_z, 3),
             "bull_hits": total_bull,
             "bear_hits": total_bear,
+            "bull_score": total_bull,
+            "bear_score": total_bear,
         },
         narrative=" ".join(parts) if parts else f"{len(news)} articles found.",
     )
