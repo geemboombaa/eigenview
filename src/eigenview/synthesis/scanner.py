@@ -1,30 +1,27 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
+import pandas as pd
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert as upsert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import yfinance as yf
-from eigenview.data.calendar import get_catalysts
-from eigenview.data.chains import get_chain
-from eigenview.data.news import fetch_news
-from eigenview.data.storage import Chain, DormantBet, write_signal_trigger
-from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, entry_zone, stop_level
+from eigenview.data.storage import Chain, ContractHistory, DormantBet, Price, write_signal_trigger
 from eigenview.factors.dormant import (
     candidate_dwoi_floor,
     is_dormant_candidate,
     mark_price,
-    score_dormant,
+    score_dormant_from_history,
 )
 from eigenview.factors.flow import score_flow
 from eigenview.factors.gex import score_gex
 from eigenview.factors.macro_regime import score_macro_regime
 from eigenview.factors.sentiment import score_sentiment
 from eigenview.factors.technical import score_technical
-from eigenview.synthesis.gate import TickerScorecard
+from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, TickerScorecard, entry_zone, stop_level
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
@@ -39,11 +36,7 @@ async def _identify_dormant_bets(
     today: date,
     session: AsyncSession,
 ) -> None:
-    """Upsert qualifying large long-dated positions into dormant_bets table.
-
-    Qualification is relative to the ticker's own chain (ΔWOI ≥ 80th pct, with a
-    $1M tradeability floor) — shared with the find_dormant screen via dormant.py.
-    """
+    """Upsert qualifying large long-dated positions into dormant_bets table."""
     if not chains or spot <= 0:
         return
     floor = candidate_dwoi_floor(list(chains), spot)
@@ -53,9 +46,6 @@ async def _identify_dormant_bets(
         mid = mark_price(c.bid, c.ask, c.iv, spot, c.strike, c.expiry, c.call_put, today)
         premium = mid * (c.oi or 0) * 100
         contract = f"{ticker}{c.expiry.strftime('%y%m%d')}{c.call_put}{int(c.strike)}"
-        # Match on the contract only (NOT original_date) so the first-seen row is
-        # found and its OI carried forward — otherwise original_oi == current_oi
-        # every day and OI change is always zero.
         existing = await session.execute(
             select(DormantBet).where(
                 DormantBet.ticker == ticker,
@@ -81,26 +71,131 @@ async def _identify_dormant_bets(
             row.updated_at = datetime.utcnow()
 
 
-async def _fetch_live(ticker: str) -> "pd.DataFrame":
-    import pandas as pd
-    loop = asyncio.get_event_loop()
-    def _dl():
-        return yf.download(ticker, period="200d", interval="1d",
-                           auto_adjust=True, progress=False, threads=False)
-    raw = await loop.run_in_executor(None, _dl)
-    if raw is None or raw.empty:
+async def _fetch_live(ticker: str) -> pd.DataFrame:
+    """Read daily OHLCV from the prices table (Databento 2yr daily)."""
+    from eigenview.data.storage import AsyncSessionLocal
+
+    cutoff = (datetime.utcnow() - timedelta(days=200)).date()
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Price)
+            .where(
+                Price.ticker == ticker.upper(),
+                Price.timeframe == "1d",
+                Price.date >= cutoff,
+            )
+            .order_by(Price.date.asc())
+        )
+        rows = result.scalars().all()
+
+    if not rows:
         return pd.DataFrame()
-    df = raw.copy()
-    df.columns = df.columns.str.lower() if not hasattr(df.columns, 'levels') else \
-        df.xs(ticker, axis=1, level=1).columns.str.lower()
-    if hasattr(raw.columns, 'levels'):
-        df = raw.xs(ticker, axis=1, level=1).copy()
-        df.columns = df.columns.str.lower()
-    df.index.name = "date"
+
+    df = pd.DataFrame([
+        {"date": r.date, "open": r.open, "high": r.high,
+         "low": r.low, "close": r.close, "volume": r.volume}
+        for r in rows
+    ])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date")
     return df.dropna(subset=["close"])
 
 
-def _score_with_lookback(df: "pd.DataFrame", ticker: str, lookback: int = 10):
+def _compute_contract_iv(
+    close: float | None,
+    spot: float | None,
+    strike: float,
+    d: date,
+    expiry: date,
+    call_put: str,
+) -> float | None:
+    if not (close and close > 0 and spot and spot > 0):
+        return None
+    from py_vollib.black_scholes.implied_volatility import implied_volatility
+    t = max((expiry - d).days, 1) / 365.0
+    try:
+        return implied_volatility(close, spot, strike, t, 0.045, call_put.lower()[:1])
+    except Exception:
+        return None
+
+
+async def _refresh_watchlist_history(session: AsyncSession) -> None:
+    """Pull fresh contract_history from Databento for any stale watchlist entries.
+
+    Thin incremental pull: only fetches dates after the current max in contract_history.
+    Skips gracefully if no Databento key configured or API call fails.
+    """
+    from eigenview.config import settings
+    if not settings.databento_key:
+        log.info("refresh_watchlist.skip", reason="no_databento_key")
+        return
+
+    bets = (await session.execute(select(DormantBet))).scalars().all()
+    if not bets:
+        return
+
+    max_hist_row = await session.execute(select(func.max(ContractHistory.date)))
+    last_date = max_hist_row.scalar()
+
+    if last_date and last_date >= date.today():
+        log.info("refresh_watchlist.up_to_date")
+        return
+
+    start = (
+        (last_date + timedelta(days=1)).isoformat()
+        if last_date
+        else (date.today() - timedelta(days=120)).isoformat()
+    )
+    end = date.today().isoformat()
+
+    from eigenview.data.databento_history import fetch_statistics, osi_symbol as _osi
+
+    bet_by_osi = {_osi(b.ticker, b.expiry, b.call_put, b.strike): b for b in bets}
+
+    und_rows = (await session.execute(
+        select(Price).where(Price.timeframe == "1d")
+    )).scalars().all()
+    und_close: dict[str, dict[date, float]] = {}
+    for r in und_rows:
+        und_close.setdefault(r.ticker.upper(), {})[r.date] = r.close
+
+    loop = asyncio.get_event_loop()
+    try:
+        df = await loop.run_in_executor(
+            None, fetch_statistics, list(bet_by_osi.keys()), start, end
+        )
+    except Exception as exc:
+        log.warning("refresh_watchlist.databento_failed", error=str(exc))
+        return
+
+    if df.empty:
+        log.info("refresh_watchlist.no_new_data")
+        return
+
+    to_insert = []
+    for r in df.itertuples():
+        bet = bet_by_osi.get(r.osi_symbol)
+        if not bet:
+            continue
+        d = r.date
+        spot = und_close.get(bet.ticker.upper(), {}).get(d)
+        close = float(r.close) if r.close == r.close and r.close else None
+        oi = int(r.oi) if r.oi == r.oi and r.oi else None
+        vol = int(r.volume) if r.volume == r.volume and r.volume else None
+        iv = _compute_contract_iv(close, spot, bet.strike, d, bet.expiry, bet.call_put)
+        to_insert.append({
+            "osi_symbol": r.osi_symbol, "ticker": bet.ticker,
+            "date": d, "oi": oi, "volume": vol, "close": close, "iv": iv,
+        })
+
+    if to_insert:
+        await session.execute(
+            upsert(ContractHistory).values(to_insert).on_conflict_do_nothing()
+        )
+        log.info("refresh_watchlist.done", rows=len(to_insert))
+
+
+def _score_with_lookback(df: pd.DataFrame, ticker: str, lookback: int = 10):
     n = len(df)
     max_back = min(lookback, n - 50)
     for i in range(max(0, max_back) + 1):
@@ -123,26 +218,28 @@ async def _score_ticker(
             return None
         spot = float(df["close"].iloc[-1])
 
-        chain_data = await get_chain(ticker)
-        chain_rows = await session.execute(
-            select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == date.today())
+        # Read latest available chain snapshot (not necessarily today — Databento
+        # snapshot date may lag by a day or more)
+        latest_snap_row = await session.execute(
+            select(func.max(Chain.snapshot_date)).where(Chain.ticker == ticker)
         )
-        chains = chain_rows.scalars().all()
+        snap_date = latest_snap_row.scalar()
+        if snap_date is None:
+            chains = []
+        else:
+            chain_rows = await session.execute(
+                select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == snap_date)
+            )
+            chains = chain_rows.scalars().all()
 
-        # Accumulate dormant-bet candidates from today's chain (Day-1 onward).
+        # Accumulate dormant-bet candidates from the latest chain snapshot
         await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
 
         ta = _score_with_lookback(df, ticker)
         gex = score_gex(list(chains), spot, ticker)
         flow = score_flow(list(chains), ticker)
 
-        count_q = await session.execute(
-            select(func.count()).select_from(Chain).where(Chain.ticker == ticker)
-        )
-        chain_count = count_q.scalar() or 0
-        days_history = min(chain_count // max(1, len(chains) if chains else 1), 90)
-
-        dormant = await score_dormant(ticker, session, spot, list(chains), days_history)
+        dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
         sentiment = await score_sentiment(ticker, session)
 
         return TickerScorecard(
@@ -163,6 +260,9 @@ async def _score_ticker(
 async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[TickerScorecard]:
     macro = await score_macro_regime(session)
     macro_score = int(macro.detail.get("score", 0))
+
+    # Refresh contract history for dormant watchlist before scoring
+    await _refresh_watchlist_history(session)
 
     sem = asyncio.Semaphore(5)
 

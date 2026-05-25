@@ -5,107 +5,99 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
-import yfinance as yf
 from fastapi import APIRouter
 from pydantic import BaseModel
+from sqlalchemy import func, select
 
+from eigenview.data.storage import AsyncSessionLocal, Chain, Price
 from eigenview.factors.technical import score_technical
 
 router = APIRouter()
 
-# ── Universes — loaded dynamically from Wikipedia, no hardcoding ──────────────
-
 from eigenview.data.universe import get_universe as _get_universe
-
-# ── Global state ──────────────────────────────────────────────────────────────
 
 _state: dict[str, Any] = {
     "running": False, "results": [], "scanned_at": None,
     "error": None, "tickers_scanned": 0, "tickers_total": 0, "message": "idle",
 }
-_bg_tasks: set[asyncio.Task] = set()  # strong refs — prevents GC
+_bg_tasks: set[asyncio.Task] = set()
 
 
-# ── Batch price download (single yfinance call for all tickers) ────────────────
+async def _batch_prices_from_db(tickers: list[str], days: int = 200) -> dict[str, pd.DataFrame]:
+    """Read daily OHLCV for all tickers from the prices table."""
+    from datetime import timedelta, datetime as dt
+    cutoff = (dt.utcnow() - timedelta(days=days)).date()
 
-async def _batch_download(tickers: list[str], days: int = 90) -> dict[str, pd.DataFrame]:
-    loop = asyncio.get_event_loop()
-
-    def _dl() -> pd.DataFrame:
-        return yf.download(
-            tickers, period=f"{days}d", interval="1d",
-            auto_adjust=True, progress=False, threads=True,
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Price)
+            .where(
+                Price.ticker.in_([t.upper() for t in tickers]),
+                Price.timeframe == "1d",
+                Price.date >= cutoff,
+            )
+            .order_by(Price.date.asc())
         )
+        rows = result.scalars().all()
 
-    raw: pd.DataFrame = await loop.run_in_executor(None, _dl)
-    if raw is None or raw.empty:
-        return {}
+    out: dict[str, list[dict]] = {}
+    for r in rows:
+        out.setdefault(r.ticker, []).append({
+            "date": r.date, "open": r.open, "high": r.high,
+            "low": r.low, "close": r.close, "volume": r.volume,
+        })
 
-    out: dict[str, pd.DataFrame] = {}
-    if isinstance(raw.columns, pd.MultiIndex):
-        for t in tickers:
-            try:
-                df = raw.xs(t, axis=1, level=1).copy()
-                df.columns = df.columns.str.lower()
-                df.index.name = "date"
-                df = df.dropna(subset=["close"])
-                if len(df) >= 30:
-                    out[t] = df
-            except Exception:
-                pass
-    else:
-        # Single ticker: columns are flat
-        df = raw.copy()
-        df.columns = df.columns.str.lower()
-        df.index.name = "date"
-        df = df.dropna(subset=["close"])
-        if len(df) >= 30 and tickers:
-            out[tickers[0]] = df
-    return out
+    result_dfs: dict[str, pd.DataFrame] = {}
+    for ticker, row_list in out.items():
+        df = pd.DataFrame(row_list)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date").dropna(subset=["close"])
+        if len(df) >= 30:
+            result_dfs[ticker] = df
+    return result_dfs
 
 
-# ── Options volume ─────────────────────────────────────────────────────────────
-
-async def _options_vol(ticker: str) -> dict:
-    loop = asyncio.get_event_loop()
-
-    def _dl() -> dict:
-        try:
-            tkr = yf.Ticker(ticker)
-            expiries = tkr.options
-            if not expiries:
-                return {}
-            chain = tkr.option_chain(expiries[0])
-            call_vol = int(chain.calls["volume"].fillna(0).sum())
-            put_vol  = int(chain.puts["volume"].fillna(0).sum())
-            pcr      = round(put_vol / call_vol, 2) if call_vol > 0 else None
-            return {"call_vol": call_vol, "put_vol": put_vol, "pcr": pcr, "opt_expiry": expiries[0]}
-        except Exception:
+async def _options_vol_from_db(ticker: str) -> dict:
+    """Read nearest-expiry options volume from DB chain snapshot."""
+    async with AsyncSessionLocal() as session:
+        latest = await session.execute(
+            select(func.max(Chain.snapshot_date)).where(Chain.ticker == ticker.upper())
+        )
+        snap_date = latest.scalar()
+        if snap_date is None:
             return {}
 
-    try:
-        return await asyncio.wait_for(loop.run_in_executor(None, _dl), timeout=10.0)
-    except Exception:
+        rows = (await session.execute(
+            select(Chain).where(Chain.ticker == ticker.upper(), Chain.snapshot_date == snap_date)
+            .order_by(Chain.expiry.asc())
+        )).scalars().all()
+
+    if not rows:
         return {}
 
+    # Use nearest expiry
+    nearest_expiry = min(r.expiry for r in rows)
+    nearest = [r for r in rows if r.expiry == nearest_expiry]
+    call_vol = sum(r.volume or 0 for r in nearest if r.call_put == "c")
+    put_vol = sum(r.volume or 0 for r in nearest if r.call_put == "p")
+    pcr = round(put_vol / call_vol, 2) if call_vol > 0 else None
+    return {"call_vol": call_vol, "put_vol": put_vol, "pcr": pcr, "opt_expiry": str(nearest_expiry)}
 
-# ── TA score (sync, called in executor) ───────────────────────────────────────
 
 def _score_one(ticker: str, df: pd.DataFrame, lookback_bars: int = 10, spy_ret: float | None = None) -> dict:
     try:
-        spot    = float(df["close"].iloc[-1])
+        spot = float(df["close"].iloc[-1])
         avg_vol = float(df["volume"].iloc[-20:].mean()) if "volume" in df.columns else 0.0
         n = len(df)
         ticker_20d = float(df["close"].iloc[-1] / df["close"].iloc[-21] - 1) if n >= 21 else None
-        rs_vs_spy  = round((ticker_20d - spy_ret) * 100, 1) if ticker_20d is not None and spy_ret is not None else None
+        rs_vs_spy = round((ticker_20d - spy_ret) * 100, 1) if ticker_20d is not None and spy_ret is not None else None
 
-        # Scan back up to lookback_bars to find most recent firing bar
         best: object = None
         signal_age: int | None = None
-        max_back = min(lookback_bars, n - 50)  # keep ≥50 rows for indicators
+        max_back = min(lookback_bars, n - 50)
         for i in range(max(0, max_back) + 1):
             sl = df.iloc[:n - i] if i > 0 else df
-            r  = score_technical(sl, ticker)
+            r = score_technical(sl, ticker)
             if r.firing:
                 best = r
                 signal_age = i
@@ -144,17 +136,13 @@ def _score_one(ticker: str, df: pd.DataFrame, lookback_bars: int = 10, spy_ret: 
         }
 
 
-# ── Core scan coroutine ────────────────────────────────────────────────────────
-
 async def _run_scan(ticker_list: list[str], min_volume_m: float, fetch_options: bool, lookback_bars: int = 10) -> None:
     global _state
     try:
-        # Step 1: batch price download (200d ensures ≥15 weekly bars for weekly classifier)
-        _state["message"] = f"Downloading prices for {len(ticker_list)} tickers…"
-        price_map = await _batch_download(ticker_list, days=200)
-        _state["message"] = f"Downloaded {len(price_map)} tickers. Filtering by volume…"
+        _state["message"] = f"Reading prices for {len(ticker_list)} tickers from DB…"
+        price_map = await _batch_prices_from_db(ticker_list, days=200)
+        _state["message"] = f"Loaded {len(price_map)} tickers. Filtering by volume…"
 
-        # Step 2: volume filter
         if min_volume_m > 0:
             price_map = {
                 t: df for t, df in price_map.items()
@@ -167,13 +155,11 @@ async def _run_scan(ticker_list: list[str], min_volume_m: float, fetch_options: 
         _state["tickers_total"] = len(filtered)
         _state["tickers_scanned"] = 0
 
-        # Compute SPY 20d return once for relative-strength column
         spy_df = price_map.get("SPY")
         spy_ret: float | None = None
         if spy_df is not None and len(spy_df) >= 21:
             spy_ret = float(spy_df["close"].iloc[-1] / spy_df["close"].iloc[-21] - 1)
 
-        # Step 3: TA scoring in executor (CPU-bound)
         loop = asyncio.get_event_loop()
         ta_sem = asyncio.Semaphore(8)
 
@@ -188,23 +174,21 @@ async def _run_scan(ticker_list: list[str], min_volume_m: float, fetch_options: 
             *[_score_async(t, df) for t, df in price_map.items()]
         ))
 
-        # Step 4: options volume (optional)
         if fetch_options and filtered:
-            _state["message"] = f"Fetching options volume for {len(filtered)} tickers…"
+            _state["message"] = f"Fetching options volume for {len(filtered)} tickers from DB…"
             opt_sem = asyncio.Semaphore(8)
 
             async def _opt_bounded(t: str) -> tuple[str, dict]:
                 async with opt_sem:
-                    return t, await _options_vol(t)
+                    return t, await _options_vol_from_db(t)
 
             opt_data = dict(await asyncio.gather(*[_opt_bounded(t) for t in filtered]))
             for r in results:
                 opts = opt_data.get(r["ticker"], {})
-                r["call_vol"]   = opts.get("call_vol")
-                r["put_vol"]    = opts.get("put_vol")
-                r["pcr"]        = opts.get("pcr")
+                r["call_vol"] = opts.get("call_vol")
+                r["put_vol"] = opts.get("put_vol")
+                r["pcr"] = opts.get("pcr")
 
-        # Step 5: sort
         results.sort(key=lambda r: (-(1 if r.get("firing") else 0), -(r.get("confidence") or 0)))
 
         firing_n = sum(1 for r in results if r.get("firing"))
@@ -224,8 +208,6 @@ async def _run_scan(ticker_list: list[str], min_volume_m: float, fetch_options: 
             "message": f"Scan failed: {exc}",
         }
 
-
-# ── API endpoints ─────────────────────────────────────────────────────────────
 
 class TaScanRequest(BaseModel):
     tickers: list[str] | None = None
