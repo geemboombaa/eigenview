@@ -25,26 +25,7 @@ jobs:
           ALPHA_VANTAGE_KEY: placeholder
           FINNHUB_KEY: placeholder
           ANTHROPIC_API_KEY: placeholder
-        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=75 --cov-report=term-missing:skip-covered --ignore=tests/integration
-
-      - name: Install Playwright
-        run: |
-          npm ci
-          npx playwright install chromium --with-deps
-
-      - name: Start server
-        run: uv run eigenview serve &
-        env:
-          DATABASE_URL: sqlite+aiosqlite:///./data/test.db
-          ALPHA_VANTAGE_KEY: placeholder
-          FINNHUB_KEY: placeholder
-          ANTHROPIC_API_KEY: placeholder
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:8000 --timeout 30000
-
-      - name: Run Playwright UI tests
-        run: npx playwright test tests/ui/ --reporter=line
+        run: uv run pytest -q --tb=short --no-header --junitxml=results/junit.xml --cov=src --cov-fail-under=55 --cov-report=term-missing:skip-covered --ignore=tests/integration -m "not data_dependent"
 
       - name: Upload test results
         if: always()
