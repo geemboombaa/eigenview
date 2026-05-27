@@ -438,7 +438,7 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
           and daily_trend != "bearish"
           and (float(df["close"].iloc[-3]) < ema50f if len(df) >= 3 else False)
           and close_now > ema50f
-          and vol_now > vol_avg * vol_p55
+          and vol_now > vol_avg * vol_p72
           and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
         pattern    = "ema_reclaim"
         confidence = 0.65
@@ -451,7 +451,7 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
           and len(df) >= 3
           and float(df["close"].iloc[-3]) > ema50f
           and close_now < ema50f
-          and vol_now > vol_avg * vol_p55
+          and vol_now > vol_avg * vol_p72
           and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
         pattern    = "ema_rejection"
         confidence = 0.63
@@ -469,6 +469,7 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
           and min(rsi_p25, 45.0) <= rsif <= min(rsi_p55, 60.0)
           and close_now > ema21f * 0.99
           and close_now < ema50f * 1.08
+          and vol_char == 'declining'
           and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
         pattern    = "pullback_in_trend"
         confidence = 0.70
@@ -541,14 +542,14 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
             confidence += 0.08
 
     # --- failed_breakdown ---
-    # P6·20: Price dipped below EMA21 in last 5 bars, current bar recovered above,
-    #         vol > vol_p65, weekly not BEARISH_STRONG
+    # P6·20: Price dipped below EMA21 in last 5 bars (2+ bars required), current bar recovered above,
+    #         vol > vol_p65, weekly bullish or bearish_weak only
     # NOTE: compute ema21_series first so we can gate the outer elif on recent_dip
     elif ('low' in df.columns and len(df) >= 6
-          and weekly_trend_str != 'bearish_strong'
+          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')
           and close_now <= recent_high  # not a clean breakout above 20d high
           and close_now > df['close'].ewm(span=21, adjust=False).mean().iloc[-1]
-          and (df['close'].iloc[-5:-1] < df['close'].ewm(span=21, adjust=False).mean().iloc[-5:-1]).any()
+          and (df['close'].iloc[-5:-1] < df['close'].ewm(span=21, adjust=False).mean().iloc[-5:-1]).sum() >= 2
           and vol_now > vol_avg * vol_p65):
         pattern    = "failed_breakdown"
         confidence = 0.68
@@ -559,9 +560,9 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
 
     # --- breakout ---
     elif (close_now > recent_high
-          and vol_avg > 0 and vol_now > vol_avg * vol_p72
+          and vol_avg > 0 and vol_now > vol_avg * vol_p80
           and vol_char != 'declining'
-          and weekly_trend_str != 'bearish_strong'):
+          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
         pattern    = "breakout"
         confidence = 0.80
         if vol_now > vol_avg * vol_p85:
@@ -578,9 +579,9 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
     # --- breakdown (short) ---
     # Close below 20d low on high volume
     elif (close_now < recent_low
-          and vol_avg > 0 and vol_now > vol_avg * vol_p72
+          and vol_avg > 0 and vol_now > vol_avg * vol_p80
           and vol_char != 'declining'
-          and weekly_trend_str not in ('bullish',)):
+          and weekly_trend_str in ('bearish_strong', 'bearish_weak')):
         pattern    = "breakdown"
         confidence = 0.78
         if vol_now > vol_avg * vol_p85:
@@ -594,7 +595,7 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
     # P6·21: recent scipy swing high exceeded in last 3 bars, closes back below it,
     #         vol declining (< vol_p55), weekly not BULLISH
     elif (len(df) >= 64
-          and weekly_trend_str not in ('bullish',)):
+          and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
         highs_arr = df['high'].values[-60:].astype(float)
         swing_high_idx = argrelextrema(highs_arr, np.greater, order=5)[0]
         # Only consider swing highs established BEFORE the last 4 bars (pos < 56)

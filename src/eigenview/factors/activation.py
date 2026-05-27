@@ -27,13 +27,12 @@ from datetime import date
 
 # ── thresholds (tune here) — set for HUGE jumps, not normal drift ──
 RECENT_DAYS = 10          # trailing days treated as "now"; the rest is the dormant baseline
-OI_JUMP_PCT = 0.50        # current OI >= 50% above dormant-baseline OI ...
+OI_JUMP_PCT = 0.75        # current OI >= 75% above dormant-baseline OI ...
 OI_MIN_DELTA = 1000       # ... and at least this many extra contracts (real accumulation)
 VOL_MULT = 10.0           # a recent day's volume >= 10x the dormant-baseline avg daily volume ...
 VOL_MIN = 1000            # ... and at least this absolute (a real surge day)
 IV_JUMP_ABS = 0.10        # IV >= 10 vol points above dormant baseline (vol repricing)
-PRICE_JUMP_PCT = 1.00     # option premium at least doubled vs dormant baseline
-UND_MOVE_PCT = 0.10       # underlying moved >= 10% in the bet's direction over the recent window ...
+UND_MOVE_PCT = 0.15       # underlying moved >= 15% in the bet's direction over the recent window ...
 UND_VOL_MULT = 1.5        # ... on >= 1.5x its baseline average volume
 AGE_OI_FRAC = 0.50        # born-on = first day OI reached 50% of its window peak
 
@@ -94,7 +93,7 @@ def score_activation(
     """
     hist = sorted(hist, key=lambda r: r["date"] if r["date"] <= target else date.min)
     hist = [r for r in hist if r["date"] <= target]
-    if len(hist) < RECENT_DAYS + 5:
+    if len(hist) < 30:
         return ActivationResult(fired=False, detail={"reason": "insufficient_history"})
 
     dates = [r["date"] for r in hist]
@@ -123,7 +122,9 @@ def score_activation(
         if d_oi >= OI_MIN_DELTA and d_oi >= OI_JUMP_PCT * base_oi:
             triggers.append("oi_jump")
 
-    # Volume: a recent day's peak vs dormant-baseline average daily volume
+    # Volume: rec_vol_peak = max single-day volume in the recent 10-day window.
+    # Compared against base_vol = mean daily volume over the entire baseline (dormant) period.
+    # Fires only if the peak recent day is >= 10x the sleeping average AND >= 1000 contracts.
     base_vol = _mean(vols[base])
     rec_vol_peak = max([v for v in vols[rec] if v is not None], default=0)
     if base_vol is not None:
@@ -139,14 +140,6 @@ def score_activation(
         detail["iv_jump"] = round(cur_iv - base_iv, 4)
         if cur_iv - base_iv >= IV_JUMP_ABS:
             triggers.append("iv_jump")
-
-    # Price (option premium): current vs dormant baseline
-    base_px = _median(closes[base])
-    cur_px = _last_valid(closes[rec])
-    if base_px and cur_px:
-        detail["price_jump_pct"] = round(cur_px / base_px - 1, 3)
-        if cur_px / base_px - 1 >= PRICE_JUMP_PCT:
-            triggers.append("price_jump")
 
     # Underlying: recent move in the bet's direction on heavy volume
     u = sorted([r for r in underlying if r["date"] <= target], key=lambda r: r["date"])
@@ -166,9 +159,9 @@ def score_activation(
                 triggers.append("underlying_move")
 
     return ActivationResult(
-        fired=len(triggers) > 0,
+        fired=len(triggers) >= 2,
         triggers=triggers,
-        strength=round(len(triggers) / 5.0, 3),
+        strength=round(len(triggers) / 4.0, 3),
         born_on=born,
         age_days=age,
         detail=detail,
