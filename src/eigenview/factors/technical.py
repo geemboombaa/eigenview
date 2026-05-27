@@ -144,561 +144,163 @@ def _compute_fib_levels(df: pd.DataFrame, lookback: int = 90) -> dict:
     }
 
 
-def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
+_SHORT_PATTERNS: frozenset[str] = frozenset({
+    "bearish_reversal", "breakdown", "rally_in_downtrend",
+    "compression_break_down", "ema_rejection", "base_breakdown",
+    "overbought_reversal", "failed_breakout",
+    "bos_bearish", "choch_bearish",
+    "bb_mean_reversion_short", "ema200_snap_short",
+})
+
+# Strong weekly states count toward confirmation (vs weak NEUTRAL/BEARISH_WEAK).
+_STRONG_WEEKLY: frozenset[str] = frozenset({"BULLISH", "BULLISH_EXTENDED", "BEARISH_STRONG"})
+
+# Setups whose detection IS itself a structural break (BOS/CHoCH/level break).
+_STRUCTURAL_BREAK: frozenset[str] = frozenset({
+    "bos_bullish", "bos_bearish", "choch_bullish", "choch_bearish",
+    "breakout", "breakdown", "base_breakout", "base_breakdown",
+    "failed_breakout", "failed_breakdown",
+    "compression_break", "compression_break_down",
+})
+
+
+def _build_weekly(df: pd.DataFrame) -> pd.DataFrame:
+    """Resample daily OHLCV → weekly (W-FRI) for detect_pattern."""
+    d = df.copy()
+    if not isinstance(d.index, pd.DatetimeIndex):
+        if "date" in d.columns:
+            d.index = pd.to_datetime(d["date"])
+        else:
+            d.index = pd.to_datetime(d.index)
+    if d.index.tz is not None:
+        d.index = d.index.tz_localize(None)
+    return d.resample("W-FRI").agg(
+        {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+    ).dropna()
+
+
+def _gex_confluence(pattern: str, close: float, gex_levels: dict | None) -> bool:
+    """True when price sits on a GEX level supporting the trade direction."""
+    if not gex_levels or close <= 0:
+        return False
+    flip = gex_levels.get("gamma_flip")
+    call_wall = gex_levels.get("call_wall")
+    put_wall = gex_levels.get("put_wall")
+    if pattern in _SHORT_PATTERNS:
+        if flip is not None and close <= float(flip):
+            return True
+        if put_wall is not None and close <= float(put_wall) * 1.02:
+            return True
+    else:
+        if flip is not None and close >= float(flip):
+            return True
+        if call_wall is not None and close >= float(call_wall) * 0.98:
+            return True
+    return False
+
+
+def score_technical(
+    df: pd.DataFrame, ticker: str = "", gex_levels: dict | None = None
+) -> FactorResult:
+    """Thin adapter over detect_pattern — the single live TA engine.
+
+    Fires on the structural gates inside detect_pattern (no confidence floor,
+    no calibration). strength = normalized count of confirmations that stacked
+    (weekly alignment, structural break, GEX confluence, strong volume) and is
+    used for ranking only. Optional gex_levels (call_wall/put_wall/gamma_flip)
+    add a confluence confirmation but never block firing.
+    """
     if df is None or len(df) < 30:
         return FactorResult.no_data("technical", "insufficient price history")
 
-    df = df.copy()
-    # Ensure DatetimeIndex for weekly resampling
-    if not isinstance(df.index, pd.DatetimeIndex):
-        if 'date' in df.columns:
-            df.index = pd.to_datetime(df['date'])
+    daily = df.copy()
+    if not isinstance(daily.index, pd.DatetimeIndex):
+        if "date" in daily.columns:
+            daily.index = pd.to_datetime(daily["date"])
         else:
-            df.index = pd.to_datetime(df.index)
+            daily.index = pd.to_datetime(daily.index)
 
-    # --- Daily indicators ---
-    df.ta.ema(length=21,  append=True)
-    df.ta.ema(length=50,  append=True)
-    df.ta.ema(length=200, append=True)
-    df.ta.adx(length=14,  append=True)
-    df.ta.rsi(length=14,  append=True)
-    df.ta.bbands(length=20, append=True)
-    df.ta.atr(length=14,  append=True)
-    df.ta.macd(fast=12, slow=26, signal=9, append=True)
+    weekly = _build_weekly(daily)
+    as_of_str = pd.Timestamp(daily.index[-1]).strftime("%Y-%m-%d")
 
-    last = df.iloc[-1]
-    recent = df.iloc[-20:]
+    res = detect_pattern(daily, weekly, as_of_str)
+    pattern = res.get("pattern", "no_pattern")
+    pdetail = res.get("detail", {}) or {}
+    confidence = float(res.get("confidence", 0.0) or 0.0)
 
-    ema21   = last.get("EMA_21")
-    ema50   = last.get("EMA_50")
-    ema200  = last.get("EMA_200")
-    adx     = last.get("ADX_14")
-    rsi     = last.get("RSI_14")
-    bbu     = last.get("BBU_20_2.0")
-    bbl     = last.get("BBL_20_2.0")
-    close_now = float(last["close"])
-    vol_now   = float(df["volume"].iloc[-1])
-    vol_avg   = float(df["volume"].iloc[-20:-1].mean())
-    atr_last5 = float(df["ATRr_14"].iloc[-5:].mean())
-    atr_20avg = float(df["ATRr_14"].iloc[-20:].mean())
-    recent_high = float(recent["close"].iloc[:-1].max())
-    recent_low  = float(recent["close"].iloc[:-1].min())  # exclude last bar for breakdown detection
-    ema21_ewm   = df["close"].ewm(span=21, adjust=False).mean()  # reused by failed_breakdown
+    firing = pattern not in ("no_pattern", "no_data", "NO DATA", "", None)
 
-    if ema21 is None or pd.isna(ema21) or ema50 is None or pd.isna(ema50) or adx is None or pd.isna(adx):
-        return FactorResult.no_data("technical", "indicator computation failed")
+    close_now = float(daily["close"].iloc[-1])
+    weekly_state = pdetail.get("weekly_state")
+    is_short = pattern in _SHORT_PATTERNS
+    direction = "short" if is_short else "long"
 
-    ema21f  = float(ema21)
-    ema50f  = float(ema50)
-    ema200f = float(ema200) if ema200 is not None and not pd.isna(ema200) else None
-    adxf    = float(adx)
-    rsif    = float(rsi) if rsi is not None and not pd.isna(rsi) else None
-
-    # --- Rolling percentile thresholds (63-bar = 3 calendar months) ---
-    # Computed once at top; used throughout. Fallback to static values when <60 bars.
-    rsi_series = df['RSI_14'].dropna()
-    if len(rsi_series) >= 60:
-        _rsi = rsi_series.tail(63).values
-        rsi_p10  = float(np.percentile(_rsi, 10))
-        rsi_p12  = float(np.percentile(_rsi, 12))
-        rsi_p15  = float(np.percentile(_rsi, 15))
-        rsi_p20  = float(np.percentile(_rsi, 20))
-        rsi_p25  = float(np.percentile(_rsi, 25))
-        rsi_p40  = float(np.percentile(_rsi, 40))
-        rsi_p43  = float(np.percentile(_rsi, 43))
-        rsi_p55  = float(np.percentile(_rsi, 55))
-        rsi_p60  = float(np.percentile(_rsi, 60))
-        rsi_p62  = float(np.percentile(_rsi, 62))
-        rsi_p65  = float(np.percentile(_rsi, 65))
-        rsi_p80  = float(np.percentile(_rsi, 80))
-        rsi_p85  = float(np.percentile(_rsi, 85))
-        rsi_p88  = float(np.percentile(_rsi, 88))
-        rsi_p90  = float(np.percentile(_rsi, 90))
-        rsi_p93  = float(np.percentile(_rsi, 93))
-    else:
-        rsi_p10  = _RSI_FALLBACK_PCTL[10]
-        rsi_p12  = _RSI_FALLBACK_PCTL[12]
-        rsi_p15  = _RSI_FALLBACK_PCTL[15]
-        rsi_p20  = _RSI_FALLBACK_PCTL[20]
-        rsi_p25  = _RSI_FALLBACK_PCTL[25]
-        rsi_p40  = _RSI_FALLBACK_PCTL[40]
-        rsi_p43  = _RSI_FALLBACK_PCTL[43]
-        rsi_p55  = _RSI_FALLBACK_PCTL[55]
-        rsi_p60  = _RSI_FALLBACK_PCTL[60]
-        rsi_p62  = _RSI_FALLBACK_PCTL[62]
-        rsi_p65  = _RSI_FALLBACK_PCTL[65]
-        rsi_p80  = _RSI_FALLBACK_PCTL[80]
-        rsi_p85  = _RSI_FALLBACK_PCTL[85]
-        rsi_p88  = _RSI_FALLBACK_PCTL[88]
-        rsi_p90  = _RSI_FALLBACK_PCTL[90]
-        rsi_p93  = _RSI_FALLBACK_PCTL[93]
-
-    adx_series = df['ADX_14'].dropna()
-    if len(adx_series) >= 60:
-        _adx = adx_series.tail(63).values
-        # Cap sideways/trend thresholds so strongly-trending regimes don't mis-classify
-        adx_p25 = min(20.0, float(np.percentile(_adx, 25)))
-        adx_p30 = min(22.0, float(np.percentile(_adx, 30)))
-        adx_p40 = min(25.0, float(np.percentile(_adx, 40)))
-        adx_p70 = float(np.percentile(_adx, 70))
-        adx_p75 = float(np.percentile(_adx, 75))
-    else:
-        adx_p25 = _ADX_FALLBACK_PCTL[25]
-        adx_p30 = _ADX_FALLBACK_PCTL[30]
-        adx_p40 = _ADX_FALLBACK_PCTL[40]
-        adx_p70 = _ADX_FALLBACK_PCTL[70]
-        adx_p75 = _ADX_FALLBACK_PCTL[75]
-
-    # ATR ratio series: atr_last5 / atr_20avg for each rolling window
-    atr_col = df['ATRr_14'].dropna()
-    if len(atr_col) >= 60:
-        _atr = atr_col.tail(63).values
-        # Compute rolling ratio: each bar's 5-bar mean / 20-bar mean
-        _atr_ratios = np.array([
-            (_atr[max(0, i-4):i+1].mean() / _atr[max(0, i-19):i+1].mean())
-            if _atr[max(0, i-19):i+1].mean() > 0 else 1.0
-            for i in range(len(_atr))
-        ])
-        atr_p15 = float(np.percentile(_atr_ratios, 15))
-        atr_p20 = float(np.percentile(_atr_ratios, 20))
-    else:
-        atr_p15 = 0.65
-        atr_p20 = 0.70
-
-    # Vol ratio percentiles: use last 63 daily vol/vol_avg ratios
-    vol_series = df['volume'].dropna()
-    if len(vol_series) >= 60:
-        _vols = vol_series.tail(64).values  # 64 so we can compute ratio vs prior 20
-        _vol_avgs = np.array([
-            float(np.mean(_vols[max(0, i-20):i])) if i > 0 else float(_vols[0])
-            for i in range(len(_vols))
-        ])
-        _vol_ratios = np.where(_vol_avgs > 0, _vols / _vol_avgs, 1.0)
-        vol_p55 = float(np.percentile(_vol_ratios, 55))
-        vol_p60 = float(np.percentile(_vol_ratios, 60))
-        vol_p65 = float(np.percentile(_vol_ratios, 65))
-        vol_p72 = float(np.percentile(_vol_ratios, 72))
-        vol_p75 = float(np.percentile(_vol_ratios, 75))
-        vol_p80 = float(np.percentile(_vol_ratios, 80))
-        vol_p85 = float(np.percentile(_vol_ratios, 85))
-        vol_p92 = float(np.percentile(_vol_ratios, 92))
-    else:
-        vol_p55 = 1.1
-        vol_p60 = 1.2
-        vol_p65 = 1.3
-        vol_p72 = 1.5
-        vol_p75 = 1.6
-        vol_p80 = 1.8
-        vol_p85 = 2.0
-        vol_p92 = 2.5
-
-    # --- Weekly context (MTF) ---
-    wc = _compute_weekly_context(df)
-    weekly_trend_str = _weekly_trend(wc)
-
-    # --- Volume character ---
-    vol_char = _vol_character(df)
-    vol_ratio = round(vol_now / vol_avg, 2) if vol_avg > 0 else 0.0
-
-    # --- RSI divergence ---
-    bull_div, bear_div = _rsi_divergence(df)
-
-    # --- Fibonacci levels ---
-    fib = _compute_fib_levels(df)
-
-    # --- Daily trend ---
-    if adxf <= adx_p40:
-        daily_trend = "sideways"
-    elif ema21f > ema50f:
-        daily_trend = "bullish"
-    else:
-        daily_trend = "bearish"
-
-    # Combined trend considering weekly
-    if weekly_trend_str == 'bullish' and daily_trend == 'bullish':
-        trend = 'bullish'
-    elif weekly_trend_str == 'bearish_strong':
-        trend = 'bearish'
-    elif daily_trend == 'bearish':
-        trend = 'bearish'
-    else:
-        trend = daily_trend
-
-    # --- Squeeze Pro (pandas_ta) ---
-    # squeeze_pro replaces manual ATR-range compression check.
-    # ON_WIDE/NORMAL/NARROW = squeeze active; OFF = just released; NO = no squeeze.
-    try:
-        sqz = ta.squeeze_pro(df['high'], df['low'], df['close'])
-        squeeze_on = bool(
-            sqz['SQZPRO_ON_NARROW'].iloc[-1]
-            or sqz['SQZPRO_ON_NORMAL'].iloc[-1]
-            or sqz['SQZPRO_ON_WIDE'].iloc[-1]
+    gex_conf = _gex_confluence(pattern, close_now, gex_levels) if firing else False
+    confirmations = 0
+    if firing:
+        confirmations = 1  # the structural setup itself
+        if weekly_state in _STRONG_WEEKLY:
+            confirmations += 1
+        structure = (
+            pattern in _STRUCTURAL_BREAK
+            or pdetail.get("bos_bullish") or pdetail.get("bos_bearish")
+            or pdetail.get("choch_bullish") or pdetail.get("choch_bearish")
         )
-        squeeze_off = bool(sqz['SQZPRO_OFF'].iloc[-1])
-        squeeze_released = squeeze_off and not squeeze_on  # was compressed, now releasing
-    except Exception:
-        # Graceful fallback: use ATR ratio as proxy
-        squeeze_released = (not pd.isna(atr_last5) and not pd.isna(atr_20avg)
-                            and atr_20avg > 0 and atr_last5 < atr_20avg * atr_p20)
-        squeeze_on = (not pd.isna(atr_last5) and not pd.isna(atr_20avg)
-                      and atr_20avg > 0 and atr_last5 < atr_20avg * atr_p15)
+        if structure:
+            confirmations += 1
+        if gex_conf:
+            confirmations += 1
+        vr = pdetail.get("vol_ratio")
+        if vr is not None and float(vr) >= 1.3:
+            confirmations += 1
+        confirmations = min(4, confirmations)
 
-    # ------------------------------------------------------------------
-    # PATTERN DETECTION (8 long + 7 short)
-    # Long:  bullish_reversal > compression_break > ema_reclaim >
-    #        pullback_in_trend > base_breakout > oversold_bounce >
-    #        failed_breakdown > breakout
-    # Short: overbought_reversal > compression_break_down > ema_rejection >
-    #        rally_in_downtrend > base_breakdown > failed_breakout > breakdown
-    #        bearish_reversal (last)
-    # ------------------------------------------------------------------
+    strength = confirmations / 4.0 if firing else 0.0
 
-    pattern    = "no_pattern"
-    confidence = 0.0
-
-    # --- bullish_reversal ---
-    # P6·16: tightened — weekly RSI < 35 REQUIRED, BEARISH_WEAK weekly only, ADX >= adx_p30
-    in_downtrend_20 = (ema21f < ema50f) and (adxf > adx_p25)
-    prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else close_now
-    two_bar_confirm = (prev_close < close_now) and (vol_now > vol_avg * vol_p65)
-    # Simplified RSI divergence: current RSI > RSI 10 bars ago but price lower
-    rsi_10_ago = float(df['RSI_14'].iloc[-11]) if 'RSI_14' in df.columns and len(df) > 11 else rsif
-    price_10_ago = float(df['close'].iloc[-11]) if len(df) > 11 else close_now
-    rsi_diverge_bull = (rsif is not None and rsi_10_ago is not None
-                        and rsif > rsi_10_ago and close_now < price_10_ago)
-    weekly_rsi_ok = wc.rsi is not None and wc.rsi < 35.0
-    weekly_state_ok = weekly_trend_str == 'bearish_weak'
-    if (in_downtrend_20
-            and (bull_div or rsi_diverge_bull)
-            and vol_now > vol_avg * vol_p75
-            and adxf >= adx_p30
-            and two_bar_confirm
-            and rsif is not None and rsif < rsi_p55
-            and weekly_rsi_ok
-            and weekly_state_ok):
-        pattern = "bullish_reversal"
-        confidence = 0.70
-        if vol_now > vol_avg * vol_p92:
-            confidence += 0.10  # exhaustion spike bonus
-
-    # --- overbought_reversal (short) ---
-    # P6·19: Bullish trend + extended RSI + down day/candle + vol expanding + weekly RSI>65 + BULLISH
-    elif (daily_trend == 'bullish' and adxf > adx_p40
-          and rsif is not None and rsif > rsi_p80
-          and len(df) >= 2 and float(df['close'].iloc[-2]) > close_now
-          and 'open' in df.columns and close_now < float(df['open'].iloc[-1])
-          and vol_now > vol_avg * vol_p65
-          and wc.rsi is not None and wc.rsi > 65.0
-          and weekly_trend_str == 'bullish'):
-        pattern    = "overbought_reversal"
-        confidence = 0.60
-        if wc.rsi is not None and wc.rsi > 70.0:
-            confidence += 0.08
-        if rsif > rsi_p88:
-            confidence += 0.05
-        if bear_div:
-            confidence += 0.08
-        if vol_now > vol_avg * vol_p80:
-            confidence += 0.05
-
-    # --- compression_break ---
-    # squeeze_pro: squeeze just released (OFF) + momentum positive (close > BBU) + vol surge
-    elif (squeeze_released
-          and bbu is not None and not pd.isna(bbu)
-          and close_now > float(bbu)             # close above BBU — upward momentum
-          and vol_now > vol_avg * vol_p72         # volume confirmation
-          and (rsif is None or rsif < rsi_p90)):  # not already extended
-        pattern    = "compression_break"
-        confidence = 0.75
-        if wc.bb_squeeze:
-            confidence += 0.05  # weekly BB also squeezing
-        if vol_now > vol_avg * vol_p85:
-            confidence += 0.05
-        if weekly_trend_str == 'bearish_strong':
-            confidence -= 0.20
-
-    # --- compression_break_down (short) ---
-    # squeeze_pro: squeeze just released (OFF) + momentum negative (close < BBL) + vol surge
-    elif (squeeze_released
-          and bbl is not None and not pd.isna(bbl)
-          and close_now < float(bbl)
-          and vol_now > vol_avg * vol_p72
-          and (rsif is None or rsif > rsi_p10)):
-        pattern    = "compression_break_down"
-        confidence = 0.73
-        if wc.bb_squeeze:
-            confidence += 0.05
-        if vol_now > vol_avg * vol_p85:
-            confidence += 0.05
-        if weekly_trend_str == 'bearish_strong':
-            confidence += 0.05
-
-    # --- ema_reclaim ---
-    # Price was below EMA50, now closes back above it (requires non-bearish daily trend)
-    elif (ema21f is not None
-          and daily_trend != "bearish"
-          and (float(df["close"].iloc[-3]) < ema50f if len(df) >= 3 else False)
-          and close_now > ema50f
-          and vol_now > vol_avg * vol_p72
-          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
-        pattern    = "ema_reclaim"
-        confidence = 0.65
-        if len(df) >= 5 and ema50f > float(df["EMA_50"].iloc[-5]):
-            confidence += 0.05  # EMA50 rising over last 5 bars
-
-    # --- ema_rejection (short) ---
-    # Price was above EMA50, closes back below it on volume
-    elif (daily_trend != "bullish"
-          and len(df) >= 3
-          and float(df["close"].iloc[-3]) > ema50f
-          and close_now < ema50f
-          and vol_now > vol_avg * vol_p72
-          and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
-        pattern    = "ema_rejection"
-        confidence = 0.63
-        if weekly_trend_str == 'bearish_strong':
-            confidence += 0.07
-        if vol_now > vol_avg * vol_p80:
-            confidence += 0.05  # stronger-than-gate volume confirms the rejection
-
-    # --- pullback_in_trend ---
-    # Bullish EMA stack, RSI in dip zone, price above EMA21, below EMA50 ceiling
-    # Bounds: floor = min(rsi_p25, 45) so strong-trend stocks don't over-restrict;
-    #         ceiling = min(rsi_p55, 60) so overbought conditions are excluded.
-    elif (daily_trend == "bullish"
-          and rsif is not None
-          and min(rsi_p25, 45.0) <= rsif <= min(rsi_p55, 60.0)
-          and close_now > ema21f * 0.99
-          and close_now < ema50f * 1.08
-          and vol_char == 'declining'
-          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
-        pattern    = "pullback_in_trend"
-        confidence = 0.70
-        if close_now < ema50f * 1.02:
-            confidence += 0.05
-        # Fib confluence: near 38.2% or 61.8% retracement
-        if fib.get('f382') and abs(close_now - fib['f382']) / close_now < 0.02:
-            confidence += 0.05
-        elif fib.get('f618') and abs(close_now - fib['f618']) / close_now < 0.02:
-            confidence += 0.04
-
-    # --- rally_in_downtrend (short) ---
-    # P6·22: Weekly BEARISH context REQUIRED, RSI in bounce zone [p43,p62],
-    #         price within 2% BELOW EMA21, EMA21<EMA50, vol declining
-    elif (weekly_trend_str in ('bearish_strong', 'bearish_weak')
-          and rsif is not None and rsi_p43 <= rsif <= rsi_p62
-          and ema21f < ema50f
-          and ema21f * 0.98 <= close_now <= ema21f
-          and vol_now < vol_avg * vol_p55):
-        pattern    = "rally_in_downtrend"
-        confidence = 0.68
-        if vol_char == 'declining':
-            confidence += 0.07  # low-vol rally = weak bounce = better short
-        if weekly_trend_str == 'bearish_strong':
-            confidence += 0.05  # stronger macro headwind
-
-    # --- base_breakout (VCP) ---
-    # Tight coil near highs: squeeze_on (active compression) + vol declining + price near 50d high
-    elif (squeeze_on
-          and _vol_character(df, n=10) == 'declining'
-          and len(df) >= 50 and close_now >= float(df['close'].iloc[-50:].max()) * 0.97
-          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
-        pattern    = "base_breakout"
-        confidence = 0.70
-        if wc.bb_squeeze:
-            confidence += 0.05
-        if vol_now > vol_avg * vol_p65:
-            confidence += 0.08  # early break from base
-
-    # --- base_breakdown (short VCP) ---
-    # Tight coil near lows: squeeze_on (active compression) + vol declining + breaks to 50d low
-    elif (squeeze_on
-          and _vol_character(df, n=10) == 'declining'
-          and len(df) >= 50 and close_now <= float(df['close'].iloc[-50:].min()) * 1.03
-          and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
-        pattern    = "base_breakdown"
-        confidence = 0.68
-        if wc.bb_squeeze:
-            confidence += 0.05
-        if vol_now > vol_avg * vol_p65:
-            confidence += 0.08
-
-    # --- oversold_bounce ---
-    # P6·18: RSI < rsi_p20, up day (close > prev + open < close), above EMA200,
-    #         weekly ADX < 30, not BEARISH_STRONG
-    elif (rsif is not None and rsif < rsi_p20
-          and len(df) >= 2 and float(df['close'].iloc[-2]) < close_now
-          and 'open' in df.columns and close_now > float(df['open'].iloc[-1])
-          and (ema200f is None or close_now > ema200f)
-          and not (wc.adx is not None and wc.adx > 30.0)
-          and weekly_trend_str != 'bearish_strong'
-          and vol_now > vol_avg * vol_p60):
-        pattern    = "oversold_bounce"
-        confidence = 0.62
-        if rsif < rsi_p12:
-            confidence += 0.05
-        if bull_div:
-            confidence += 0.08
-
-    # --- failed_breakdown ---
-    # P6·20: Price dipped below EMA21 in last 5 bars (2+ bars required), current bar recovered above,
-    #         vol > vol_p65, weekly bullish or bearish_weak only
-    # NOTE: compute ema21_series first so we can gate the outer elif on recent_dip
-    elif ('low' in df.columns and len(df) >= 6
-          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')
-          and close_now <= recent_high  # not a clean breakout above 20d high
-          and close_now > ema21_ewm.iloc[-1]
-          and (df['close'].iloc[-5:-1] < ema21_ewm.iloc[-5:-1]).sum() >= 2
-          and vol_now > vol_avg * vol_p65):
-        pattern    = "failed_breakdown"
-        confidence = 0.68
-        if vol_now > vol_avg * vol_p85:
-            confidence += 0.07
-        if weekly_trend_str == 'bullish':
-            confidence += 0.05
-
-    # --- breakout ---
-    elif (close_now > recent_high
-          and vol_avg > 0 and vol_now > vol_avg * vol_p80
-          and vol_char != 'declining'
-          and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
-        pattern    = "breakout"
-        confidence = 0.80
-        if vol_now > vol_avg * vol_p85:
-            confidence += 0.05
-        if rsif is not None and rsif > rsi_p88:
-            confidence -= 0.15
-        if len(df) >= 60:
-            tolerance = recent_high * 0.01
-            touches = ((df["close"].iloc[-60:-1] >= recent_high - tolerance) &
-                       (df["close"].iloc[-60:-1] <= recent_high + tolerance)).sum()
-            if touches >= 2:
-                confidence += 0.08
-
-    # --- breakdown (short) ---
-    # Close below 20d low on high volume
-    elif (close_now < recent_low
-          and vol_avg > 0 and vol_now > vol_avg * vol_p80
-          and vol_char != 'declining'
-          and weekly_trend_str in ('bearish_strong', 'bearish_weak')):
-        pattern    = "breakdown"
-        confidence = 0.78
-        if vol_now > vol_avg * vol_p85:
-            confidence += 0.05
-        if rsif is not None and rsif < rsi_p12:
-            confidence -= 0.15  # already very oversold
-        if weekly_trend_str == 'bearish_strong':
-            confidence += 0.08
-
-    # --- failed_breakout (short) ---
-    # P6·21: recent scipy swing high exceeded in last 3 bars, closes back below it,
-    #         vol declining (< vol_p55), weekly not BULLISH
-    elif (len(df) >= 64
-          and weekly_trend_str in ('bearish_strong', 'bearish_weak', 'unknown')):
-        highs_arr = df['high'].values[-60:].astype(float)
-        swing_high_idx = argrelextrema(highs_arr, np.greater, order=5)[0]
-        # Only consider swing highs established BEFORE the last 4 bars (pos < 56)
-        prior_swing_idx = swing_high_idx[swing_high_idx < 56]
-        if len(prior_swing_idx) > 0:
-            spH = float(highs_arr[prior_swing_idx[-1]])
-            exceeded_recently = (df['high'].iloc[-4:-1] > spH).any()
-            back_below = close_now < spH
-            vol_declining_fb = vol_now < vol_avg * vol_p55
-            if exceeded_recently and back_below and vol_declining_fb:
-                pattern    = "failed_breakout"
-                confidence = 0.70
-                if close_now < float(df['close'].iloc[-2]) * 0.97:
-                    confidence += 0.05  # hard rejection
-
-    # --- bearish_reversal (last priority — short setup, macro RED context) ---
-    # P6·17: tightened — weekly RSI > 65 REQUIRED, bullish weekly context (BULLISH_EXTENDED)
-    elif (daily_trend == 'bullish' and adxf > adx_p70
-          and bear_div
-          and vol_now > vol_avg * vol_p75
-          and rsif is not None and rsif > rsi_p85
-          and wc.rsi is not None and wc.rsi > 65.0
-          and weekly_trend_str == 'bullish'):
-        pattern    = "bearish_reversal"
-        confidence = 0.65
-        if wc.rsi is not None and wc.rsi > 70.0:
-            confidence += 0.10
-        if rsif > rsi_p93:
-            confidence += 0.05
-
-    # Ensure confidence in [0, 1]
-    confidence = max(0.0, min(1.0, confidence))
-
-    # --- Firing decision ---
-    SHORT_PATTERNS = {
-        "bearish_reversal", "breakdown", "rally_in_downtrend",
-        "compression_break_down", "ema_rejection", "base_breakdown",
-        "overbought_reversal", "failed_breakout",
+    detail = {
+        "pattern": pattern,
+        "confidence": round(confidence, 3),
+        "confirmations": confirmations,
+        "direction": direction,
+        "gex_confluence": gex_conf,
+        "trend": pdetail.get("trend"),
+        "weekly_trend": pdetail.get("weekly_trend"),
+        "weekly_state": weekly_state,
+        "adx": pdetail.get("adx"),
+        "rsi": pdetail.get("rsi"),
+        "rsi_p40": pdetail.get("rsi_p40"),
+        "vol_ratio": pdetail.get("vol_ratio"),
+        "swing_high": pdetail.get("swing_high"),
+        "swing_low": pdetail.get("swing_low"),
     }
-    BULLISH_REVERSAL_PATTERNS = {"bullish_reversal", "oversold_bounce", "failed_breakdown", "ema_reclaim"}
-    bullish_pattern = pattern not in (SHORT_PATTERNS | {"no_pattern"})
+    for k in (
+        "prior_swing_high", "n_bar_high", "n_bar_low", "bbu", "bbl",
+        "ema200", "ema200_deviation_pct", "impulse_pct", "high_50d", "low_50d",
+        "bos_bullish", "bos_bearish", "choch_bullish", "choch_bearish",
+        "bullish_reversal", "bearish_reversal", "overbought_reversal",
+        "oversold_bounce", "failed_breakdown", "failed_breakout",
+        "rally_in_downtrend", "bull_divergence", "bear_divergence",
+    ):
+        if k in pdetail:
+            detail[k] = pdetail[k]
 
-    # Weekly bearish_strong penalizes long patterns (not reversal types)
-    if (weekly_trend_str == 'bearish_strong'
-            and bullish_pattern
-            and pattern not in BULLISH_REVERSAL_PATTERNS):
-        confidence = max(0.0, confidence - 0.20)
-
-    if pattern in SHORT_PATTERNS:
-        firing = confidence >= settings.ta_pattern_confidence_threshold
-    elif pattern in BULLISH_REVERSAL_PATTERNS:
-        firing = confidence >= settings.ta_pattern_confidence_threshold  # fire regardless of trend
+    if not firing:
+        narrative = f"No qualifying setup ({pattern}). Weekly: {weekly_state}."
     else:
-        firing = confidence >= settings.ta_pattern_confidence_threshold and trend != "bearish"
-
-    swing_high = float(recent["close"].max())
-    swing_low  = float(recent["close"].min())
-
-    direction_label = "Bearish" if pattern in SHORT_PATTERNS else ("Bullish" if trend == "bullish" else trend.capitalize())
-    narrative = (
-        f"{direction_label} {pattern.replace('_', ' ')} "
-        f"({int(confidence * 100)}% conf): "
-        f"ADX {round(adxf, 1)}, RSI {round(rsif, 1) if rsif else 'n/a'}, "
-        f"vol {vol_ratio}x avg ({vol_char}). "
-        f"Weekly: {weekly_trend_str}."
-    )
-
-    # weekly_state: 5-state classifier consistent with detect_pattern()
-    wt = weekly_trend_str  # 'bullish' | 'bearish_strong' | 'bearish_weak' | 'unknown'
-    if wt == "bullish":
-        weekly_state = "BULLISH"
-    elif wt == "bearish_strong":
-        weekly_state = "BEARISH_STRONG"
-    elif wt == "bearish_weak":
-        weekly_state = "BEARISH_WEAK"
-    else:
-        weekly_state = "NEUTRAL"
+        narrative = (
+            f"{direction.capitalize()} {pattern.replace('_', ' ')} — "
+            f"{confirmations}/4 confirmations"
+            f"{' (GEX confluence)' if gex_conf else ''}. "
+            f"ADX {detail['adx']}, RSI {detail['rsi']}, vol {detail['vol_ratio']}x. "
+            f"Weekly: {weekly_state}."
+        )
 
     return FactorResult(
         factor_id="technical",
         firing=firing,
-        strength=confidence,
+        strength=strength,
         label=pattern,
-        detail={
-            "pattern": pattern,
-            "confidence": confidence,
-            "direction": "short" if pattern in SHORT_PATTERNS else "long",
-            "trend": trend,
-            "weekly_trend": weekly_trend_str,
-            "weekly_state": weekly_state,
-            "swing_high": swing_high,
-            "swing_low": swing_low,
-            "adx": round(adxf, 2),
-            "rsi": round(rsif, 2) if rsif is not None else None,
-            "rsi_p40": round(rsi_p40, 2),
-            "vol_character": vol_char,
-            "vol_ratio": vol_ratio,
-            "bull_divergence": bull_div,
-            "bear_divergence": bear_div,
-            "ema200": round(ema200f, 2) if ema200f else None,
-            "weekly_ema8": round(wc.ema8, 2) if wc.ema8 else None,
-            "weekly_ema21": round(wc.ema21, 2) if wc.ema21 else None,
-            "fib_levels": fib,
-        },
+        detail=detail,
         narrative=narrative,
     )
 
@@ -775,7 +377,8 @@ def detect_pattern(
     ddf = daily_df.copy()
     if not isinstance(ddf.index, pd.DatetimeIndex):
         ddf.index = pd.to_datetime(ddf.index)
-    ddf.index = ddf.index.tz_localize(None)
+    if ddf.index.tz is not None:
+        ddf.index = ddf.index.tz_localize(None)
 
     as_of_ts = pd.Timestamp(as_of_date) if as_of_date else ddf.index[-1]
     ddf = ddf[ddf.index <= as_of_ts]
@@ -1411,12 +1014,179 @@ def detect_pattern(
             detail["ema200_deviation_pct"] = round(_deviation_dp2 * 100, 2)
             return {"pattern": "ema200_snap_short", "confidence": confidence, "detail": detail}
 
+    # ── P6.16–P6.22 reversal / failed setups (appended last; existing detection
+    #    priority above is unchanged — these only catch bars that fell through) ──
+    _bull_div, _bear_div = _rsi_divergence(ddf)
+    detail["bull_divergence"] = _bull_div
+    detail["bear_divergence"] = _bear_div
+
+    # Weekly RSI + ADX (exhaustion / non-trend gates for reversals)
+    _wk_rsi = None
+    _wk_adx = None
+    if hasattr(weekly_df, "index") and len(weekly_df) >= 15:
+        _wk = weekly_df[weekly_df.index <= as_of_ts].copy()
+        if len(_wk) >= 15:
+            _wk.ta.rsi(length=14, append=True)
+            _wk.ta.adx(length=14, append=True)
+            _wkr = _wk.iloc[-1].get("RSI_14")
+            _wka = _wk.iloc[-1].get("ADX_14")
+            _wk_rsi = float(_wkr) if _wkr is not None and not pd.isna(_wkr) else None
+            _wk_adx = float(_wka) if _wka is not None and not pd.isna(_wka) else None
+
+    # Extra RSI/ADX percentiles needed by reversal gates
+    _rf = ddf["RSI_14"].dropna().tail(63).values
+    if len(_rf) >= 10:
+        rsi_p20r = float(np.percentile(_rf, 20))
+        rsi_p43r = float(np.percentile(_rf, 43))
+        rsi_p55r = float(np.percentile(_rf, 55))
+        rsi_p62r = float(np.percentile(_rf, 62))
+        rsi_p80r = float(np.percentile(_rf, 80))
+        rsi_p85r = float(np.percentile(_rf, 85))
+    else:
+        rsi_p20r, rsi_p43r, rsi_p55r = 32.0, 47.0, 55.0
+        rsi_p62r, rsi_p80r, rsi_p85r = 58.0, 68.0, 72.0
+    _af = ddf["ADX_14"].dropna().tail(63).values
+    if len(_af) >= 10:
+        adx_p30r = float(np.percentile(_af, 30))
+        adx_p40r = float(np.percentile(_af, 40))
+        adx_p70r = float(np.percentile(_af, 70))
+    else:
+        adx_p30r, adx_p40r, adx_p70r = 17.0, 20.0, 25.0
+
+    # Volume-ratio percentiles (own rolling array — independent of P6 _dp block)
+    _rv = ddf["volume"].dropna().tail(64).values
+    if len(_rv) >= 21:
+        _ra = np.array([
+            float(np.mean(_rv[max(0, i - 20):i])) if i > 0 else float(_rv[0])
+            for i in range(len(_rv))
+        ])
+        _rr = np.where(_ra > 0, _rv / _ra, 1.0)
+        vol_p55r = float(np.percentile(_rr, 55))
+        vol_p60r = float(np.percentile(_rr, 60))
+        vol_p65r = float(np.percentile(_rr, 65))
+        vol_p75r = float(np.percentile(_rr, 75))
+    else:
+        vol_p55r, vol_p60r, vol_p65r, vol_p75r = 1.1, 1.2, 1.3, 1.6
+
+    _e200 = ddf["EMA_200"].iloc[-1] if "EMA_200" in ddf.columns else None
+    _e200f = float(_e200) if _e200 is not None and not pd.isna(_e200) else None
+    _prev_close = float(ddf["close"].iloc[-2]) if len(ddf) >= 2 else close_now
+    _open_now = float(ddf["open"].iloc[-1]) if "open" in ddf.columns else close_now
+    _recent20 = ddf.iloc[-20:]
+    _recent_high = float(_recent20["close"].iloc[:-1].max()) if len(_recent20) >= 2 else close_now
+
+    # P6.16 bullish_reversal — downtrend exhaustion + bull divergence + vol spike
+    if (
+        ema21f < ema50f and adxf > adx_p25_dp
+        and (_bull_div or (rsif is not None and len(ddf) > 11
+             and rsif > float(ddf["RSI_14"].iloc[-11])
+             and close_now < float(ddf["close"].iloc[-11])))
+        and vol_ratio > vol_p75r
+        and adxf >= adx_p30r
+        and _prev_close < close_now
+        and rsif is not None and rsif < rsi_p55r
+        and weekly_state == "BEARISH_WEAK"
+        and (_wk_rsi is None or _wk_rsi < 35.0)
+    ):
+        confidence = 0.70
+        detail["bullish_reversal"] = True
+        return {"pattern": "bullish_reversal", "confidence": round(confidence, 3), "detail": detail}
+
+    # P6.17 overbought_reversal (short) — extended bull trend + down day + vol
+    if (
+        daily_trend == "bullish" and adxf > adx_p40r
+        and rsif is not None and rsif > rsi_p80r
+        and _prev_close > close_now and close_now < _open_now
+        and vol_ratio > vol_p65r
+        and weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+        and (_wk_rsi is None or _wk_rsi > 65.0)
+    ):
+        confidence = 0.62
+        if _bear_div:
+            confidence += 0.08
+        detail["overbought_reversal"] = True
+        return {"pattern": "overbought_reversal", "confidence": round(min(1.0, confidence), 3), "detail": detail}
+
+    # P6.18 bearish_reversal (short, strict) — strong-trend top + bear divergence
+    if (
+        daily_trend == "bullish" and adxf > adx_p70r
+        and _bear_div
+        and vol_ratio > vol_p75r
+        and rsif is not None and rsif > rsi_p85r
+        and weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+        and (_wk_rsi is None or _wk_rsi > 65.0)
+    ):
+        confidence = 0.66
+        detail["bearish_reversal"] = True
+        return {"pattern": "bearish_reversal", "confidence": round(confidence, 3), "detail": detail}
+
+    # P6.19 oversold_bounce (long) — capitulation + reversal day above EMA200
+    if (
+        rsif is not None and rsif < rsi_p20r
+        and _prev_close < close_now and close_now > _open_now
+        and (_e200f is None or close_now > _e200f)
+        and not (_wk_adx is not None and _wk_adx > 30.0)
+        and weekly_state != "BEARISH_STRONG"
+        and vol_ratio > vol_p60r
+    ):
+        confidence = 0.62
+        if _bull_div:
+            confidence += 0.08
+        detail["oversold_bounce"] = True
+        return {"pattern": "oversold_bounce", "confidence": round(min(1.0, confidence), 3), "detail": detail}
+
+    # P6.20 failed_breakdown (long) — dipped below EMA21, reclaimed on volume
+    _ema21_ewm = ddf["close"].ewm(span=21, adjust=False).mean()
+    if (
+        "low" in ddf.columns and len(ddf) >= 6
+        and weekly_state in ("BULLISH", "BULLISH_EXTENDED", "NEUTRAL", "BEARISH_WEAK")
+        and close_now <= _recent_high
+        and close_now > float(_ema21_ewm.iloc[-1])
+        and int((ddf["close"].iloc[-5:-1].values < _ema21_ewm.iloc[-5:-1].values).sum()) >= 2
+        and vol_ratio > vol_p65r
+    ):
+        confidence = 0.68
+        detail["failed_breakdown"] = True
+        return {"pattern": "failed_breakdown", "confidence": round(confidence, 3), "detail": detail}
+
+    # P6.21 failed_breakout (short) — exceeded a prior swing high, closed back below
+    if (
+        len(ddf) >= 64
+        and weekly_state in ("BEARISH_STRONG", "BEARISH_WEAK", "NEUTRAL")
+    ):
+        _highs = ddf["high"].values[-60:].astype(float)
+        _shi = argrelextrema(_highs, np.greater, order=5)[0]
+        _prior = _shi[_shi < 56]
+        if len(_prior) > 0:
+            _spH = float(_highs[_prior[-1]])
+            if (
+                bool((ddf["high"].iloc[-4:-1] > _spH).any())
+                and close_now < _spH
+                and vol_ratio < vol_p55r
+            ):
+                confidence = 0.70
+                detail["failed_breakout"] = True
+                detail["prior_swing_high"] = round(_spH, 2)
+                return {"pattern": "failed_breakout", "confidence": round(confidence, 3), "detail": detail}
+
+    # P6.22 rally_in_downtrend (short) — weak low-vol bounce into EMA21 in downtrend
+    if (
+        weekly_state in ("BEARISH_STRONG", "BEARISH_WEAK")
+        and rsif is not None and rsi_p43r <= rsif <= rsi_p62r
+        and ema21f < ema50f
+        and ema21f * 0.98 <= close_now <= ema21f
+        and vol_ratio < vol_p55r
+    ):
+        confidence = 0.68
+        detail["rally_in_downtrend"] = True
+        return {"pattern": "rally_in_downtrend", "confidence": round(confidence, 3), "detail": detail}
+
     return {"pattern": "no_pattern", "confidence": 0.0, "detail": detail}
 
 
 SETUP_TAXONOMY: list[str] = [
     "pullback_in_trend", "pullback_deep", "pullback_to_structure",
-    "flag_continuation", "rally_in_downtrend",
+    "flag_continuation", "bull_flag", "rally_in_downtrend",
     "breakout", "breakdown", "compression_break", "compression_break_down",
     "base_breakout", "base_breakdown", "ema_reclaim", "ema_rejection",
     "bos_bullish", "bos_bearish",
