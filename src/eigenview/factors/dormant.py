@@ -21,12 +21,13 @@ _FACTOR_ID = "dormant"
 #
 # Max raw score: size(2) + cheap_IV(1) + catalyst(2) + time_left(1) + long_dated(1) = 7.
 # Isolation is a multiplier (0.0 / 0.5 / 1.0) applied to the raw score.
-_MAX_SCORE = 7
+_MAX_SCORE = 7             # structural: max raw rubric points (size2 + iv1 + cat2 + time1 + dated1)
 
-_STRIKE_BAND = 3            # ±3 strikes for the isolation window
-_SIZE_PCT_1 = 0.90         # ΔWOI percentile within ticker for +1
-_SIZE_PCT_2 = 0.99         # ΔWOI percentile within ticker for +2
-_IV_CHEAP_PCT = 0.20       # IV in bottom 20% of the expiry = cheap (informed buyer)
+# All tunable cutoffs live in config (settings.dormant_*); bound here for readability.
+_STRIKE_BAND = settings.dormant_strike_band      # ± strikes for the isolation window
+_SIZE_PCT_1 = settings.dormant_size_pct_1        # ΔWOI percentile within ticker for +1
+_SIZE_PCT_2 = settings.dormant_size_pct_2        # ΔWOI percentile within ticker for +2
+_IV_CHEAP_PCT = settings.dormant_iv_cheap_pct    # IV in bottom pct of the expiry = cheap
 
 
 @dataclass
@@ -97,9 +98,9 @@ def percentile_value(values: list[float], q: float) -> float:
 # ── Candidate selection (shared by the live scanner and the find_dormant script) ──
 # A "dormant bet" candidate = a position big *relative to its own ticker's chain*,
 # not an absolute dollar size — so it works on mid-caps and mega-caps alike.
-_TRADEABILITY_DWOI = 1_000_000.0   # absolute floor: confirm a real position exists
-_SIZE_FILTER_PCT = 0.80            # bigness: ΔWOI in the ticker's top 20%
-_DEEP_ITM_DELTA = 0.85             # |delta| above this = stock substitute, not a bet
+_TRADEABILITY_DWOI = settings.dormant_tradeability_dwoi  # absolute floor: real position exists
+_SIZE_FILTER_PCT = settings.dormant_size_filter_pct      # bigness: ΔWOI in the ticker's top pct
+_DEEP_ITM_DELTA = settings.dormant_deep_itm_delta        # |delta| above this = stock substitute
 
 
 def candidate_dwoi_floor(ticker_chain: list, spot: float) -> float:
@@ -113,7 +114,7 @@ def candidate_dwoi_floor(ticker_chain: list, spot: float) -> float:
 
 
 def is_dormant_candidate(
-    contract, spot: float, floor: float, today: date, min_dte: int = 20
+    contract, spot: float, floor: float, today: date, min_dte: int = settings.dormant_min_dte
 ) -> bool:
     """Qualify one contract: long-dated, big-relative-to-ticker, not deep-ITM."""
     expiry = getattr(contract, "expiry", None)
@@ -230,14 +231,14 @@ def score_bet_v2(
         if iv_pct <= _IV_CHEAP_PCT:
             raw += 1
 
-    # Catalyst within 14 days
+    # Catalyst within the configured window
     if catalyst_near:
         raw += 2
     # Time remaining
-    if bet.expiry and bet.expiry > date.today() + timedelta(days=7):
+    if bet.expiry and bet.expiry > date.today() + timedelta(days=settings.dormant_min_time_left_days):
         raw += 1
     # Long-dated at open
-    if bet.expiry and bet.original_date and (bet.expiry - bet.original_date).days >= 90:
+    if bet.expiry and bet.original_date and (bet.expiry - bet.original_date).days >= settings.dormant_long_dated_days:
         raw += 1
 
     detail["raw_score"] = raw
@@ -249,7 +250,7 @@ def score_bet_v2(
     return raw * mult, detail
 
 
-async def _has_catalyst_near(ticker: str, session: AsyncSession, days: int = 14) -> bool:
+async def _has_catalyst_near(ticker: str, session: AsyncSession, days: int = settings.dormant_catalyst_days) -> bool:
     rows = await session.execute(
         select(Catalyst).where(
             Catalyst.ticker == ticker,
@@ -265,17 +266,18 @@ async def score_dormant(
     session: AsyncSession,
     spot_price: float,
     current_chains: list,
-    days_of_history: int = 30,
+    days_of_history: int = settings.dormant_min_history_days,
 ) -> FactorResult:
-    if days_of_history < 30:
+    _min_hist = settings.dormant_min_history_days
+    if days_of_history < _min_hist:
         return FactorResult(
             factor_id=_FACTOR_ID,
             firing=False,
             strength=0.0,
             label="ACCUMULATING",
             narrative=(
-                f"Chain history {days_of_history}/30 days. "
-                "Dormant radar activates after 30 days of data."
+                f"Chain history {days_of_history}/{_min_hist} days. "
+                f"Dormant radar activates after {_min_hist} days of data."
             ),
         )
 
@@ -348,7 +350,8 @@ async def score_dormant_from_history(
     """Score dormant bets using activation engine (contract_history).
 
     Uses real baseline→recent comparison via score_activation(). Falls back to
-    static score_bet_v2 if contract_history is insufficient (<15 rows).
+    static score_bet_v2 if contract_history is below settings.activation_min_history
+    rows (score_activation cannot produce a result under that floor).
     """
     from eigenview.factors.activation import score_activation
     from eigenview.data.databento_history import osi_symbol as _osi
@@ -400,7 +403,7 @@ async def score_dormant_from_history(
 
     for osi, bet in bet_by_osi.items():
         hist = hist_by_osi.get(osi, [])
-        if len(hist) >= 15:
+        if len(hist) >= settings.activation_min_history:
             activation_used = True
             act = score_activation(hist, underlying, bet.call_put, target)
             if act.strength > best_score:
@@ -414,11 +417,32 @@ async def score_dormant_from_history(
                 best_score = normalized
                 best_bet = bet
 
-    # Not enough contract_history anywhere — use static fallback
+    # Not enough contract_history depth anywhere for this ticker's bets → we cannot
+    # judge activation. Surface as a tracked candidate with its static structural
+    # score for ranking, but DO NOT fire: structure alone (big + long-dated) is
+    # near-universal and produced the 4/7≈0.57 false-positive cluster. Only a real
+    # baseline→recent jump (the activation engine) is allowed to fire.
     if not activation_used:
-        return await score_dormant(ticker, session, spot_price, current_chains, 30)
+        return FactorResult(
+            factor_id=_FACTOR_ID, firing=False, strength=best_score, label="ACCUMULATING",
+            detail={
+                "bets_checked": len(bet_by_osi),
+                "activation_ran": False,
+                "reason": "insufficient_contract_history",
+                "static_structural_score": round(best_score, 3),
+            },
+            narrative=(
+                "Dormant candidate tracked (structural only) — no contract history "
+                "to score activation; not firing."
+            ),
+        )
 
-    if best_result is None or not best_result.fired:
+    fires = (
+        best_result is not None
+        and best_result.fired
+        and best_result.strength >= settings.dormant_firing_threshold
+    )
+    if not fires:
         return FactorResult(
             factor_id=_FACTOR_ID, firing=False, strength=best_score, label="DORMANT",
             detail={"bets_checked": len(bet_by_osi), "activation_ran": True},

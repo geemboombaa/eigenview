@@ -183,6 +183,7 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
     atr_20avg = float(df["ATRr_14"].iloc[-20:].mean())
     recent_high = float(recent["close"].iloc[:-1].max())
     recent_low  = float(recent["close"].iloc[:-1].min())  # exclude last bar for breakdown detection
+    ema21_ewm   = df["close"].ewm(span=21, adjust=False).mean()  # reused by failed_breakdown
 
     if ema21 is None or pd.isna(ema21) or ema50 is None or pd.isna(ema50) or adx is None or pd.isna(adx):
         return FactorResult.no_data("technical", "indicator computation failed")
@@ -442,8 +443,8 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
           and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
         pattern    = "ema_reclaim"
         confidence = 0.65
-        if ema50f > 0 and (ema50f - float(df["EMA_50"].iloc[-5:].min())) >= 0:
-            confidence += 0.05  # EMA50 is rising
+        if len(df) >= 5 and ema50f > float(df["EMA_50"].iloc[-5]):
+            confidence += 0.05  # EMA50 rising over last 5 bars
 
     # --- ema_rejection (short) ---
     # Price was above EMA50, closes back below it on volume
@@ -457,8 +458,8 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
         confidence = 0.63
         if weekly_trend_str == 'bearish_strong':
             confidence += 0.07
-        if vol_now > vol_avg * vol_p72:
-            confidence += 0.05
+        if vol_now > vol_avg * vol_p80:
+            confidence += 0.05  # stronger-than-gate volume confirms the rejection
 
     # --- pullback_in_trend ---
     # Bullish EMA stack, RSI in dip zone, price above EMA21, below EMA50 ceiling
@@ -473,8 +474,6 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
           and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')):
         pattern    = "pullback_in_trend"
         confidence = 0.70
-        if vol_char == 'expanding':
-            confidence -= 0.08  # expanding vol on pullback = sellers present, weaker setup
         if close_now < ema50f * 1.02:
             confidence += 0.05
         # Fib confluence: near 38.2% or 61.8% retracement
@@ -548,8 +547,8 @@ def score_technical(df: pd.DataFrame, ticker: str = "") -> FactorResult:
     elif ('low' in df.columns and len(df) >= 6
           and weekly_trend_str in ('bullish', 'bearish_weak', 'unknown')
           and close_now <= recent_high  # not a clean breakout above 20d high
-          and close_now > df['close'].ewm(span=21, adjust=False).mean().iloc[-1]
-          and (df['close'].iloc[-5:-1] < df['close'].ewm(span=21, adjust=False).mean().iloc[-5:-1]).sum() >= 2
+          and close_now > ema21_ewm.iloc[-1]
+          and (df['close'].iloc[-5:-1] < ema21_ewm.iloc[-5:-1]).sum() >= 2
           and vol_now > vol_avg * vol_p65):
         pattern    = "failed_breakdown"
         confidence = 0.68
