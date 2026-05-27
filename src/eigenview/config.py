@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     macro_regime_red_threshold: int = 3
 
     # Factor thresholds — tune without code changes
-    dormant_firing_threshold: float = 0.6
+    dormant_firing_threshold: float = 0.5
     flow_min_premium_usd: float = 500_000
     flow_min_voi_ratio: float = 3.0
     sentiment_novelty_z_threshold: float = 1.5

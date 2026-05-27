@@ -349,4 +349,6 @@ class ForwardReturn(Base):
 async def create_tables() -> None:
     """Create all tables if they don't exist."""
     async with engine.begin() as conn:
+        if _is_sqlite:
+            await conn.execute(__import__("sqlalchemy").text("PRAGMA journal_mode=WAL"))
         await conn.run_sync(Base.metadata.create_all)
