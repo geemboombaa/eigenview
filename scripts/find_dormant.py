@@ -134,7 +134,7 @@ async def write_dormant_bets(candidates: list[dict], session) -> int:
 
         bet = DormantBet(
             ticker=c["ticker"],
-            contract=f"{c['ticker']}_{c['expiry']}_{int(c['strike'])}{c['call_put']}",
+            contract=f"{c['ticker']}_{c['expiry']}_{int(c['strike'])}{str(c['call_put']).upper()[:1]}",
             original_date=TODAY,
             strike=c["strike"],
             expiry=c["expiry"],

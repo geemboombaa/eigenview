@@ -9,6 +9,10 @@ SHORT_SETUP_PATTERNS = {
     "bearish_reversal", "breakdown", "rally_in_downtrend",
     "compression_break_down", "ema_rejection", "base_breakdown",
     "overbought_reversal", "failed_breakout",
+    # detect_pattern (P6) short setups — registered so entry/stop/macro gating
+    # treat them as shorts once the scan runs on the detect_pattern engine.
+    "bos_bearish", "choch_bearish",
+    "bb_mean_reversion_short", "ema200_snap_short",
 }
 
 

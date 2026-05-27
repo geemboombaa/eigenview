@@ -7,7 +7,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select, distinct
 
-from eigenview.data.storage import AsyncSessionLocal, Pick
+from eigenview.data.storage import AsyncSessionLocal, FactorScore, Pick
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
@@ -47,7 +47,7 @@ def recommend_structure(setup_type: str, direction: str | None, iv_rank: float |
         }
 
 
-def _pick_to_dict(p: Pick) -> dict:
+def _pick_to_dict(p: Pick, spot: float | None = None) -> dict:
     factors_raw: dict = {}
     if p.factors_json:
         try:
@@ -91,7 +91,7 @@ def _pick_to_dict(p: Pick) -> dict:
         "entry_high": p.entry_high,
         "stop": p.stop,
         "thesis": p.thesis or "",
-        "spot": None,
+        "spot": spot,
         "iv_rank": iv_rank,
         "signal_fired_at": signal_fired_at.isoformat() if signal_fired_at else None,
         "signal_age_hours": signal_age_hours,
@@ -128,7 +128,13 @@ async def get_picks(date_str: str = Query(None, alias="date")) -> list:
             .order_by(Pick.conviction.desc())
         )
         picks = result.scalars().all()
-    return [_pick_to_dict(p) for p in picks]
+        # Fetch spot prices from factor_scores for this date
+        spot_result = await session.execute(
+            select(FactorScore.ticker, FactorScore.spot_price)
+            .where(FactorScore.date == target)
+        )
+        spot_map: dict[str, float | None] = {row[0]: row[1] for row in spot_result}
+    return [_pick_to_dict(p, spot_map.get(p.ticker)) for p in picks]
 
 
 @router.get("/pick/{ticker}")
@@ -139,9 +145,16 @@ async def get_pick(ticker: str) -> dict:
             select(Pick).where(Pick.date == today, Pick.ticker == ticker.upper())
         )
         pick = result.scalar_one_or_none()
+        spot: float | None = None
+        if pick is not None:
+            fs_result = await session.execute(
+                select(FactorScore.spot_price)
+                .where(FactorScore.date == today, FactorScore.ticker == ticker.upper())
+            )
+            spot = fs_result.scalar_one_or_none()
     if pick is None:
         raise HTTPException(status_code=404, detail=f"No pick for {ticker} today")
-    return _pick_to_dict(pick)
+    return _pick_to_dict(pick, spot)
 
 
 @router.get("/pick/{ticker}/factors")
