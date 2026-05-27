@@ -32,11 +32,14 @@ if _is_sqlite and "///" in settings.database_url:
     if _db_file and _db_file != ":memory:":
         Path(_db_file).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 
-_engine_kwargs: dict = {} if _is_sqlite else {
-    "pool_size": 5,
-    "max_overflow": 10,
-    "pool_pre_ping": True,
-}
+_engine_kwargs: dict = (
+    {"connect_args": {"timeout": 30}}
+    if _is_sqlite else {
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+    }
+)
 
 engine = create_async_engine(settings.database_url, **_engine_kwargs)
 

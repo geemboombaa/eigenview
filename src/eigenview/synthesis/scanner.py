@@ -189,9 +189,13 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
         })
 
     if to_insert:
-        await session.execute(
-            upsert(ContractHistory).values(to_insert).on_conflict_do_nothing()
-        )
+        # SQLite caps at 999 bind params; ContractHistory has 7 cols → max 142 rows/stmt.
+        # Use 100 to stay well clear of the limit.
+        _CHUNK = 100
+        for _i in range(0, len(to_insert), _CHUNK):
+            await session.execute(
+                upsert(ContractHistory).values(to_insert[_i:_i + _CHUNK]).on_conflict_do_nothing()
+            )
         log.info("refresh_watchlist.done", rows=len(to_insert))
 
 
