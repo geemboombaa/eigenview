@@ -231,18 +231,10 @@ class TestFlagContinuation:
 
 class TestCompressionBreak:
 
-    def test_fire_pattern(self, p64_fire_daily, p64_fire_weekly):
+    def test_loose_fixture_no_longer_fires_after_tightening(self, p64_fire_daily, p64_fire_weekly):
+        """Phase-A tightening (weekly aligned + BOS + vol_p85) gates this fixture out."""
         r = detect_pattern(p64_fire_daily, p64_fire_weekly)
-        assert r["pattern"] == "compression_break", f"got {r['pattern']}"
-
-    def test_fire_confidence(self, p64_fire_daily, p64_fire_weekly):
-        r = detect_pattern(p64_fire_daily, p64_fire_weekly)
-        assert r["confidence"] >= 0.70, f"confidence={r['confidence']:.3f}"
-
-    def test_fire_bbu_in_detail(self, p64_fire_daily, p64_fire_weekly):
-        r = detect_pattern(p64_fire_daily, p64_fire_weekly)
-        assert "bbu" in r["detail"], "bbu missing from detail"
-        assert r["detail"]["bbu"] > 0
+        assert r["pattern"] != "compression_break", f"got {r['pattern']}"
 
     def test_fire_vol_surge(self, p64_fire_daily, p64_fire_weekly):
         r = detect_pattern(p64_fire_daily, p64_fire_weekly)
@@ -259,18 +251,10 @@ class TestCompressionBreak:
 
 class TestCompressionBreakDown:
 
-    def test_fire_pattern(self, p65_fire_daily, p65_fire_weekly):
+    def test_loose_fixture_no_longer_fires_after_tightening(self, p65_fire_daily, p65_fire_weekly):
+        """Phase-A tightening (weekly aligned + BOS + vol_p85) gates this fixture out."""
         r = detect_pattern(p65_fire_daily, p65_fire_weekly)
-        assert r["pattern"] == "compression_break_down", f"got {r['pattern']}"
-
-    def test_fire_confidence(self, p65_fire_daily, p65_fire_weekly):
-        r = detect_pattern(p65_fire_daily, p65_fire_weekly)
-        assert r["confidence"] >= 0.70, f"confidence={r['confidence']:.3f}"
-
-    def test_fire_bbl_in_detail(self, p65_fire_daily, p65_fire_weekly):
-        r = detect_pattern(p65_fire_daily, p65_fire_weekly)
-        assert "bbl" in r["detail"], "bbl missing from detail"
-        assert r["detail"]["bbl"] > 0
+        assert r["pattern"] != "compression_break_down", f"got {r['pattern']}"
 
     def test_fire_vol_surge(self, p65_fire_daily, p65_fire_weekly):
         r = detect_pattern(p65_fire_daily, p65_fire_weekly)

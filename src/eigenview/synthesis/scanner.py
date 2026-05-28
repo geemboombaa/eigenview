@@ -199,15 +199,20 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
         log.info("refresh_watchlist.done", rows=len(to_insert))
 
 
-def _score_with_lookback(df: pd.DataFrame, ticker: str, lookback: int = settings.scanner_ta_lookback_days):
+def _score_with_lookback(
+    df: pd.DataFrame,
+    ticker: str,
+    lookback: int = settings.scanner_ta_lookback_days,
+    gex_levels: dict | None = None,
+):
     n = len(df)
     max_back = min(lookback, n - 50)
     for i in range(max(0, max_back) + 1):
         sl = df.iloc[:n - i] if i > 0 else df
-        r = score_technical(sl, ticker)
+        r = score_technical(sl, ticker, gex_levels=gex_levels)
         if r.firing:
             return r
-    return score_technical(df, ticker)
+    return score_technical(df, ticker, gex_levels=gex_levels)
 
 
 async def _score_ticker(
@@ -237,8 +242,14 @@ async def _score_ticker(
             )
             chains = chain_rows.scalars().all()
 
-        ta = _score_with_lookback(df, ticker)
+        # GEX first so its dealer levels feed TA confluence (strength-only).
         gex = score_gex(list(chains), spot, ticker)
+        gex_levels = {
+            "call_wall": gex.detail.get("call_wall"),
+            "put_wall": gex.detail.get("put_wall"),
+            "gamma_flip": gex.detail.get("gamma_flip"),
+        } if gex.detail else None
+        ta = _score_with_lookback(df, ticker, gex_levels=gex_levels)
         flow = score_flow(list(chains), ticker)
 
         # Options-liquidity gate (OI proxy until real options-volume history is
