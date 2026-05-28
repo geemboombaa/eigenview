@@ -10,6 +10,21 @@ from scipy.signal import argrelextrema
 from eigenview.config import settings
 from eigenview.factors.base import FactorResult
 
+# smartmoneyconcepts prints a Unicode banner on first import; on Windows cp1252
+# consoles that raises UnicodeEncodeError, which the previous in-function
+# `try/except Exception: pass` silently swallowed -- leaving BOS/CHoCH signals
+# permanently False. Import once at module load with stdout redirected so the
+# library is actually available to detect_pattern.
+import contextlib as _contextlib
+import io as _io
+import os as _os
+_os.environ.setdefault("PYTHONUTF8", "1")
+try:
+    with _contextlib.redirect_stdout(_io.StringIO()):
+        import smartmoneyconcepts.smc as _smc  # noqa: E402
+except Exception:  # pragma: no cover -- truly missing dep
+    _smc = None
+
 # Empirical RSI/ADX percentile estimates for low-history tickers (<60 bars).
 # Used ONLY as fallbacks when the rolling-percentile window is too short to
 # compute per-ticker percentiles, mirroring the rolling-percentile design in
@@ -535,6 +550,56 @@ def detect_pattern(
         _sq_off_dp = False
         _squeeze_released_dp = False
 
+    # ── BOS / CHoCH (smartmoneyconcepts) — hoisted above pattern checks so the
+    #    structural break signal is available to breakout / ema_reclaim /
+    #    compression_break tightening, not just the dedicated bos_*/choch_*
+    #    setups below. ──
+    _choch_bullish_signal = False
+    _choch_bearish_signal = False
+    _bos_bullish_signal   = False
+    _bos_bearish_signal   = False
+    if len(ddf) >= 40 and _smc is not None:
+        try:
+            _shl = _smc.swing_highs_lows(ddf, swing_length=10)
+            _bc  = _smc.bos_choch(ddf, _shl, close_break=True)
+            _n   = len(ddf)
+            _recent_window = 60
+            _bi  = _bc['BrokenIndex'].values
+            _bos_vals   = _bc['BOS'].values
+            _choch_vals = _bc['CHOCH'].values
+            for _iloc in range(len(_bc)):
+                _bos_v   = _bos_vals[_iloc]
+                _choch_v = _choch_vals[_iloc]
+                _bos_active   = not (isinstance(_bos_v,   float) and np.isnan(_bos_v))
+                _choch_active = not (isinstance(_choch_v, float) and np.isnan(_choch_v))
+                if not _bos_active and not _choch_active:
+                    continue
+                _bi_val = _bi[_iloc]
+                _bi_recent = (
+                    _bi_val is not None
+                    and not (isinstance(_bi_val, float) and np.isnan(_bi_val))
+                    and int(_bi_val) >= _n - _recent_window
+                )
+                _sig_recent = _iloc >= _n - _recent_window
+                if not (_bi_recent or _sig_recent):
+                    continue
+                if _bos_active and _bos_v == 1:
+                    _bos_bullish_signal = True
+                if _bos_active and _bos_v == -1:
+                    _bos_bearish_signal = True
+                if _choch_active and _choch_v == 1:
+                    _choch_bullish_signal = True
+                if _choch_active and _choch_v == -1:
+                    _choch_bearish_signal = True
+        except Exception:
+            pass  # graceful fallback — all signals remain False
+
+    # Extra vol-ratio percentile needed by tightening (p85 strong-volume gate)
+    try:
+        _vol_p85_dp = float(np.percentile(_dp_ratios, 85))
+    except (NameError, ValueError, IndexError):
+        _vol_p85_dp = 2.0
+
     # ── P6.1 pullback_deep (before pullback_in_trend — deeper dip to EMA50) ──
     if (
         weekly_state in ("BULLISH", "BULLISH_EXTENDED")
@@ -642,14 +707,16 @@ def detect_pattern(
             detail.update({"rsi_p45": round(rsi_p45_dp, 2), "rsi_p65": round(rsi_p65_dp, 2)})
             return {"pattern": "bull_flag", "confidence": confidence, "detail": detail}
 
-    # ── P6.4 compression_break ───────────────────────────────────────────────
+    # ── P6.4 compression_break (tightened: weekly aligned + BOS + vol_p85) ──
     if (
         _squeeze_released_dp
         and bbu_dp is not None
         and close_now > bbu_dp
-        and vol_ratio > vol_p70_dp
+        and vol_ratio > _vol_p85_dp
         and float(ddf["open"].iloc[-1]) < close_now
         and (rsif is None or rsif < 90.0)
+        and weekly_state in ("BULLISH", "BULLISH_EXTENDED")
+        and _bos_bullish_signal
     ):
         confidence = 0.75
         if vol_ratio > vol_p72_dp:
@@ -662,14 +729,15 @@ def detect_pattern(
         detail["bbu"] = round(bbu_dp, 2)
         return {"pattern": "compression_break", "confidence": confidence, "detail": detail}
 
-    # ── P6.5 compression_break_down ──────────────────────────────────────────
+    # ── P6.5 compression_break_down (tightened: weekly aligned + BOS + vol_p85) ──
     if (
         _squeeze_released_dp
         and bbl_dp is not None
         and close_now < bbl_dp
-        and vol_ratio > vol_p70_dp
+        and vol_ratio > _vol_p85_dp
         and float(ddf["open"].iloc[-1]) > close_now
-        and weekly_state not in ("BULLISH", "BULLISH_EXTENDED")
+        and weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG")
+        and _bos_bearish_signal
     ):
         confidence = 0.73
         if vol_ratio > vol_p72_dp:
@@ -679,8 +747,8 @@ def detect_pattern(
         confidence = round(min(1.0, confidence), 3)
         detail["bbl"] = round(bbl_dp, 2)
         return {"pattern": "compression_break_down", "confidence": confidence, "detail": detail}
-    # P6.6 breakout: close > N-bar swing high (scipy), level tested >=2x, vol surge
-    if weekly_state != "BEARISH_STRONG" and len(ddf) >= 60:
+    # P6.6 breakout (tightened: weekly aligned BULLISH + BOS + multi-day hold + vol_p85)
+    if weekly_state in ("BULLISH", "BULLISH_EXTENDED") and len(ddf) >= 60:
         highs_60 = ddf["high"].values[-60:].astype(float)
         _sh_idx = argrelextrema(highs_60, np.greater, order=5)[0]
         if len(_sh_idx) > 0:
@@ -688,10 +756,16 @@ def detect_pattern(
             _prior_approaches = int(np.sum(
                 np.abs(highs_60[:_sh_idx[-1]] / _n_bar_high - 1) < 0.01
             ))
-            if (
+            _multi_hold_up = (
                 close_now > _n_bar_high
-                and vol_ratio > vol_p70_dp
+                and len(ddf) >= 2
+                and float(ddf["close"].iloc[-2]) >= _n_bar_high * 0.998
+            )
+            if (
+                _multi_hold_up
+                and vol_ratio > _vol_p85_dp
                 and _prior_approaches >= 1
+                and _bos_bullish_signal
             ):
                 confidence = 0.80
                 if vol_ratio > vol_p72_dp:
@@ -701,15 +775,21 @@ def detect_pattern(
                 detail["prior_approaches"] = _prior_approaches
                 return {"pattern": "breakout", "confidence": confidence, "detail": detail}
 
-    # P6.7 breakdown: close < N-bar swing low (scipy), vol surge, weekly bearish
+    # P6.7 breakdown (tightened: BOS + multi-day hold + vol_p85)
     if weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG") and len(ddf) >= 60:
         lows_60 = ddf["low"].values[-60:].astype(float)
         _sl_idx = argrelextrema(lows_60, np.less, order=5)[0]
         if len(_sl_idx) > 0:
             _n_bar_low = lows_60[_sl_idx[-1]]
-            if (
+            _multi_hold_dn = (
                 close_now < _n_bar_low
-                and vol_ratio > vol_p70_dp
+                and len(ddf) >= 2
+                and float(ddf["close"].iloc[-2]) <= _n_bar_low * 1.002
+            )
+            if (
+                _multi_hold_dn
+                and vol_ratio > _vol_p85_dp
+                and _bos_bearish_signal
             ):
                 confidence = 0.78
                 if weekly_state == "BEARISH_STRONG":
@@ -738,7 +818,9 @@ def detect_pattern(
                 )
             except Exception:
                 _sq_on = False
-            if _near_high and _tight_base and _sq_on and vol_ratio < vol_p40_dp:
+            # Tightened: actual trigger-break bar + vol expansion (not just basing)
+            _trigger_break_up = close_now >= _high_50d * 1.001
+            if _trigger_break_up and _tight_base and _sq_on and vol_ratio > vol_p55_dp:
                 confidence = 0.70
                 if _close_std_20 < _std_p25 * 0.75:
                     confidence += 0.05
@@ -764,7 +846,9 @@ def detect_pattern(
                 )
             except Exception:
                 _sq_on_b = False
-            if _near_low and _tight_base_b and _sq_on_b and vol_ratio < vol_p40_dp:
+            # Tightened: actual trigger-break bar + vol expansion (not just basing)
+            _trigger_break_dn = close_now <= _low_50d * 0.999
+            if _trigger_break_dn and _tight_base_b and _sq_on_b and vol_ratio > vol_p55_dp:
                 confidence = 0.68
                 if weekly_state == "BEARISH_STRONG":
                     confidence += 0.05
@@ -772,13 +856,14 @@ def detect_pattern(
                 detail["low_50d"] = round(_low_50d, 2)
                 return {"pattern": "base_breakdown", "confidence": confidence, "detail": detail}
 
-    # P6.10 ema_reclaim: yesterday close < EMA50, today > EMA50, moderate vol
+    # P6.10 ema_reclaim (tightened: weekly BULLISH + 0.5% margin + BOS/CHoCH confirm)
     if (
-        weekly_state != "BEARISH_STRONG"
+        weekly_state in ("BULLISH", "BULLISH_EXTENDED")
         and len(ddf) >= 2
         and float(ddf["close"].iloc[-2]) < float(ddf["EMA_50"].iloc[-2])
-        and close_now > ema50f
+        and close_now > ema50f * 1.005
         and vol_ratio > vol_p55_dp
+        and (_bos_bullish_signal or _choch_bullish_signal)
     ):
         confidence = 0.65
         if vol_ratio > vol_p70_dp:
@@ -786,13 +871,14 @@ def detect_pattern(
         confidence = round(min(1.0, confidence), 3)
         return {"pattern": "ema_reclaim", "confidence": confidence, "detail": detail}
 
-    # P6.11 ema_rejection: yesterday close > EMA50, today < EMA50, moderate vol
+    # P6.11 ema_rejection (tightened: 0.5% margin + BOS/CHoCH confirm)
     if (
         weekly_state in ("BEARISH_WEAK", "BEARISH_STRONG", "NEUTRAL")
         and len(ddf) >= 2
         and float(ddf["close"].iloc[-2]) > float(ddf["EMA_50"].iloc[-2])
-        and close_now < ema50f
+        and close_now < ema50f * 0.995
         and vol_ratio > vol_p55_dp
+        and (_bos_bearish_signal or _choch_bearish_signal)
     ):
         confidence = 0.63
         if weekly_state == "BEARISH_STRONG":
@@ -802,57 +888,8 @@ def detect_pattern(
         confidence = round(min(1.0, confidence), 3)
         return {"pattern": "ema_rejection", "confidence": confidence, "detail": detail}
 
-    # ── P6.12–P6.15 CHoCH / BOS (smartmoneyconcepts) ───────────────────────
-    # Signals are placed at historical swing indices; BrokenIndex marks confirmation.
-    # A signal is "recent" if either:
-    #   (a) the signal's own bar index falls in the last 60 bars, OR
-    #   (b) its BrokenIndex (when the level was actually broken) is in the last 60 bars.
-    # This is necessary because the SMC library places the signal at the SWING POINT
-    # (which can be 10-30 bars before the break bar).
-    _choch_bullish_signal = False
-    _choch_bearish_signal = False
-    _bos_bullish_signal   = False
-    _bos_bearish_signal   = False
-    if len(ddf) >= 40:
-        try:
-            import os as _os
-            _os.environ['PYTHONUTF8'] = '1'
-            import smartmoneyconcepts.smc as _smc
-            _shl = _smc.swing_highs_lows(ddf, swing_length=10)
-            _bc  = _smc.bos_choch(ddf, _shl, close_break=True)
-            _n   = len(ddf)
-            _recent_window = 60  # look back 60 bars for signal or its confirmation
-            _bi  = _bc['BrokenIndex'].values  # nan or bar index (float)
-            _bos_vals   = _bc['BOS'].values
-            _choch_vals = _bc['CHOCH'].values
-            for _iloc in range(len(_bc)):
-                _bos_v   = _bos_vals[_iloc]
-                _choch_v = _choch_vals[_iloc]
-                # Skip if both BOS and CHOCH are nan at this position
-                _bos_active   = not (isinstance(_bos_v,   float) and np.isnan(_bos_v))
-                _choch_active = not (isinstance(_choch_v, float) and np.isnan(_choch_v))
-                if not _bos_active and not _choch_active:
-                    continue
-                # Check recency: signal bar index OR BrokenIndex in last 60 bars
-                _bi_val = _bi[_iloc]
-                _bi_recent = (
-                    _bi_val is not None
-                    and not (isinstance(_bi_val, float) and np.isnan(_bi_val))
-                    and int(_bi_val) >= _n - _recent_window
-                )
-                _sig_recent = _iloc >= _n - _recent_window
-                if not (_bi_recent or _sig_recent):
-                    continue
-                if _bos_active and _bos_v == 1:
-                    _bos_bullish_signal = True
-                if _bos_active and _bos_v == -1:
-                    _bos_bearish_signal = True
-                if _choch_active and _choch_v == 1:
-                    _choch_bullish_signal = True
-                if _choch_active and _choch_v == -1:
-                    _choch_bearish_signal = True
-        except Exception:
-            pass  # graceful fallback — all signals remain False
+    # BOS / CHoCH signals already computed above (hoisted) — go straight to the
+    # P6.12–P6.15 setups that consume them.
 
     # P6.12 choch_bullish — CHoCH bullish reversal (trend change from down to up)
     if (
@@ -1120,7 +1157,7 @@ def detect_pattern(
         detail["bearish_reversal"] = True
         return {"pattern": "bearish_reversal", "confidence": round(confidence, 3), "detail": detail}
 
-    # P6.19 oversold_bounce (long) — capitulation + reversal day above EMA200
+    # P6.19 oversold_bounce (tightened: bull_div + CHoCH + EMA21 reclaim, not 1 green bar)
     if (
         rsif is not None and rsif < rsi_p20r
         and _prev_close < close_now and close_now > _open_now
@@ -1128,6 +1165,9 @@ def detect_pattern(
         and not (_wk_adx is not None and _wk_adx > 30.0)
         and weekly_state != "BEARISH_STRONG"
         and vol_ratio > vol_p60r
+        and _bull_div
+        and _choch_bullish_signal
+        and close_now > ema21f
     ):
         confidence = 0.62
         if _bull_div:
@@ -1135,13 +1175,14 @@ def detect_pattern(
         detail["oversold_bounce"] = True
         return {"pattern": "oversold_bounce", "confidence": round(min(1.0, confidence), 3), "detail": detail}
 
-    # P6.20 failed_breakdown (long) — dipped below EMA21, reclaimed on volume
+    # P6.20 failed_breakdown (tightened: intrabar retest of EMA21 + reclaim)
     _ema21_ewm = ddf["close"].ewm(span=21, adjust=False).mean()
     if (
         "low" in ddf.columns and len(ddf) >= 6
         and weekly_state in ("BULLISH", "BULLISH_EXTENDED", "NEUTRAL", "BEARISH_WEAK")
         and close_now <= _recent_high
         and close_now > float(_ema21_ewm.iloc[-1])
+        and _open_now <= float(_ema21_ewm.iloc[-1]) * 1.01
         and int((ddf["close"].iloc[-5:-1].values < _ema21_ewm.iloc[-5:-1].values).sum()) >= 2
         and vol_ratio > vol_p65r
     ):
@@ -1162,6 +1203,7 @@ def detect_pattern(
             if (
                 bool((ddf["high"].iloc[-4:-1] > _spH).any())
                 and close_now < _spH
+                and close_now < _open_now
                 and vol_ratio < vol_p55r
             ):
                 confidence = 0.70
