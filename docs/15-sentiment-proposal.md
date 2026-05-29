@@ -70,6 +70,22 @@ at our scale (cost/latency over 600 names). So:
   weighted soft-score ≥ threshold instead of a hard count). Decision deferred to post-measurement —
   no premature tuning.
 
+## Open-source reuse check (don't reinvent — confirmed pip-ready)
+Detailed OSS search done. Almost nothing needs custom code — it's assembly:
+
+| Need | Reuse (pip/HF) | Maintained? | Custom work |
+|---|---|---|---|
+| FinBERT direction | HF `transformers` `pipeline("text-classification", model="yiyanghkust/finbert-tone")` | yes | none — call the pipeline |
+| Lexicon fallback | `vaderSentiment` (PyPI) | yes | none |
+| Finnhub news | `finnhub-python` (PyPI, v2.4.28 Apr-2026, 60 req/min) | yes | thin wrapper only |
+| Alpha Vantage news | `alpha_vantage` / `alphavantage-api-client` (PyPI) | yes | thin wrapper only |
+| Novelty embeddings | `sentence-transformers` MiniLM | yes | (deferred v1.1) |
+| MATERIAL/NOISE | existing `anthropic` client (already in deps) | yes | prompt only |
+
+**Conclusion:** new code = (a) a scheduled news job around `finnhub-python`, (b) rewrite
+`factors/sentiment.py` to call the FinBERT pipeline + aggregate. No model training, no
+hand-rolled NLP. Model weights download once (~110MB FinBERT-tone).
+
 ## Open decisions (need your call before code)
 - [ ] FinBERT-tone vs distilroberta (accuracy vs CPU speed) — benchmark both on this box first?
 - [ ] News job cadence: pre-market once, or intraday refresh too?

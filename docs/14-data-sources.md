@@ -74,6 +74,18 @@ Regime score 0–10. Thresholds: GREEN ≥7, RED ≤3 (`config.py`). RED blocks 
 |---|---|
 | S&P 500 / NDX-100 membership | `data/universe.py` → `universe_membership` table |
 
+## Flow factor — OSS data research (2026-05-29; decision PENDING, build on hold)
+The spec's dark-pool-cluster detection has **no free real-time source**:
+- **Paid only** for real-time options flow / dark-pool prints: FlowAlgo ($149–199/mo), Unusual
+  Whales API, InsiderFinance. GitHub repos (`erikmaday/unusual-whales-mcp`, `SweepCast/Unusual-Options`)
+  are **wrappers around these paid APIs**, not free data.
+- **Free but delayed:** FINRA ATS / off-exchange weekly (T+1–2 weeks), Quiver Quantitative (limited).
+  Swing-usable, not intraday.
+- **Already have, free:** our Databento option chains → V/OI, premium, aggressive-side (current
+  `factors/flow.py` uses these). The *missing* piece is only the dark-pool **print cluster**.
+- **Recommendation:** keep current chain-based flow; the dark-pool cluster either stays descoped
+  or uses FINRA-ATS-delayed (swing horizon). No good free real-time option. **User deciding later.**
+
 ---
 
 ## Known dead / removed sources (do not re-add without checking)

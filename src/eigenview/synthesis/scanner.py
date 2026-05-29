@@ -408,6 +408,17 @@ async def run_daily_scan(
         cards = [r for r in results if r is not None]
         scorecards.extend(cards)
         await _persist(cards)
+        # Trickle picks: write this chunk's qualifiers immediately so DAILY fills in
+        # batches as scoring progresses (the UI polls /api/picks every 2s). qualify_pick
+        # is per-scorecard independent and write_picks upserts, so the final full-set
+        # rank/write below is an idempotent reconcile, not a conflict.
+        try:
+            chunk_qualified = rank_picks(cards, macro_score)
+            if chunk_qualified:
+                await write_picks(chunk_qualified, macro_score, session, all_scorecards=cards)
+                await session.commit()
+        except Exception as exc:
+            log.warning("trickle_write_failed", error=str(exc))
         done += len(batch)
         _report("score", done, f"Scored {done}/{total}…")
 
