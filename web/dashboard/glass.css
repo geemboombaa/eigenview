@@ -118,7 +118,8 @@ body::before{
 .dtable td{padding:14px;white-space:nowrap}
 .dtable td.c{text-align:center}
 .tk{display:flex;align-items:center;gap:8px}
-.star{cursor:pointer;font-size:14px;color:var(--t3);transition:.15s}
+.star{cursor:pointer;font-size:14px;color:var(--t3);transition:.15s;padding:8px;margin:-8px;border-radius:8px;line-height:1}
+.star:active{transform:scale(.85)}
 .star:hover{color:var(--flip)}
 .star.on{color:var(--flip);text-shadow:0 0 10px rgba(255,216,74,.6)}
 .sym{font-family:var(--fd);font-weight:700;font-size:16px;letter-spacing:-.2px}
