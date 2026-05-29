@@ -48,6 +48,8 @@ ml = [
     "sentence-transformers>=2.7",
     "transformers>=4.40",
     "torch>=2.2",
+    "vaderSentiment>=3.3.2",
+    "finnhub-python>=2.4",
 ]
 
 [project.scripts]
