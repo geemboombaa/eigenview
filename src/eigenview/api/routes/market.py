@@ -30,31 +30,19 @@ async def get_regime() -> dict:
             "narrative": "No macro data. Run: eigenview fetch-macro",
         }
 
-    # Recompute score from stored values
-    score = 0
-    if row.gex_index and row.gex_index > 0:
-        score += 3
-    if row.vix_contango_pct and row.vix_contango_pct > 0:
-        score += 2
-    if row.dix and row.dix > 0.43:
-        score += 3
-    if row.vix_m1 and row.vix_m1 < 20:
-        score += 2
-    score = min(10, max(0, score))
-
-    if score >= 7:
-        regime = "GREEN"
-    elif score >= 3:
-        regime = "YELLOW"
-    else:
-        regime = "RED"
+    # Single source of truth for scoring/regime (same pure scorer the Gate-0 gate uses).
+    from eigenview.factors.macro_regime import score_macro_row
+    res = score_macro_row(row.dix, row.gex_index, row.vix_m1, row.vix_contango_pct)
+    score = int(res.detail.get("score", 0))
+    regime = res.label  # GREEN | YELLOW | RED | NO DATA
 
     parts = []
-    if row.dix:
+    if row.dix is not None:
         parts.append(f"DIX {row.dix:.1%}")
-    if row.gex_index:
-        parts.append(f"SPX GEX ${row.gex_index/1e9:.1f}B")
-    if row.vix_m1:
+    if row.gex_index is not None:
+        # gex_index is already Σ dealer gamma in $B (per 1% move) across S&P 500 components.
+        parts.append(f"S&P GEX ${row.gex_index:.2f}B")
+    if row.vix_m1 is not None:
         parts.append(f"VIX {row.vix_m1:.1f}")
     narrative = f"Macro regime {regime} ({score}/10): {', '.join(parts)}."
 

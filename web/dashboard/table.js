@@ -80,7 +80,7 @@ window.EV_APP = (() => {
     }
     const tone = r.score >= 7 ? 'g' : r.score >= 3 ? 'a' : 'r';
     const cells = [];
-    if (r.gex_index != null) cells.push({ k: 'SPX GEX', v: `$${(Math.abs(r.gex_index) / 1e9).toFixed(1)}B`, t: r.gex_index > 0 ? 'g' : 'r' });
+    if (r.gex_index != null) cells.push({ k: 'S&P GEX', v: `$${Math.abs(r.gex_index).toFixed(2)}B`, t: r.gex_index > 0 ? 'g' : 'r' });
     if (r.vix_contango_pct != null) cells.push({ k: 'VIX TERM', v: r.vix_contango_pct > 0 ? 'Contango' : 'Backwrd', t: r.vix_contango_pct > 0 ? 'g' : 'r' });
     if (r.dix != null) cells.push({ k: 'DIX', v: `${(r.dix * 100).toFixed(1)}%`, t: r.dix > 0.43 ? 'g' : 'a' });
     if (r.vix_m1 != null) cells.push({ k: 'VIX', v: r.vix_m1.toFixed(1), t: r.vix_m1 < 20 ? 'g' : r.vix_m1 > 30 ? 'r' : 'a' });

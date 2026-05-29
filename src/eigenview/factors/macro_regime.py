@@ -8,19 +8,20 @@ from eigenview.data.storage import MacroDaily
 from eigenview.factors.base import FactorResult
 
 
-async def score_macro_regime(session: AsyncSession) -> FactorResult:
-    result = await session.execute(
-        select(MacroDaily).order_by(MacroDaily.date.desc()).limit(1)
-    )
-    row = result.scalar_one_or_none()
+def score_macro_row(
+    dix: float | None,
+    gex_index: float | None,
+    vix_m1: float | None,
+    vix_contango_pct: float | None,
+) -> FactorResult:
+    """Pure macro regime scorer over already-fetched signal values.
 
-    if row is None:
-        return FactorResult.no_data("macro_regime", "no macro data in DB")
-
-    dix = row.dix
-    gex_index = row.gex_index
-    vix_m1 = row.vix_m1
-    vix_contango_pct = row.vix_contango_pct
+    All four signals None → NO DATA (the regime cannot be validated). This is the
+    honest state when every macro source is unavailable — it must NOT masquerade
+    as a confident RED 0/10.
+    """
+    if dix is None and gex_index is None and vix_m1 is None and vix_contango_pct is None:
+        return FactorResult.no_data("macro_regime", "no macro data available")
 
     score = 0
     if gex_index is not None and gex_index > 0:
@@ -34,14 +35,11 @@ async def score_macro_regime(session: AsyncSession) -> FactorResult:
     score = max(0, min(10, score))
 
     if score >= settings.macro_regime_green_threshold:
-        regime = "GREEN"
-        firing = True
+        regime, firing = "GREEN", True
     elif score >= settings.macro_regime_red_threshold:
-        regime = "YELLOW"
-        firing = True
+        regime, firing = "YELLOW", True
     else:
-        regime = "RED"
-        firing = False
+        regime, firing = "RED", False
 
     narrative = (
         f"Macro regime {regime} ({score}/10): "
@@ -67,4 +65,21 @@ async def score_macro_regime(session: AsyncSession) -> FactorResult:
             "vix_contango_pct": vix_contango_pct,
         },
         narrative=narrative,
+    )
+
+
+async def score_macro_regime(session: AsyncSession) -> FactorResult:
+    result = await session.execute(
+        select(MacroDaily).order_by(MacroDaily.date.desc()).limit(1)
+    )
+    row = result.scalar_one_or_none()
+
+    if row is None:
+        return FactorResult.no_data("macro_regime", "no macro data in DB")
+
+    return score_macro_row(
+        dix=row.dix,
+        gex_index=row.gex_index,
+        vix_m1=row.vix_m1,
+        vix_contango_pct=row.vix_contango_pct,
     )
