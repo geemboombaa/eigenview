@@ -5,18 +5,6 @@ You are the build agent for **EigenView**, a curated daily options + futures int
 
 ---
 
-## NON-NEGOTIABLE ENGINEERING RULES (read first, every session)
-
-These are hard gates. Violating any = the work is NOT done. They reinforce the global rules; never override them.
-
-1. **Research + reuse before building.** Before writing any non-trivial capability, search for a maintained open-source library / public API / established pattern that already does it. Document what you found and why you reused or rejected it (in `docs/14-data-sources.md` for data, in the PR/commit for code). **No reinventing** what a maintained lib already does.
-2. **No hardcoding.** No magic numbers, thresholds, URLs, or tickers baked into logic. Thresholds live in `config.py` (env-overridable). Adaptive/rolling values over fixed literals (see TA rolling-percentile rule). A literal in business logic is a bug.
-3. **No fake data, no stubs, no shortcuts.** No mocks/cassettes/synthetic fixtures (tests hit real APIs/DB). No `return {}`/`pass`/`NotImplementedError` left in shipped code. No placeholder values. Every number shown to the user must be a real computed/fetched quantity — if a source is unavailable, return honest `NO DATA`, never a guess.
-4. **Honest representations.** Don't present a heuristic as if it were precise. A score derived from N binary flags is shown as those flags / "X of N", not a false-precision 0–100 or k/10 that implies a probability. Surface the inputs (hover/detail), never just an opaque number.
-5. **Validate before "done".** Run it on real data, show the output. Tests green (no skips). Semgrep stub audit clean. UI claims browser-verified with zero console errors. No "done" without evidence.
-
----
-
 ## WHAT THE PRODUCT IS — ONE PARAGRAPH
 
 A dashboard that runs every morning and outputs **a short ranked list of specific instruments to look at today** — stocks (options plays) and optionally futures — each with a score, setup type, entry zone, stop level, and a plain-English thesis. Not a scanner. Not a data dump. A curated, opinionated, ready-to-act list. The macro regime is checked first; if it's red, no long picks appear regardless of individual stock signals.
