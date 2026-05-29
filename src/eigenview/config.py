@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     daily_scan_hour: int = 8
     macro_regime_green_threshold: int = 7
     macro_regime_red_threshold: int = 3
+    # Macro regime per-signal thresholds + weights (factors/macro_regime.py) — no hardcode.
+    macro_dix_bullish_threshold: float = 0.43   # DIX > this = dark-pool buying (calibrated 2026-04-29)
+    macro_vix_low_threshold: float = 20.0       # VIX m1 < this = low-vol regime
+    macro_weight_gex: int = 3                    # points for positive net GEX
+    macro_weight_contango: int = 2              # points for VIX contango (term structure up)
+    macro_weight_dix: int = 3                    # points for DIX above threshold
+    macro_weight_vix: int = 2                    # points for low VIX
 
     # Factor thresholds — tune without code changes
     dormant_firing_threshold: float = 0.5
