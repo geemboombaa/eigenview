@@ -90,6 +90,8 @@ def _pick_to_dict(p: Pick, spot: float | None = None) -> dict:
         "entry_low": p.entry_low,
         "entry_high": p.entry_high,
         "stop": p.stop,
+        "target": p.target,
+        "ta_tier": ta_detail.get("probability_tier"),
         "thesis": p.thesis or "",
         "spot": spot,
         "iv_rank": iv_rank,

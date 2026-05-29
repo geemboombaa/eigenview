@@ -177,6 +177,7 @@ class Pick(Base):
     entry_low: Mapped[float | None] = mapped_column(Float)
     entry_high: Mapped[float | None] = mapped_column(Float)
     stop: Mapped[float | None] = mapped_column(Float)
+    target: Mapped[float | None] = mapped_column(Float)
     conviction: Mapped[int | None] = mapped_column(Integer)
     thesis: Mapped[str | None] = mapped_column(Text)
     factors_json: Mapped[str | None] = mapped_column(Text)
@@ -232,6 +233,7 @@ class FactorScore(Base):
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     ta_strength: Mapped[float | None] = mapped_column(Float)
     ta_label: Mapped[str | None] = mapped_column(String(50))
+    ta_tier: Mapped[str | None] = mapped_column(String(20))  # HIGH | SPECULATIVE
     gex_strength: Mapped[float | None] = mapped_column(Float)
     gex_label: Mapped[str | None] = mapped_column(String(50))
     flow_strength: Mapped[float | None] = mapped_column(Float)
@@ -349,9 +351,55 @@ class ForwardReturn(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class UniverseMembership(Base):
+    """Which index(es) a ticker belongs to. Tagged from the already-wired
+    Nasdaq-100 / S&P 500 member lists — no new data source."""
+    __tablename__ = "universe_membership"
+    __table_args__ = (UniqueConstraint("ticker"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    in_ndx: Mapped[bool] = mapped_column(Boolean, default=False)
+    in_sp500: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+async def write_universe_membership(
+    session: AsyncSession, ndx: list[str], sp500: list[str]
+) -> int:
+    """Upsert membership flags for every ticker in either index. Returns count tagged."""
+    from sqlalchemy.dialects.sqlite import insert as _upsert
+
+    ndx_set, sp_set = set(ndx), set(sp500)
+    now = datetime.utcnow()
+    for t in sorted(ndx_set | sp_set):
+        stmt = _upsert(UniverseMembership).values(
+            ticker=t, in_ndx=t in ndx_set, in_sp500=t in sp_set, updated_at=now,
+        ).on_conflict_do_update(
+            index_elements=["ticker"],
+            set_={"in_ndx": t in ndx_set, "in_sp500": t in sp_set, "updated_at": now},
+        )
+        await session.execute(stmt)
+    return len(ndx_set | sp_set)
+
+
 async def create_tables() -> None:
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist, and add any new columns to existing tables."""
+    from sqlalchemy import text as _text
+
     async with engine.begin() as conn:
         if _is_sqlite:
-            await conn.execute(__import__("sqlalchemy").text("PRAGMA journal_mode=WAL"))
+            await conn.execute(_text("PRAGMA journal_mode=WAL"))
         await conn.run_sync(Base.metadata.create_all)
+
+        if _is_sqlite:
+            # create_all never ALTERs existing tables — add new columns idempotently.
+            _migrations = [
+                ("factor_scores", "ta_tier", "VARCHAR(20)"),
+                ("picks", "target", "FLOAT"),
+            ]
+            for tbl, col, coltype in _migrations:
+                rows = await conn.execute(_text(f"PRAGMA table_info({tbl})"))
+                existing = {r[1] for r in rows}
+                if col not in existing:
+                    await conn.execute(_text(f"ALTER TABLE {tbl} ADD COLUMN {col} {coltype}"))

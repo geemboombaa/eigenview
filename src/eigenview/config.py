@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     universe: str = "ndx100"
     daily_scan_hour: int = 8
-    max_picks: int = 10
     macro_regime_green_threshold: int = 7
     macro_regime_red_threshold: int = 3
 
@@ -93,6 +92,9 @@ class Settings(BaseSettings):
     scanner_history_backfill_days: int = 120        # initial Databento backfill window
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
+    scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both
+    scanner_chunk_size: int = 10                    # tickers scored + committed per chunk (live progress)
+    scanner_ticker_timeout_secs: int = 30           # per-ticker hard timeout — one bad name can't stall the run
 
     # ── Pick quality gates (each independently toggleable) ───────────────────
     # Set enable_* = false in .env to turn off individual filters without changing thresholds.

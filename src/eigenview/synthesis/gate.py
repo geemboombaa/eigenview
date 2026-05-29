@@ -28,6 +28,7 @@ class TickerScorecard:
     dormant: FactorResult
     sentiment: FactorResult
     spot_price: float = 0.0
+    target: float | None = None
 
 
 def qualify_pick(scorecard: TickerScorecard, macro_score: int) -> bool:

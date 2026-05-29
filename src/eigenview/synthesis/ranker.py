@@ -38,7 +38,8 @@ def rank_picks(scorecards: list[TickerScorecard], macro_score: int) -> list[Tick
         key=lambda s: (conviction_score(s), s.dormant.strength, s.gex.strength),
         reverse=True,
     )
-    return qualified[: settings.max_picks]
+    # No cap — every ticker that passes the gate is a pick. Ranked, not trimmed.
+    return qualified
 
 
 async def write_picks(
@@ -78,6 +79,7 @@ async def write_picks(
             row.entry_low = entry_lo
             row.entry_high = entry_hi
             row.stop = stop
+            row.target = sc.target
             row.factors_json = factors_json
         else:
             row = Pick(
@@ -91,6 +93,7 @@ async def write_picks(
                 entry_low=entry_lo,
                 entry_high=entry_hi,
                 stop=stop,
+                target=sc.target,
                 factors_json=factors_json,
                 signal_fired_at=datetime.now(),
             )

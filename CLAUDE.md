@@ -66,7 +66,7 @@ Qualify = Macro Regime (Gate 0) passes AND TA (Gate 1) fires AND GEX (Gate 2) fi
           AND at least 2 of {Flow, Dormant, Sentiment} fire
 Conviction = 1–5 based on firing count × strength
 Rank = conviction DESC, then dormant bonus, then IV rank (cheaper vol = better R:R)
-Output = top 3–10 qualifying instruments per day
+Output = every qualifying instrument per day (NO cap — show what the scan returns)
 ```
 
 ---
@@ -424,7 +424,6 @@ DB_PATH=data/eigenview.db
 LOG_LEVEL=INFO
 UNIVERSE=SP500+NDX                     # or: test5 (NVDA AAPL TSLA META AMD)
 DAILY_SCAN_HOUR=8                      # pre-market scan hour (ET)
-MAX_PICKS=10
 MACRO_REGIME_GREEN_THRESHOLD=7
 MACRO_REGIME_RED_THRESHOLD=3
 ```
@@ -515,6 +514,18 @@ Decision: DIX bullish threshold = 43% (not 45%). Breadth healthy threshold = 50%
 Rationale: 45%/55% thresholds produced RED on mixed-signal conditions that historically were YELLOW (pre-rally coiled states). Looser thresholds correctly classify those as YELLOW with caution flag rather than blocking all picks.
 Decision: Phase 1 (data) must be complete before Phase 2 (factors). Phase 2 must be complete before Phase 3 (synthesis). Never mix layers.
 Rationale: Data failures are impossible to debug in factor code. Factor failures are impossible to debug in synthesis code. Strict sequencing = faster debugging.
+
+**2026-05-29 · max_picks cap REMOVED everywhere**
+Decision: No cap on the number of picks. Removed the `[: settings.max_picks]` trim from the ranker, deleted the `max_picks` config field, removed `MAX_PICKS` from `.env.example` and this file, and updated the synthesis spec. DAILY now shows every ticker that passes the gate.
+Rationale: User directive — the dashboard must show exactly what the scan returns, never an artificial top-N. Curated short-list framing is dropped; ranking order is preserved (conviction → dormant → gex), only the trim is gone.
+
+**2026-05-29 · Dashboard list semantics locked (Glass Velvet wiring)**
+- **DAILY** = today's final picks (passed the full gate: macro OK, TA firing, GEX firing, ≥2 soft factors). No cap.
+- **WEEKLY** = picks from the prior 7 days, today excluded. A ticker in today's DAILY is excluded from WEEKLY. WEEKLY shows each ticker once (its most recent prior alert). "Today wins."
+- **ALL** = every scanned ticker where TA OR dormant fired (signal matrix). No cap. Matrix endpoint filter changed from `ta>0` to `ta>0 OR dormant>0` to match this.
+- **SCAN button** triggers the full pipeline async (download → factors → gate → rank → thesis → save), UI stays live, animated progress bar + engine status text (no true %), polls status, auto-refreshes when done, surfaces the engine's 4h-cooldown message honestly.
+- **No fallback** to old scan dates, no invented client-side thresholds, no caps, no fake data. Today is empty until a scan runs — honest state.
+Rationale: User-locked over a multi-round clarification. Full detail in docs/13-dashboard-spec.md.
 
 ---
 
