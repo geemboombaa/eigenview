@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     databento_key: str = ""
 
     log_level: str = "INFO"
-    universe: str = "NDX100"
+    universe: str = "ndx100"
     daily_scan_hour: int = 8
     max_picks: int = 10
     macro_regime_green_threshold: int = 7
@@ -93,6 +93,19 @@ class Settings(BaseSettings):
     scanner_history_backfill_days: int = 120        # initial Databento backfill window
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
+
+    # ── Pick quality gates (each independently toggleable) ───────────────────
+    # Set enable_* = false in .env to turn off individual filters without changing thresholds.
+    min_avg_daily_dollar_volume: int = 15_000_000  # $15M ADV — options-tradeable minimum
+                                                   # ($50M over-filters NDX: AMGN/ADBE/ISRG all below)
+    enable_liquidity_filter: bool = True           # gate on min_avg_daily_dollar_volume
+
+    min_rr_ratio: float = 3.0                      # minimum reward:risk ratio for any pick
+    enable_rr_filter: bool = True                  # gate on min_rr_ratio
+
+    rs_percentile_min: int = 50                    # longs: top 50% of universe by 20d RS;
+                                                   # shorts: bottom 50%
+    enable_rs_filter: bool = True                  # gate on rs_percentile_min
 
 
 settings = Settings()

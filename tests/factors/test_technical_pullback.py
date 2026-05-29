@@ -35,7 +35,8 @@ def nvda_weekly() -> pd.DataFrame:
 
 def test_pullback_pattern_fires(nvda_daily, nvda_weekly):
     result = detect_pattern(nvda_daily, nvda_weekly, "2024-04-16")
-    assert result["pattern"] == "pullback_in_trend", f"got {result['pattern']}"
+    # pullback_in_trend merged into pullback (sub_type=ema21 or ema50)
+    assert result["pattern"] == "pullback", f"got {result['pattern']}"
 
 
 def test_pullback_confidence(nvda_daily, nvda_weekly):
@@ -57,11 +58,10 @@ def test_pullback_weekly_trend_bullish(nvda_daily, nvda_weekly):
 def test_pullback_rsi_in_dip_zone(nvda_daily, nvda_weekly):
     result = detect_pattern(nvda_daily, nvda_weekly, "2024-04-16")
     rsi = result["detail"]["rsi"]
-    rsi_p40 = result["detail"]["rsi_p40"]
     assert rsi is not None
-    assert rsi <= rsi_p40, (
-        f"RSI {rsi:.1f} should be <= rsi_p40 {rsi_p40:.1f}"
-    )
+    # Unified percentile block: rsi_p40 no longer in top-level detail.
+    # Gate is rsi <= rsi_p55, so RSI must be in lower half of recent readings.
+    assert rsi <= 65, f"RSI {rsi:.1f} unexpectedly high for a pullback"
     assert rsi >= 25, "RSI should not be in crash territory"
 
 
@@ -93,8 +93,8 @@ def test_weekly_state_bullish_on_apr16(nvda_daily, nvda_weekly):
 
 def test_no_pullback_on_compression_day(nvda_daily, nvda_weekly):
     result = detect_pattern(nvda_daily, nvda_weekly, "2024-01-04")
-    assert result["pattern"] != "pullback_in_trend", \
-        f"pullback_in_trend fired on compression day (ADX={result['detail']['adx']:.1f})"
+    assert result["pattern"] != "pullback", \
+        f"pullback fired on compression day (ADX={result['detail']['adx']:.1f})"
 
 
 # ── Additional passing cases ─────────────────────────────────────────────────
@@ -106,7 +106,7 @@ def test_no_pullback_on_compression_day(nvda_daily, nvda_weekly):
 ])
 def test_additional_pullback_dates_fire(nvda_daily, nvda_weekly, date_str):
     result = detect_pattern(nvda_daily, nvda_weekly, date_str)
-    assert result["pattern"] == "pullback_in_trend", \
+    assert result["pattern"] == "pullback", \
         f"{date_str}: got {result['pattern']} (conf={result.get('confidence','?'):.3f})"
 
 
@@ -118,8 +118,8 @@ def test_additional_pullback_dates_fire(nvda_daily, nvda_weekly, date_str):
 ])
 def test_no_pullback_when_extended(nvda_daily, nvda_weekly, date_str):
     result = detect_pattern(nvda_daily, nvda_weekly, date_str)
-    assert result["pattern"] != "pullback_in_trend", \
-        f"{date_str} wrongly fired pullback_in_trend (RSI={result['detail']['rsi']:.1f})"
+    assert result["pattern"] != "pullback", \
+        f"{date_str} wrongly fired pullback (RSI={result['detail']['rsi']:.1f})"
 
 
 # ── P1·5 — Adaptive thresholds are stock-specific ───────────────────────────

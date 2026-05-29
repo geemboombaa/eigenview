@@ -397,11 +397,10 @@ def test_synth7_short_stop_is_swing_high_times_102():
 # ── REQ-SYNTH-9 — Short setup pattern set ────────────────────────────────────
 
 def test_synth9_all_spec_short_patterns_in_set():
-    """Every pattern named in the spec must be in SHORT_SETUP_PATTERNS."""
+    """Every short pattern in the 16-pattern taxonomy must be in SHORT_SETUP_PATTERNS."""
     required = {
-        "bearish_reversal", "breakdown", "rally_in_downtrend",
-        "compression_break_down", "ema_rejection", "base_breakdown",
-        "overbought_reversal", "failed_breakout",
+        "breakdown", "ema_rejection", "rally_short", "reversal_short",
+        "failed_breakout", "bb_mr_short", "ema200_snap_short",
     }
     missing = required - SHORT_SETUP_PATTERNS
     assert not missing, f"Missing short patterns: {missing}"
