@@ -122,8 +122,11 @@ class Settings(BaseSettings):
     scanner_history_symbol_batch: int = 25          # symbols per Databento get_range call — small so a
                                                     #   180d pull finishes well inside the per-call timeout
                                                     #   (130 syms × 180d in one call hung >180s; root cause)
-    scanner_history_call_timeout_secs: float = 90.0 # hard bound per get_range sub-batch — no silent hang
+    scanner_history_call_timeout_secs: float = 120.0 # hard bound per get_range sub-batch — no silent hang
     scanner_history_fetch_concurrency: int = 3      # parallel sub-batch calls (Databento throttles >3 → 504)
+    scanner_history_window_days: int = 45           # split a long backfill into <=N-day date windows —
+                                                    #   the failure axis is window DEPTH (a 180d pull hangs
+                                                    #   even at 25 syms; short windows always returned fast)
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
     scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both

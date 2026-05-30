@@ -206,31 +206,41 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     for r in und_rows:
         und_close.setdefault(r.ticker.upper(), {})[r.date] = r.close
 
-    # Split every bucket into small symbol sub-batches. One huge call (130 syms × 180d)
-    # streams too much to finish in time and hangs the whole phase; many small calls each
-    # finish fast, run with bounded concurrency, and a single slow/failed sub-batch only
-    # drops its own symbols. All sizes/timeouts are config knobs (no hardcode).
+    # Split every bucket along BOTH axes: small symbol sub-batches AND short date windows.
+    # A single 130-sym × 180d call hangs the whole phase; even 25 syms × 180d times out —
+    # the failure axis is window DEPTH, so the long window is sliced into <=N-day pieces.
+    # Each small call finishes fast, runs with bounded concurrency, and a single slow/failed
+    # piece only drops its own symbols×window. All sizes/timeouts are config knobs (no hardcode).
     loop = asyncio.get_running_loop()
     batch_n = settings.scanner_history_symbol_batch
-    jobs: list[tuple[str, list[str]]] = []
+    win = settings.scanner_history_window_days
+    jobs: list[tuple[str, str, list[str]]] = []
     for start, symbols in buckets.items():
-        for i in range(0, len(symbols), batch_n):
-            jobs.append((start, symbols[i:i + batch_n]))
+        s0 = date.fromisoformat(start)
+        windows: list[tuple[str, str]] = []
+        cur = s0
+        while cur < today:
+            nxt = min(cur + timedelta(days=win), today)
+            windows.append((cur.isoformat(), nxt.isoformat()))
+            cur = nxt
+        for ws, we in windows:
+            for i in range(0, len(symbols), batch_n):
+                jobs.append((ws, we, symbols[i:i + batch_n]))
 
     sem = asyncio.Semaphore(settings.scanner_history_fetch_concurrency)
     done = 0
     frames: list[pd.DataFrame] = []
 
-    async def _pull(start: str, syms: list[str]) -> pd.DataFrame | None:
+    async def _pull(w_start: str, w_end: str, syms: list[str]) -> pd.DataFrame | None:
         nonlocal done
         async with sem:
             try:
                 part = await asyncio.wait_for(
-                    loop.run_in_executor(None, fetch_statistics, syms, start, end),
+                    loop.run_in_executor(None, fetch_statistics, syms, w_start, w_end),
                     timeout=settings.scanner_history_call_timeout_secs,
                 )
             except (Exception, asyncio.TimeoutError) as exc:
-                log.warning("refresh_watchlist.databento_failed", start=start,
+                log.warning("refresh_watchlist.databento_failed", start=w_start, end=w_end,
                             symbols=len(syms), error=str(exc) or type(exc).__name__)
                 return None
             finally:
@@ -238,7 +248,7 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
                 log.info("refresh_watchlist.progress", done=done, total=len(jobs))
             return part
 
-    results = await asyncio.gather(*(_pull(s, y) for s, y in jobs))
+    results = await asyncio.gather(*(_pull(ws, we, y) for ws, we, y in jobs))
     frames = [p for p in results if p is not None and not p.empty]
 
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
