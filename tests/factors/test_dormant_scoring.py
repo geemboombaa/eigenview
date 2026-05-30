@@ -2,9 +2,10 @@
 
 dwoi / percentile_rank / percentile_value / candidate filter / bet_confidence
 are pure transforms; these exercise each branch with explicit computed inputs.
-bet_confidence replaces the old ±3-strike isolation_multiplier — it discounts a
-big-OI contract only for UNAMBIGUOUS hedge/spread structure (same-side vertical,
-cross-expiry calendar, whole-chain delta balance).
+bet_confidence is now a SOFT annotation only: static vertical/calendar "spread"
+detection was removed (it fired on liquidity, not real spreads, from one EOD
+snapshot). Only the whole-chain delta-balance flag remains, and its penalty stays
+above the keep-floor — it never drops a contract, just marks dealer-style books.
 """
 from __future__ import annotations
 
@@ -54,49 +55,42 @@ class TestBetConfidence:
     _E2 = _date.today() + timedelta(days=210)
 
     def test_isolated_naked_call_full_confidence(self):
-        # One dominant call, small fillers far away, single expiry → no penalty.
+        # One dominant call, small fillers, single expiry → directional book → no penalty.
         cand = _row(110.0, "C", 200_000, delta=0.35, expiry=self._E)
         chain = [cand] + [_row(100.0 + i, "C", 120, delta=0.30, expiry=self._E)
                           for i in range(40)]
         conf, d = bet_confidence(cand, chain, spot=100.0)
         assert conf == 1.0
-        assert not d.get("vertical") and not d.get("calendar") and not d.get("chain_balanced")
+        assert not d.get("chain_balanced")
 
-    def test_vertical_spread_penalized(self):
-        # A comparable same-side OI leg a few strikes away → likely a vertical.
+    def test_vertical_no_longer_penalized(self):
+        # A big same-side OI leg nearby is NOT a spread we can prove from one snapshot —
+        # it's just a liquid call ladder. Regression guard: must stay full confidence.
         cand = _row(110.0, "C", 200_000, delta=0.35, expiry=self._E)
         chain = [cand,
-                 _row(115.0, "C", 150_000, delta=0.25, expiry=self._E),  # the short leg
+                 _row(115.0, "C", 150_000, delta=0.25, expiry=self._E),
                  _row(105.0, "C", 100, delta=0.45, expiry=self._E)]
         conf, d = bet_confidence(cand, chain, spot=100.0)
-        assert d["vertical"] is True
-        assert conf == 0.4
+        assert conf == 1.0
+        assert "vertical" not in d
 
-    def test_calendar_spread_penalized(self):
-        # Same strike, a different expiry, comparable OI → calendar/diagonal.
+    def test_calendar_no_longer_penalized(self):
+        # Same strike, different expiry, big OI = independent LEAP holders, not a calendar.
         cand = _row(110.0, "C", 200_000, delta=0.35, expiry=self._E)
         chain = [cand, _row(110.0, "C", 150_000, delta=0.30, expiry=self._E2)]
         conf, d = bet_confidence(cand, chain, spot=100.0)
-        assert d["calendar"] is True
-        assert conf == 0.4
+        assert conf == 1.0
+        assert "calendar" not in d
 
-    def test_balanced_book_penalized(self):
+    def test_balanced_book_soft_flag_never_drops(self):
         # Candidate call mirrored by an equal-dollar-delta put → whole chain nets ~0.
+        # Flagged, but penalty 0.7 stays above the 0.40 keep-floor: never dropped.
         cand = _row(100.0, "C", 50_000, delta=0.5, expiry=self._E)
         chain = [cand, _row(100.0, "P", 50_000, delta=-0.5, expiry=self._E)]
         conf, d = bet_confidence(cand, chain, spot=100.0)
         assert d["chain_balanced"] is True
         assert conf == 0.7
-
-    def test_below_min_is_dropped_by_caller_threshold(self):
-        # Vertical (×0.4) stacks below the 0.40 keep-floor only with another penalty.
-        cand = _row(110.0, "C", 200_000, delta=0.5, expiry=self._E)
-        chain = [cand,
-                 _row(115.0, "C", 150_000, delta=0.4, expiry=self._E),     # vertical leg
-                 _row(110.0, "C", 150_000, delta=0.5, expiry=self._E2)]    # calendar leg
-        conf, d = bet_confidence(cand, chain, spot=100.0)
-        assert d["vertical"] and d["calendar"]
-        assert conf == 0.4 * 0.4  # 0.16 → dropped by the 0.40 caller floor
+        assert conf >= 0.40
 
 
 class TestPercentileValue:
@@ -109,15 +103,15 @@ class TestPercentileValue:
 
 class TestCandidateFilter:
     def test_floor_is_at_least_tradeability(self):
-        # tiny positions -> floor stays at the $10M tradeability minimum
+        # tiny positions -> floor stays at the $25M tradeability minimum
         chain = [_row(100.0, "C", 10, delta=0.5) for _ in range(10)]
-        assert candidate_dwoi_floor(chain, spot=100.0) == 10_000_000.0
+        assert candidate_dwoi_floor(chain, spot=100.0) == 25_000_000.0
 
     def test_floor_rises_with_big_positions(self):
-        # one giant + many small -> 98th pct above the $10M floor
+        # one giant + many small -> 98th pct above the $25M floor
         chain = [_row(100.0 + i, "C", 1_000_000, delta=0.9) for i in range(10)]
         floor = candidate_dwoi_floor(chain, spot=100.0)
-        assert floor > 10_000_000.0
+        assert floor > 25_000_000.0
 
     def test_big_long_dated_call_qualifies(self):
         c = _row(110.0, "C", 200_000, delta=0.5, expiry=_date.today() + timedelta(days=120))

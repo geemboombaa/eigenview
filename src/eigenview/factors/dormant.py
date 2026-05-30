@@ -128,61 +128,26 @@ def _signed_delta_usd(c, spot: float) -> float:
 
 
 def bet_confidence(candidate, ticker_chain: list, spot: float) -> tuple[float, dict]:
-    """Is a big-OI contract a STANDALONE directional bet, or part of a hedge/spread?
+    """Soft annotation: is this contract sitting inside a delta-balanced (dealer) book?
 
-    Starts at confidence 1.0 and applies one multiplicative penalty per unambiguous
-    hedge/spread structure detectable from an EOD chain alone:
-      • same-side vertical : a comparable same-type OI leg within ±band strikes
-      • cross-expiry calendar: comparable same-strike OI on a different expiry
-      • balanced book      : the WHOLE ticker chain is delta-neutral (a dealer book,
-                             not a directional position)
-    No V/OI "newness" gate — a true dormant bet is old/large/quiet by design; newness
-    belongs to the activation layer. Risk-reversals are directional, so not penalized.
-    Returns (confidence, detail). Caller drops the contract if confidence < the min.
+    Static vertical/calendar "spread" detection was removed — from one EOD OI snapshot
+    those checks fire on LIQUIDITY, not real spreads (a spread leg and two independent
+    holders at the same strike are indistinguishable in a single snapshot). Real spread
+    detection needs ΔOI-correlation across consecutive daily snapshots (deferred until
+    those accrue). List size is controlled by the dollar/percentile size screen, not here.
+
+    Only the whole-chain delta-balance flag remains, and only as a SOFT annotation: its
+    penalty keeps confidence above the min, so it never drops a contract — it just marks
+    market-maker-style balanced books for display. Returns (confidence, detail).
     """
     cand_oi = float(getattr(candidate, "oi", 0) or 0)
     if cand_oi <= 0:
         return 0.0, {"reason": "no_oi"}
-    cand_strike = float(candidate.strike)
-    cand_exp = getattr(candidate, "expiry", None)
-    cand_is_call = _is_call(candidate.call_put)
 
     conf = 1.0
     detail: dict = {}
 
-    # 1. Same-expiry, same-side vertical leg (long one strike, short another).
-    same_side = [c for c in ticker_chain
-                 if getattr(c, "expiry", None) == cand_exp
-                 and _is_call(c.call_put) == cand_is_call]
-    strikes = sorted({float(c.strike) for c in same_side})
-    vert_oi = 0.0
-    if cand_strike in strikes:
-        ci = strikes.index(cand_strike)
-        lo = strikes[max(0, ci - settings.dormant_vertical_strike_band)]
-        hi = strikes[min(len(strikes) - 1, ci + settings.dormant_vertical_strike_band)]
-        vert_oi = max(
-            (float(c.oi or 0) for c in same_side
-             if float(c.strike) != cand_strike and lo <= float(c.strike) <= hi),
-            default=0.0,
-        )
-    detail["vertical_oi"] = round(vert_oi)
-    if vert_oi >= settings.dormant_vertical_oi_frac * cand_oi:
-        conf *= settings.dormant_pen_vertical
-        detail["vertical"] = True
-
-    # 2. Cross-expiry calendar/diagonal: same strike, same side, a different expiry.
-    cal_oi = sum(
-        float(c.oi or 0) for c in ticker_chain
-        if _is_call(c.call_put) == cand_is_call
-        and float(c.strike) == cand_strike
-        and getattr(c, "expiry", None) != cand_exp
-    )
-    detail["calendar_oi"] = round(cal_oi)
-    if cal_oi >= settings.dormant_calendar_oi_frac * cand_oi:
-        conf *= settings.dormant_pen_calendar
-        detail["calendar"] = True
-
-    # 3. Whole-chain delta balance — a market-maker book nets to ~0, a real bet doesn't.
+    # Whole-chain delta balance — a market-maker book nets to ~0, a real bet doesn't.
     net = gross = 0.0
     for c in ticker_chain:
         d = _signed_delta_usd(c, spot)

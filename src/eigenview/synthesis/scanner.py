@@ -206,22 +206,40 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     for r in und_rows:
         und_close.setdefault(r.ticker.upper(), {})[r.date] = r.close
 
-    loop = asyncio.get_event_loop()
-    frames: list[pd.DataFrame] = []
+    # Split every bucket into small symbol sub-batches. One huge call (130 syms × 180d)
+    # streams too much to finish in time and hangs the whole phase; many small calls each
+    # finish fast, run with bounded concurrency, and a single slow/failed sub-batch only
+    # drops its own symbols. All sizes/timeouts are config knobs (no hardcode).
+    loop = asyncio.get_running_loop()
+    batch_n = settings.scanner_history_symbol_batch
+    jobs: list[tuple[str, list[str]]] = []
     for start, symbols in buckets.items():
-        try:
-            # Databento sync client has no request timeout — bound each bucket so a
-            # stuck pull can't hang the whole download phase.
-            part = await asyncio.wait_for(
-                loop.run_in_executor(None, fetch_statistics, symbols, start, end),
-                timeout=180.0,
-            )
-        except (Exception, asyncio.TimeoutError) as exc:
-            log.warning("refresh_watchlist.databento_failed", start=start,
-                        symbols=len(symbols), error=str(exc))
-            continue
-        if not part.empty:
-            frames.append(part)
+        for i in range(0, len(symbols), batch_n):
+            jobs.append((start, symbols[i:i + batch_n]))
+
+    sem = asyncio.Semaphore(settings.scanner_history_fetch_concurrency)
+    done = 0
+    frames: list[pd.DataFrame] = []
+
+    async def _pull(start: str, syms: list[str]) -> pd.DataFrame | None:
+        nonlocal done
+        async with sem:
+            try:
+                part = await asyncio.wait_for(
+                    loop.run_in_executor(None, fetch_statistics, syms, start, end),
+                    timeout=settings.scanner_history_call_timeout_secs,
+                )
+            except (Exception, asyncio.TimeoutError) as exc:
+                log.warning("refresh_watchlist.databento_failed", start=start,
+                            symbols=len(syms), error=str(exc) or type(exc).__name__)
+                return None
+            finally:
+                done += 1
+                log.info("refresh_watchlist.progress", done=done, total=len(jobs))
+            return part
+
+    results = await asyncio.gather(*(_pull(s, y) for s, y in jobs))
+    frames = [p for p in results if p is not None and not p.empty]
 
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
