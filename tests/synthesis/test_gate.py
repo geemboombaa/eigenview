@@ -91,6 +91,37 @@ def test_setup_type_keeps_ta_label_with_high_dormant() -> None:
     assert setup_type(sc) == "breakdown"
 
 
+def test_qualify_gex_off_still_qualifies() -> None:
+    # GEX demoted from hard gate → conviction modifier (2026-05-30). A pick with
+    # TA + dormant + sentiment qualifies even when GEX does not fire.
+    sc = make_scorecard(gex=False)
+    assert qualify_pick(sc, macro_score=8) is True
+
+
+def test_qualify_requires_dormant_and_sentiment() -> None:
+    # Soft gate is now dormant AND sentiment (2 of 2). Either one missing → no pick.
+    assert qualify_pick(make_scorecard(dormant=True, sentiment=False), macro_score=8) is False
+    assert qualify_pick(make_scorecard(dormant=False, sentiment=True), macro_score=8) is False
+    assert qualify_pick(make_scorecard(dormant=True, sentiment=True), macro_score=8) is True
+
+
+def test_qualify_flow_does_not_substitute() -> None:
+    # Flow is kept in code but NOT counted toward qualifying. It cannot stand in
+    # for a missing dormant/sentiment.
+    sc = make_scorecard(flow=True, dormant=True, sentiment=False)
+    assert qualify_pick(sc, macro_score=8) is False
+
+
+def test_conviction_short_gamma_bumps_over_long_gamma() -> None:
+    # GEX regime modifies conviction: short_gamma (moves amplified) bumps,
+    # long_gamma (pinning fights the move) trims.
+    sc_short = make_scorecard(dormant_strength=0.6)
+    sc_short.gex = FactorResult(factor_id="gex", firing=True, strength=0.5, label="short_gamma")
+    sc_long = make_scorecard(dormant_strength=0.6)
+    sc_long.gex = FactorResult(factor_id="gex", firing=True, strength=0.5, label="long_gamma")
+    assert conviction_score(sc_short) > conviction_score(sc_long)
+
+
 def test_qualify_absent_macro_does_not_block() -> None:
     # Macro NO DATA is not a gate — a stock pick stands on its own TA+GEX+soft factors.
     sc = TickerScorecard(
