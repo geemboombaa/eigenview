@@ -8,26 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eigenview.config import settings
-from eigenview.data.storage import Catalyst, Chain, ContractHistory, DormantBet, Price
+from eigenview.data.storage import Chain, ContractHistory, DormantBet, Price
 from eigenview.factors.base import FactorResult
 
 log = structlog.get_logger(__name__)
 
 _FACTOR_ID = "dormant"
 
-# All size/IV signals are RELATIVE to the ticker's own chain (percentile rank),
-# so they work the same on a $50 mid-cap and a $1,000 mega-cap. Absolute dollar
-# cutoffs are gone. Signal 5 (activation burst) still deferred (needs V/OI history).
-#
-# Max raw score: size(2) + cheap_IV(1) + catalyst(2) + time_left(1) + long_dated(1) = 7.
-# Isolation is a multiplier (0.0 / 0.5 / 1.0) applied to the raw score.
-_MAX_SCORE = 7             # structural: max raw rubric points (size2 + iv1 + cat2 + time1 + dated1)
-
-# All tunable cutoffs live in config (settings.dormant_*); bound here for readability.
-_STRIKE_BAND = settings.dormant_strike_band      # ± strikes for the isolation window
-_SIZE_PCT_1 = settings.dormant_size_pct_1        # ΔWOI percentile within ticker for +1
-_SIZE_PCT_2 = settings.dormant_size_pct_2        # ΔWOI percentile within ticker for +2
-_IV_CHEAP_PCT = settings.dormant_iv_cheap_pct    # IV in bottom pct of the expiry = cheap
+# All size signals are RELATIVE to the ticker's own chain (percentile rank), so
+# they work the same on a $50 mid-cap and a $1,000 mega-cap. A big-OI contract is
+# kept only if bet_confidence clears the hedge/spread filter at watchlist-write.
 
 
 @dataclass
@@ -39,6 +29,7 @@ class _ChainRow:
     delta: float | None = None
     iv: float | None = None
     expiry: date | None = None
+    volume: int | None = None
 
 
 def mark_price(
@@ -131,213 +122,82 @@ def is_dormant_candidate(
     return True
 
 
-def isolation_multiplier(
-    candidate, expiry_chain: list, spot: float, strike_band: int = _STRIKE_BAND
-) -> tuple[float, float]:
-    """Directional-purity gate over ±`strike_band` strikes on the candidate's expiry.
+def _signed_delta_usd(c, spot: float) -> float:
+    sign = 1.0 if _is_call(c.call_put) else -1.0
+    return sign * _delta_usd(getattr(c, "delta", None), getattr(c, "oi", None), spot)
 
-    Sums signed dollar-delta (calls +, puts -). A naked bet keeps its delta
-    (|net| ≈ gross → purity ≈ 1); a collar/hedge cancels (purity ≈ 0).
-    Returns (multiplier, purity): ≥0.7 →1.0, 0.3-0.7 →0.5, <0.3 →0.0 (drop).
+
+def bet_confidence(candidate, ticker_chain: list, spot: float) -> tuple[float, dict]:
+    """Is a big-OI contract a STANDALONE directional bet, or part of a hedge/spread?
+
+    Starts at confidence 1.0 and applies one multiplicative penalty per unambiguous
+    hedge/spread structure detectable from an EOD chain alone:
+      • same-side vertical : a comparable same-type OI leg within ±band strikes
+      • cross-expiry calendar: comparable same-strike OI on a different expiry
+      • balanced book      : the WHOLE ticker chain is delta-neutral (a dealer book,
+                             not a directional position)
+    No V/OI "newness" gate — a true dormant bet is old/large/quiet by design; newness
+    belongs to the activation layer. Risk-reversals are directional, so not penalized.
+    Returns (confidence, detail). Caller drops the contract if confidence < the min.
     """
-    strikes = sorted({float(c.strike) for c in expiry_chain})
-    if not strikes:
-        return 1.0, 1.0
+    cand_oi = float(getattr(candidate, "oi", 0) or 0)
+    if cand_oi <= 0:
+        return 0.0, {"reason": "no_oi"}
     cand_strike = float(candidate.strike)
-    ci = min(range(len(strikes)), key=lambda i: abs(strikes[i] - cand_strike))
-    band = set(strikes[max(0, ci - strike_band): ci + strike_band + 1])
+    cand_exp = getattr(candidate, "expiry", None)
+    cand_is_call = _is_call(candidate.call_put)
 
+    conf = 1.0
+    detail: dict = {}
+
+    # 1. Same-expiry, same-side vertical leg (long one strike, short another).
+    same_side = [c for c in ticker_chain
+                 if getattr(c, "expiry", None) == cand_exp
+                 and _is_call(c.call_put) == cand_is_call]
+    strikes = sorted({float(c.strike) for c in same_side})
+    vert_oi = 0.0
+    if cand_strike in strikes:
+        ci = strikes.index(cand_strike)
+        lo = strikes[max(0, ci - settings.dormant_vertical_strike_band)]
+        hi = strikes[min(len(strikes) - 1, ci + settings.dormant_vertical_strike_band)]
+        vert_oi = max(
+            (float(c.oi or 0) for c in same_side
+             if float(c.strike) != cand_strike and lo <= float(c.strike) <= hi),
+            default=0.0,
+        )
+    detail["vertical_oi"] = round(vert_oi)
+    if vert_oi >= settings.dormant_vertical_oi_frac * cand_oi:
+        conf *= settings.dormant_pen_vertical
+        detail["vertical"] = True
+
+    # 2. Cross-expiry calendar/diagonal: same strike, same side, a different expiry.
+    cal_oi = sum(
+        float(c.oi or 0) for c in ticker_chain
+        if _is_call(c.call_put) == cand_is_call
+        and float(c.strike) == cand_strike
+        and getattr(c, "expiry", None) != cand_exp
+    )
+    detail["calendar_oi"] = round(cal_oi)
+    if cal_oi >= settings.dormant_calendar_oi_frac * cand_oi:
+        conf *= settings.dormant_pen_calendar
+        detail["calendar"] = True
+
+    # 3. Whole-chain delta balance — a market-maker book nets to ~0, a real bet doesn't.
     net = gross = 0.0
-    for c in expiry_chain:
-        if float(c.strike) not in band:
-            continue
-        sign = 1.0 if _is_call(c.call_put) else -1.0
-        d = sign * _delta_usd(getattr(c, "delta", None), getattr(c, "oi", None), spot)
+    for c in ticker_chain:
+        d = _signed_delta_usd(c, spot)
         net += d
         gross += abs(d)
+    purity = abs(net) / gross if gross > 0 else 1.0
+    detail["chain_purity"] = round(purity, 3)
+    if purity < settings.dormant_chain_balance_purity:
+        conf *= settings.dormant_pen_chain_balanced
+        detail["chain_balanced"] = True
 
-    if gross <= 0:
-        return 1.0, 1.0  # no delta data — cannot prove a hedge, treat as isolated
-    purity = abs(net) / gross
-    if purity >= 0.7:
-        return 1.0, purity
-    if purity >= 0.3:
-        return 0.5, purity
-    return 0.0, purity
-
-
-def _candidate_row(bet: DormantBet, expiry_chain: list):
-    cp1 = str(bet.call_put).upper()[:1]
-    return next(
-        (c for c in expiry_chain
-         if float(c.strike) == float(bet.strike) and _is_call(c.call_put) == (cp1 == "C")),
-        None,
-    )
+    detail["confidence"] = round(conf, 3)
+    return conf, detail
 
 
-def _build_chain_index(current_chains: list) -> dict[tuple[float, str], int]:
-    """Map (strike, call_put) → current OI from today's chain snapshot."""
-    index: dict[tuple[float, str], int] = {}
-    for row in current_chains:
-        index[(float(row.strike), str(row.call_put))] = int(row.oi or 0)
-    return index
-
-
-def score_bet_v2(
-    bet: DormantBet,
-    ticker_chain: list,
-    spot: float,
-    catalyst_near: bool,
-) -> tuple[float, dict]:
-    """Score one dormant bet. All size/IV signals are relative to the ticker's
-    own chain. Isolation gates first (fully hedged → 0).
-
-    `ticker_chain` is the full chain for the ticker (all strikes/expiries).
-    Returns (final_score, detail).
-    """
-    expiry_chain = [c for c in ticker_chain if getattr(c, "expiry", None) == bet.expiry]
-
-    mult, purity = isolation_multiplier(bet, expiry_chain, spot)
-    detail: dict = {"hedge_purity": round(purity, 3), "isolation_multiplier": mult}
-    if mult == 0.0:
-        detail["isolation"] = "fully_hedged"
-        return 0.0, detail
-
-    cand = _candidate_row(bet, expiry_chain)
-    cand_delta = getattr(cand, "delta", None) if cand is not None else None
-    cand_oi = (getattr(cand, "oi", None) if cand is not None else None) or bet.original_oi or 0
-
-    raw = 0
-
-    # Size — ΔWOI percentile across the whole ticker chain (relative bigness)
-    cand_dwoi = dwoi(cand_delta, cand_oi, spot)
-    all_dwoi = [dwoi(getattr(c, "delta", None), getattr(c, "oi", None), spot)
-                for c in ticker_chain if getattr(c, "oi", None)]
-    size_pct = percentile_rank(cand_dwoi, all_dwoi)
-    detail["dwoi_usd"] = round(cand_dwoi)
-    detail["size_pct"] = round(size_pct, 3)
-    if size_pct >= _SIZE_PCT_1:
-        raw += 1
-    if size_pct >= _SIZE_PCT_2:
-        raw += 1
-
-    # Cheap IV — IV percentile within the same expiry (informed buyer below the curve)
-    iv_pct = None
-    cand_iv = getattr(cand, "iv", None) if cand is not None else None
-    if cand_iv is not None:
-        ivs = [c.iv for c in expiry_chain if getattr(c, "iv", None) is not None]
-        iv_pct = percentile_rank(float(cand_iv), [float(v) for v in ivs])
-        detail["iv_pct"] = round(iv_pct, 3)
-        if iv_pct <= _IV_CHEAP_PCT:
-            raw += 1
-
-    # Catalyst within the configured window
-    if catalyst_near:
-        raw += 2
-    # Time remaining
-    if bet.expiry and bet.expiry > date.today() + timedelta(days=settings.dormant_min_time_left_days):
-        raw += 1
-    # Long-dated at open
-    if bet.expiry and bet.original_date and (bet.expiry - bet.original_date).days >= settings.dormant_long_dated_days:
-        raw += 1
-
-    detail["raw_score"] = raw
-    detail["structural_score"] = (
-        (1 if size_pct >= _SIZE_PCT_1 else 0)
-        + (1 if size_pct >= _SIZE_PCT_2 else 0)
-        + (1 if (iv_pct is not None and iv_pct <= _IV_CHEAP_PCT) else 0)
-    )
-    return raw * mult, detail
-
-
-async def _has_catalyst_near(ticker: str, session: AsyncSession, days: int = settings.dormant_catalyst_days) -> bool:
-    rows = await session.execute(
-        select(Catalyst).where(
-            Catalyst.ticker == ticker,
-            Catalyst.days_from_now >= 0,
-            Catalyst.days_from_now <= days,
-        )
-    )
-    return rows.scalars().first() is not None
-
-
-async def score_dormant(
-    ticker: str,
-    session: AsyncSession,
-    spot_price: float,
-    current_chains: list,
-    days_of_history: int = settings.dormant_min_history_days,
-) -> FactorResult:
-    _min_hist = settings.dormant_min_history_days
-    if days_of_history < _min_hist:
-        return FactorResult(
-            factor_id=_FACTOR_ID,
-            firing=False,
-            strength=0.0,
-            label="ACCUMULATING",
-            narrative=(
-                f"Chain history {days_of_history}/{_min_hist} days. "
-                f"Dormant radar activates after {_min_hist} days of data."
-            ),
-        )
-
-    rows = await session.execute(select(DormantBet).where(DormantBet.ticker == ticker))
-    bets = rows.scalars().all()
-
-    if not bets:
-        return FactorResult(
-            factor_id=_FACTOR_ID, firing=False, strength=0.0, label="ACCUMULATING",
-            detail={}, narrative="No dormant bets tracked yet. Accumulating chain history.",
-        )
-
-    catalyst_near = await _has_catalyst_near(ticker, session)
-
-    best_score = 0.0
-    best_bet: DormantBet | None = None
-    best_detail: dict = {}
-    for bet in bets:
-        s, detail = score_bet_v2(bet, current_chains, spot_price, catalyst_near)
-        if s > best_score:
-            best_score, best_bet, best_detail = s, bet, detail
-
-    activation_score = best_score / _MAX_SCORE
-    fires = activation_score >= settings.dormant_firing_threshold
-
-    if best_bet is None:
-        return FactorResult(
-            factor_id=_FACTOR_ID, firing=False, strength=0.0, label="DORMANT",
-            detail={"reason": "all_candidates_hedged"},
-            narrative="All tracked positions are hedged — no isolated directional bet.",
-        )
-
-    premium_m = (best_bet.original_premium or 0) / 1_000_000
-    parts = [
-        f"Dormant ${premium_m:.1f}M {best_bet.call_put} at ${best_bet.strike:.0f} "
-        f"(exp {best_bet.expiry}) — score {best_score:.1f}/{_MAX_SCORE}."
-    ]
-    if best_detail.get("size_pct", 0) >= _SIZE_PCT_1:
-        parts.append(f"ΔWOI in {best_detail['size_pct']*100:.0f}th pct for ticker.")
-    if best_detail.get("iv_pct") is not None and best_detail["iv_pct"] <= _IV_CHEAP_PCT:
-        parts.append("IV cheap vs its expiry (informed-buyer signal).")
-    if catalyst_near:
-        parts.append("Catalyst within 14 days.")
-    if best_detail.get("isolation_multiplier", 1.0) == 0.5:
-        parts.append("Partially hedged (score halved).")
-
-    return FactorResult(
-        factor_id=_FACTOR_ID,
-        firing=fires,
-        strength=activation_score,
-        label="ACTIVE" if fires else "DORMANT",
-        detail={
-            "activation_score": round(activation_score, 3),
-            "best_bet_strike": best_bet.strike,
-            "best_bet_expiry": str(best_bet.expiry),
-            "best_score": round(best_score, 2),
-            **best_detail,
-        },
-        narrative=" ".join(parts),
-    )
 
 
 def _group_chain_snapshots(rows) -> dict:
@@ -373,11 +233,12 @@ async def score_dormant_from_history(
     current_chains: list,
     target: date | None = None,
 ) -> FactorResult:
-    """Score dormant bets using activation engine (contract_history).
+    """Score dormant bets using the activation engine (contract_history).
 
-    Uses real baseline→recent comparison via score_activation(). Falls back to
-    static score_bet_v2 if contract_history is below settings.activation_min_history
-    rows (score_activation cannot produce a result under that floor).
+    Real baseline→recent comparison via score_activation(): lookback mode when the
+    merged series has ≥ activation_min_history points, forward mode (chain snapshots
+    only, +1/scan) when fewer. No hedge filter here — hedged contracts are kept out
+    of the watchlist at write-time by bet_confidence, so everything tracked is a bet.
     """
     from eigenview.factors.activation import score_activation
     from eigenview.data.databento_history import osi_symbol as _osi

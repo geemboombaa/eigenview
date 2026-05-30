@@ -76,8 +76,10 @@ class Settings(BaseSettings):
     dormant_size_pct_1: float = 0.90                # ΔWOI pct within ticker for +1
     dormant_size_pct_2: float = 0.99                # ΔWOI pct within ticker for +2
     dormant_iv_cheap_pct: float = 0.20              # IV in bottom pct of expiry = cheap
-    dormant_tradeability_dwoi: float = 1_000_000.0  # absolute ΔWOI floor: real position
-    dormant_size_filter_pct: float = 0.80           # candidate bigness: ΔWOI top 20%
+    dormant_tradeability_dwoi: float = 10_000_000.0  # absolute ΔWOI floor: a real whale position
+                                                     #   (calibrated 2026-05-30 — $1M kept 18k junk
+                                                     #   contracts; $10M + top2% lands ~1.4k pre-hedge)
+    dormant_size_filter_pct: float = 0.98           # candidate bigness: ΔWOI top 2% of ticker chain
     dormant_deep_itm_delta: float = 0.85            # |delta| above = stock substitute, drop
     dormant_min_dte: int = 20                       # min days-to-expiry for a candidate
     dormant_catalyst_days: int = 14                 # catalyst-near window
@@ -88,6 +90,23 @@ class Settings(BaseSettings):
     dormant_min_time_left_days: int = 7             # +1 if expiry beyond this many days
     dormant_long_dated_days: int = 90               # +1 if DTE-at-open >= this
     dormant_min_history_days: int = 30              # min chain history before radar activates
+
+    # ── Bet-confidence hedge filter (factors/dormant.py bet_confidence) ──
+    # Replaces the naive ±3-strike isolation check. A big-OI contract starts at
+    # confidence 1.0; each detected hedge/spread structure multiplies it down.
+    # Kept only if final confidence >= the min. Applied at watchlist-write so
+    # hedged contracts never enter the table or the Databento backfill bill.
+    # Only UNAMBIGUOUS hedge/spread structure penalizes confidence. (V/OI "newness"
+    # is NOT used here — a true dormant bet is old/large/quiet by design; newness is
+    # the activation layer's job. Risk-reversal is itself directional, so not penalized.)
+    dormant_bet_confidence_min: float = 0.40        # keep contract if confidence >= this
+    dormant_vertical_strike_band: int = 15          # ± strikes scanned for a same-side spread leg
+    dormant_vertical_oi_frac: float = 0.50          # offsetting same-side OI >= this frac of cand = vertical
+    dormant_pen_vertical: float = 0.4               #   → confidence ×= this
+    dormant_calendar_oi_frac: float = 0.60          # same-strike OI on other expiries >= this frac = calendar
+    dormant_pen_calendar: float = 0.4               #   → confidence ×= this
+    dormant_chain_balance_purity: float = 0.30      # whole-chain |net|/gross delta below this = balanced book
+    dormant_pen_chain_balanced: float = 0.7         #   → confidence ×= this
 
     # ── Activation engine (factors/activation.py) — baseline→recent jumps ──
     # Thresholds calibrated 2026-05-30 to realistic activation moves (old 75%/10x/15%/10pt
@@ -111,7 +130,7 @@ class Settings(BaseSettings):
     scanner_min_oi: int = 500                       # min OI for a dormant candidate
     scanner_price_lookback_days: int = 200          # daily price window read for TA
     scanner_history_insert_chunk: int = 100         # ContractHistory bulk-insert chunk size
-    scanner_history_backfill_days: int = 120        # initial Databento backfill window
+    scanner_history_backfill_days: int = 180        # per-contract Databento backfill window (6mo)
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
     scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both

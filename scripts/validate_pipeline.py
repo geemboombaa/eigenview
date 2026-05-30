@@ -193,7 +193,7 @@ def validate_flow(chains: list, ticker: str) -> None:
 
 async def validate_dormant(ticker: str, chains: list, spot: float, days_history: int) -> None:
     from eigenview.data.storage import AsyncSessionLocal, DormantBet
-    from eigenview.factors.dormant import score_dormant
+    from eigenview.factors.dormant import score_dormant_from_history
     from sqlalchemy import select
     hdr(f"FACTOR: DORMANT — {ticker}")
     # Show dormant bets in DB
@@ -202,7 +202,7 @@ async def validate_dormant(ticker: str, chains: list, spot: float, days_history:
             select(DormantBet).where(DormantBet.ticker == ticker).limit(10)
         )
         bets = result_db.scalars().all()
-        dormant_result = await score_dormant(ticker, session, spot, chains, days_history)
+        dormant_result = await score_dormant_from_history(ticker, session, spot, chains)
 
     row("Dormant bets tracked",  len(bets), len(bets) > 0)
     row("Days of chain history", days_history, days_history >= 30)
