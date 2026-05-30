@@ -236,19 +236,20 @@ def fetch_data_cmd(
     """
 
     async def _run() -> None:
+        from eigenview.config import settings
         from eigenview.data.download import download_chunked
         from eigenview.data.universe import select_download_universe
 
         async with AsyncSessionLocal() as session:
             keep, stats = await select_download_universe(session)
         typer.echo(
-            f"\nDownload keep-list (filter-first):"
-            f"\n  universe          {stats['universe']}"
-            f"\n  ATR>floor pass    {stats['atr_pass']}"
-            f"\n  OI>=liq pass      {stats['oi_pass']}"
-            f"\n  earnings excluded {stats['earnings_excluded']}"
-            f"\n  volume excluded   {stats['vol_excluded']}"
-            f"\n  => KEEP           {stats['keep']}"
+            f"\nDownload keep-list (filter-first; OI+vol probed LIVE from Databento):"
+            f"\n  universe (NDX∪SP500)   {stats['universe']}"
+            f"\n  ATR>{settings.download_min_atr} pass            {stats['atr_pass']}"
+            f"\n  earnings excluded      {stats['earnings_excluded']}"
+            f"\n  candidates probed live {stats['candidates_probed']}"
+            f"\n  OI>={stats['min_oi']} pass         {stats['oi_pass_live']}"
+            f"\n  + vol>={stats['min_vol']} (=> KEEP)   {stats['keep']}"
         )
         if limit > 0:
             keep = keep[:limit]

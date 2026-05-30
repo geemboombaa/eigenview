@@ -140,6 +140,15 @@ async def select_download_universe(session) -> tuple[list[str], dict]:
     # (fewer Databento calls). OI + volume MUST come from source, not the stale SQL dump.
     candidates = sorted((universe & atr_pass) - earn_soon)
 
+    import os
+    import sys
+
+    scripts_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "scripts")
+    )
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+
     import databento as _db
     from databento_load import load_key, probe_liquidity
 

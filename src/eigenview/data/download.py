@@ -44,27 +44,37 @@ async def download_chunked(
     chunk: int | None = None,
     timeout: float = 300.0,
     progress=None,
+    concurrency: int | None = None,
 ) -> None:
-    """Chunked async download: one executor call per chunk (not a single monolith).
+    """Chunked download with bounded concurrency: up to `concurrency` chunks in flight
+    at once (asyncio.gather + semaphore), each in its own executor thread with its own
+    sqlite connection. Each chunk's prices+chains commit as they land — data trickles in.
 
-    The event loop is released between chunks (UI/poll stays live) and each chunk's
-    prices+chains commit to the DB as they land — data trickles in. Each chunk has a
-    hard timeout so one stuck Databento call can't hang the run (the abandoned thread
-    dies on its own); a failed/timed-out chunk is logged and skipped.
+    Each chunk has a hard timeout so one stuck Databento call can't hang the run (the
+    abandoned thread dies on its own); a failed/timed-out chunk is logged and skipped.
+    Concurrency is bounded (default settings.download_concurrency) because Databento
+    throttles — too many parallel streams raise 504/429.
     """
     loop = asyncio.get_event_loop()
     n = len(tickers)
     step = chunk or settings.scanner_chunk_size
-    for i in range(0, n, step):
-        batch = tickers[i:i + step]
+    sem = asyncio.Semaphore(concurrency or settings.download_concurrency)
+    done = 0
+
+    async def run_chunk(i: int, batch: list[str]) -> None:
+        nonlocal done
+        async with sem:
+            try:
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, download_universe_data, batch),
+                    timeout=timeout,
+                )
+            except (Exception, asyncio.TimeoutError) as exc:
+                log.warning("download_chunk_failed", start=i, error=str(exc))
+        done += len(batch)
         if progress:
-            progress(i, n)
-        try:
-            await asyncio.wait_for(
-                loop.run_in_executor(None, download_universe_data, batch),
-                timeout=timeout,
-            )
-        except (Exception, asyncio.TimeoutError) as exc:
-            log.warning("download_chunk_failed", start=i, error=str(exc))
-    if progress:
-        progress(n, n)
+            progress(done, n)
+
+    await asyncio.gather(
+        *(run_chunk(i, tickers[i:i + step]) for i in range(0, n, step))
+    )

@@ -124,6 +124,9 @@ class Settings(BaseSettings):
                                             #   chains.volume is populated (≈85% null in Databento
                                             #   OPRA statistics) — OI gate below is the real proxy
     # OI≥dormant_min_ticker_oi (5000) is reused as the liquidity proxy for download scope.
+    download_concurrency: int = 3           # chunks fetched concurrently (gather + semaphore).
+                                            #   3 because a single 504 already appeared at serial
+                                            #   pace — Databento throttles; >3 raises 504/429 risk
 
     # ── R:R conviction downgrade (synthesis/gate.py conviction_score) ─────────
     min_rr_ratio: float = 3.0                      # target/risk below this DOWNGRADES conviction
