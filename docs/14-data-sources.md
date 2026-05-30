@@ -62,12 +62,16 @@ Regime score 0–10. Thresholds: GREEN ≥7, RED ≤3 (`config.py`). RED blocks 
 | Dormant | `factors/dormant.py`, `activation.py` | `chains`, `contract_history` (Databento) |
 | Sentiment | `factors/sentiment.py` | `news` (Alpha Vantage + Finnhub), `catalysts` |
 
-## News / sentiment (Part-2 rebuild pending — see docs/SESSION-NEXT-AUDIT.md)
-| Source | Endpoint | Key? | Limit |
-|---|---|---|---|
-| Alpha Vantage News & Sentiment | `alphavantage.co` | yes (free) | 25 calls/day |
-| Finnhub company news | `finnhub.io` | yes (free) | rate-limited |
-- Current scorer = keyword bull/bear counts + catalyst proximity. **Open proposal:** FinBERT/VADER/MiniLM — see Part-2 research (separate doc/section, pending).
+## News / sentiment
+| Source | Endpoint | Key? | Free limit | Role |
+|---|---|---|---|---|
+| **Finnhub** company-news | `finnhub.io` | yes (free) | 60 req/min, no daily cap | **Primary** — recent date-range (`from`/`to`, lookback 3d) covers the full universe daily. |
+| **Alpha Vantage** News & Sentiment | `alphavantage.co` | yes (free) | 25 calls/day | **Shortlist only** — reserved for today's picks / capped subset (`news_av_daily_budget`); never bulk. |
+
+- **Client-side throttle (locked 2026-05-30):** `news.py::AsyncRateLimiter` serializes each provider to its ceiling — Finnhub 1 call / 1.1 s (~54/min), AV 1 / 12 s. Shared across all concurrent coroutines so the refresh job's bounded concurrency can't exceed the limit. Without it Finnhub bulk fired ~500/min → `429` storm (381 errors in one full run); with it a full 184-name sweep runs clean.
+- The refresh job (`cli.py::refresh_news`) already routes AV to the picks subset and Finnhub-only for the rest — the demote is structural, not a config knob to remember.
+- **"Recent not junk":** Finnhub's date-range gives recent company news only; quiet names correctly return empty → sentiment `NO DATA` (honest), never padded.
+- Current scorer = FinBERT direction + catalyst proximity.
 
 ## Universe
 | List | Source |
