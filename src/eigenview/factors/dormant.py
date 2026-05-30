@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eigenview.config import settings
-from eigenview.data.storage import Catalyst, ContractHistory, DormantBet, Price
+from eigenview.data.storage import Catalyst, Chain, ContractHistory, DormantBet, Price
 from eigenview.factors.base import FactorResult
 
 log = structlog.get_logger(__name__)
@@ -340,6 +340,32 @@ async def score_dormant(
     )
 
 
+def _group_chain_snapshots(rows) -> dict:
+    """Group raw chain-snapshot rows (snapshot_date, strike, expiry, call_put, oi, volume, iv)
+    into a forward series per contract, keyed by (strike, expiry, call_put-initial).
+
+    One batched query per ticker feeds this — the forward baseline source (no Databento),
+    growing one point per scan. Pure transform so it's unit-testable."""
+    out: dict = {}
+    for snap, strike, expiry, cp, oi, vol, iv in rows:
+        key = (float(strike), expiry, str(cp).upper()[:1])
+        out.setdefault(key, []).append({"date": snap, "oi": oi, "volume": vol, "close": None, "iv": iv})
+    for series in out.values():
+        series.sort(key=lambda r: r["date"])
+    return out
+
+
+def _merge_series(hist_ch: list[dict], snap: list[dict]) -> list[dict]:
+    """Merge Databento contract_history with our chain-snapshot series, one row per
+    date. contract_history wins on a shared date (authoritative per-contract stats)."""
+    by_date: dict = {}
+    for r in snap:
+        by_date[r["date"]] = r
+    for r in hist_ch:
+        by_date[r["date"]] = r
+    return sorted(by_date.values(), key=lambda r: r["date"])
+
+
 async def score_dormant_from_history(
     ticker: str,
     session: AsyncSession,
@@ -394,46 +420,46 @@ async def score_dormant_from_history(
             {"date": r.date, "oi": r.oi, "volume": r.volume, "close": r.close, "iv": r.iv}
         )
 
-    catalyst_near = await _has_catalyst_near(ticker, session)
+    # One query for ALL this ticker's stored chain snapshots → forward series per contract.
+    snap_rows = await session.execute(
+        select(Chain.snapshot_date, Chain.strike, Chain.expiry, Chain.call_put,
+               Chain.oi, Chain.volume, Chain.iv)
+        .where(Chain.ticker == ticker)
+        .order_by(Chain.snapshot_date.asc())
+    )
+    snap_by_contract = _group_chain_snapshots(snap_rows.all())
 
     best_score = 0.0
     best_result = None
     best_bet: DormantBet | None = None
-    activation_used = False
+    scored_any = False
 
     for osi, bet in bet_by_osi.items():
-        hist = hist_by_osi.get(osi, [])
-        if len(hist) >= settings.activation_min_history:
-            activation_used = True
-            act = score_activation(hist, underlying, bet.call_put, target)
-            if act.strength > best_score:
-                best_score = act.strength
-                best_result = act
-                best_bet = bet
-        else:
-            s, _ = score_bet_v2(bet, current_chains, spot_price, catalyst_near)
-            normalized = s / _MAX_SCORE
-            if not activation_used and normalized > best_score:
-                best_score = normalized
-                best_bet = bet
+        # Merge Databento past (where it exists) with our own forward chain snapshots.
+        # score_activation handles both — lookback when >=30 pts, forward when fewer.
+        key = (float(bet.strike), bet.expiry, str(bet.call_put).upper()[:1])
+        series = _merge_series(hist_by_osi.get(osi, []), snap_by_contract.get(key, []))
+        if len(series) >= settings.activation_forward_min:
+            scored_any = True
+        act = score_activation(series, underlying, bet.call_put, target)
+        if best_result is None or act.strength > best_score:
+            best_score = act.strength
+            best_result = act
+            best_bet = bet
 
-    # Not enough contract_history depth anywhere for this ticker's bets → we cannot
-    # judge activation. Surface as a tracked candidate with its static structural
-    # score for ranking, but DO NOT fire: structure alone (big + long-dated) is
-    # near-universal and produced the 4/7≈0.57 false-positive cluster. Only a real
-    # baseline→recent jump (the activation engine) is allowed to fire.
-    if not activation_used:
+    # No contract has >= 2 snapshots yet → just discovered, no baseline to compare.
+    # Resolves on the next scan as chain snapshots accrue. NOT firing (nothing measured).
+    if not scored_any:
         return FactorResult(
             factor_id=_FACTOR_ID, firing=False, strength=best_score, label="ACCUMULATING",
             detail={
                 "bets_checked": len(bet_by_osi),
-                "activation_ran": False,
-                "reason": "insufficient_contract_history",
-                "static_structural_score": round(best_score, 3),
+                "reason": "awaiting_baseline",
+                "points": (best_result.detail.get("points", 0) if best_result else 0),
             },
             narrative=(
-                "Dormant candidate tracked (structural only) — no contract history "
-                "to score activation; not firing."
+                "Dormant candidate tracked — fewer than 2 snapshots so far, no baseline "
+                "to compare yet. Resolves as daily chain snapshots accrue."
             ),
         )
 

@@ -90,16 +90,20 @@ class Settings(BaseSettings):
     dormant_min_history_days: int = 30              # min chain history before radar activates
 
     # ── Activation engine (factors/activation.py) — baseline→recent jumps ──
+    # Thresholds calibrated 2026-05-30 to realistic activation moves (old 75%/10x/15%/10pt
+    # required two near-extreme events at once and almost never fired). See docs/15.
     activation_recent_days: int = 10                # trailing days treated as "now"
-    activation_oi_jump_pct: float = 0.75            # current OI >= this fraction above baseline
-    activation_oi_min_delta: int = 1000             # ...and >= this many extra contracts
-    activation_vol_mult: float = 10.0               # a recent day's vol >= this x baseline avg
-    activation_vol_min: int = 1000                  # ...and >= this absolute
-    activation_iv_jump_abs: float = 0.10            # IV >= this many vol points above baseline
-    activation_und_move_pct: float = 0.15           # underlying move in the bet's direction
-    activation_und_vol_mult: float = 1.5            # ...on >= this x baseline avg volume
+    activation_oi_jump_pct: float = 0.30            # current OI >= this fraction above baseline
+    activation_oi_min_delta: int = 500              # ...and >= this many extra contracts
+    activation_vol_mult: float = 3.0                # a recent day's vol >= this x baseline avg
+    activation_vol_min: int = 500                   # ...and >= this absolute
+    activation_iv_jump_abs: float = 0.05            # IV >= this many vol points above baseline
+    activation_und_move_pct: float = 0.05           # underlying move in the bet's direction
+    activation_und_vol_mult: float = 1.4            # ...on >= this x baseline avg volume
     activation_age_oi_frac: float = 0.50            # born-on = first day OI hit this frac of peak
-    activation_min_history: int = 30                # min contract-history rows to score
+    activation_min_history: int = 30                # >= this many points → lookback mode (else forward)
+    activation_forward_min: int = 2                 # min points to compare at all (forward mode floor)
+    activation_lookback_days: int = 30              # window: only the last N days of the series are scored
     activation_min_triggers: int = 2                # fire when >= this many triggers
     activation_max_triggers: int = 4                # strength denominator (oi/vol/iv/underlying)
 

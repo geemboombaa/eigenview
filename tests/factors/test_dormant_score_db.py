@@ -82,8 +82,9 @@ async def test_isolated_naked_call_scores(temp_session):
 async def test_no_contract_history_does_not_fire(temp_session):
     """Static structure alone must NOT fire (kills the 4/7=0.57 cluster).
 
-    A real bet exists but there is no contract_history, so the activation engine
-    cannot run. The result must be a non-firing ACCUMULATING candidate, not a fire.
+    A real bet exists but there is neither contract_history nor a second chain
+    snapshot, so there is no baseline to compare. The result must be a non-firing
+    ACCUMULATING candidate, not a fire.
     """
     await _add_bet(temp_session, 110.0, "C", 200_000)
     chain = [
@@ -93,7 +94,7 @@ async def test_no_contract_history_does_not_fire(temp_session):
     r = await score_dormant_from_history("NVDA", temp_session, 100.0, chain)
     assert r.firing is False
     assert r.label == "ACCUMULATING"
-    assert r.detail.get("activation_ran") is False
+    assert r.detail.get("reason") == "awaiting_baseline"
 
 
 @pytest.mark.asyncio
