@@ -31,14 +31,10 @@ class TickerScorecard:
     target: float | None = None
 
 
-def qualify_pick(scorecard: TickerScorecard, macro_score: int) -> bool:
-    # Macro data entirely absent → regime cannot be validated → no picks (long or short)
-    if scorecard.macro.label == "NO DATA":
-        return False
-    is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
-    # RED macro: no long picks (short picks still qualify)
-    if macro_score < settings.macro_regime_red_threshold and not is_short:
-        return False
+def qualify_pick(scorecard: TickerScorecard, macro_score: int = 0) -> bool:
+    # Macro is context/conviction only — it NEVER gates a pick's direction (user-locked 2026-05-29).
+    # A GREEN macro must not block shorts; a RED/NO-DATA macro must not block longs.
+    # A pick stands on its own structure: TA fires (hard) AND GEX fires (hard) AND ≥2 of 3 soft factors.
     if not scorecard.technical.firing:
         return False
     if not scorecard.gex.firing:
@@ -105,9 +101,9 @@ def tier_score(scorecard: TickerScorecard, macro_score: int) -> str | None:
 
 
 def setup_type(scorecard: TickerScorecard) -> str:
+    # Dormant never overwrites the setup name — it's surfaced as its own factor flag.
+    # Setup type is always the real TA pattern (user-locked 2026-05-29).
     lbl = scorecard.technical.label
-    if scorecard.dormant.firing and scorecard.dormant.strength >= 0.7:
-        return "dormant_activation"
     _map = {
         "pullback": "pullback",
         "breakout": "breakout",

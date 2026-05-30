@@ -320,6 +320,32 @@ def score_technical(
 _WEEKLY_STATES = ("BULLISH", "BULLISH_EXTENDED", "NEUTRAL", "BEARISH_WEAK", "BEARISH_STRONG")
 
 
+def _weekly_state_from(
+    ema8: float,
+    ema21: float,
+    rsi_now: float | None,
+    rsi_prev: float | None,
+    adx: float | None,
+) -> str:
+    """Pure 5-state classifier from computed weekly indicators.
+
+    'Extended' = genuine exhaustion only: an uptrend whose weekly RSI is above 85
+    AND rolling over (this week below last week). A strong-but-intact uptrend
+    (high RSI still rising) stays BULLISH so long setups are not switched off.
+    """
+    if ema8 > ema21:
+        rolling_over = rsi_prev is not None and rsi_now is not None and rsi_now < rsi_prev
+        if rsi_now is not None and rsi_now > 85 and rolling_over:
+            return "BULLISH_EXTENDED"
+        return "BULLISH"
+    gap_pct = (ema21 - ema8) / ema21 if ema21 > 0 else 1.0
+    if gap_pct < 0.02:
+        return "NEUTRAL"
+    if adx is not None and adx > 25:
+        return "BEARISH_STRONG"
+    return "BEARISH_WEAK"
+
+
 def _classify_weekly_state(weekly_df: pd.DataFrame, as_of: pd.Timestamp) -> str:
     """5-state weekly trend classifier. Uses bars up to (and including) as_of."""
     wdf = weekly_df[weekly_df.index <= as_of].copy()
@@ -336,19 +362,14 @@ def _classify_weekly_state(weekly_df: pd.DataFrame, as_of: pd.Timestamp) -> str:
     rsi   = last.get("RSI_14")
     if ema8 is None or ema21 is None or pd.isna(ema8) or pd.isna(ema21):
         return "NEUTRAL"
-    ema8f, ema21f = float(ema8), float(ema21)
     rsi_f = float(rsi) if rsi is not None and not pd.isna(rsi) else None
     adx_f = float(adx) if adx is not None and not pd.isna(adx) else None
-    if ema8f > ema21f:
-        if rsi_f is not None and rsi_f > 70:
-            return "BULLISH_EXTENDED"
-        return "BULLISH"
-    gap_pct = (ema21f - ema8f) / ema21f if ema21f > 0 else 1.0
-    if gap_pct < 0.02:
-        return "NEUTRAL"
-    if adx_f is not None and adx_f > 25:
-        return "BEARISH_STRONG"
-    return "BEARISH_WEAK"
+    # Prior week's weekly RSI for the momentum-rollover check.
+    rsi_prev = None
+    if len(wdf) >= 2:
+        _p = wdf.iloc[-2].get("RSI_14")
+        rsi_prev = float(_p) if _p is not None and not pd.isna(_p) else None
+    return _weekly_state_from(float(ema8), float(ema21), rsi_f, rsi_prev, adx_f)
 
 
 def _swing_low(closes: np.ndarray, order: int = 5) -> float | None:

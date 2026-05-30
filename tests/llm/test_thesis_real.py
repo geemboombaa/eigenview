@@ -3,73 +3,70 @@ from __future__ import annotations
 
 import pytest
 
-from eigenview.llm.thesis import _factor_summary, _fallback, generate_thesis
+from eigenview.llm.thesis import _contradicts, _fallback, generate_thesis
+
+
+def _ctx(ticker: str = "NVDA", direction: str = "long", firing: bool = True) -> dict:
+    return {
+        "ticker": ticker,
+        "direction": direction,
+        "setup": "breakdown" if direction == "short" else "pullback_in_trend",
+        "entry_low": 200.0, "entry_high": 207.0,
+        "stop": 195.0 if direction == "long" else 214.0,
+        "target": 225.0 if direction == "long" else 185.0,
+        "rr": 3.0, "conviction": 4, "price": 207.5,
+        "catalyst": "earnings in 22 days", "macro_label": "GREEN",
+        "factors": {
+            "technical": {"firing": firing,
+                          "label": "pullback_in_trend" if direction == "long" else "breakdown",
+                          "detail": {"weekly_state": "BULLISH" if direction == "long" else "BEARISH_STRONG",
+                                     "rsi": 42.5, "adx": 28.0}},
+            "gex": {"firing": firing, "label": "long_gamma" if direction == "long" else "short_gamma",
+                    "detail": {"gamma_flip": 205.0, "call_wall": 220.0, "put_wall": 195.0}},
+            "flow": {"firing": False, "label": "no_signal", "detail": {}},
+            "dormant": {"firing": False, "label": "DORMANT", "detail": {}},
+            "sentiment": {"firing": firing, "label": "bullish" if direction == "long" else "bearish",
+                          "detail": {"net": 0.4 if direction == "long" else -0.4,
+                                     "top_headline": "NVDA data-center demand accelerates"}},
+        },
+    }
 
 
 # ── Pure function tests (no I/O — real computed inputs) ────────────────────
 
-def _real_factors(firing: bool = True) -> dict:
-    return {
-        "technical": {"firing": firing, "label": "pullback_in_trend", "detail": {"rsi": 42.5, "adx": 28.0}},
-        "gex": {"firing": firing, "label": "long_gamma", "detail": {"net_gex": 1_200_000_000.0}},
-        "flow": {"firing": False, "label": "no_signal", "detail": {}},
-    }
-
-
-def test_factor_summary_includes_firing_labels():
-    result = _factor_summary(_real_factors(firing=True))
-    assert "technical" in result
-    assert "gex" in result
-
-
-def test_factor_summary_excludes_non_firing():
-    result = _factor_summary(_real_factors(firing=True))
-    assert "flow" not in result
-
-
-def test_factor_summary_empty_returns_fallback_string():
-    result = _factor_summary({})
-    assert isinstance(result, str)
-    assert len(result) > 0
-
-
 def test_fallback_contains_ticker():
-    result = _fallback("NVDA", _real_factors())
-    assert "NVDA" in result
+    assert "NVDA" in _fallback(_ctx("NVDA"))
 
 
-def test_fallback_mentions_ta_and_gex():
-    result = _fallback("AAPL", _real_factors())
-    assert "TA" in result
-    assert "GEX" in result
+def test_fallback_mentions_direction_and_stop():
+    fb = _fallback(_ctx("AAPL", direction="short"))
+    assert "short" in fb.lower()
+    assert "214.00" in fb
 
 
 def test_fallback_is_nonempty_string():
-    result = _fallback("AMD", _real_factors())
-    assert isinstance(result, str)
-    assert len(result) > 0
+    fb = _fallback(_ctx("AMD"))
+    assert isinstance(fb, str) and len(fb) > 0
 
 
 # ── Real Anthropic API call ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_generate_thesis_returns_nonempty_string():
-    factors = _real_factors(firing=True)
-    result = await generate_thesis("NVDA", factors, price=207.50, catalyst="earnings in 22 days")
+    result = await generate_thesis(_ctx("NVDA", direction="long"))
     assert isinstance(result, str)
     assert len(result) > 10, f"thesis too short: '{result}'"
 
 
 @pytest.mark.asyncio
 async def test_generate_thesis_mentions_ticker():
-    factors = _real_factors(firing=True)
-    result = await generate_thesis("NVDA", factors, price=207.50, catalyst=None)
-    assert "NVDA" in result or "nvda" in result.lower()
+    result = await generate_thesis(_ctx("NVDA", direction="long"))
+    assert "nvda" in result.lower()
 
 
 @pytest.mark.asyncio
-async def test_generate_thesis_no_firing_factors_returns_something():
-    factors = _real_factors(firing=False)
-    result = await generate_thesis("AMD", factors, price=235.0, catalyst=None)
-    assert isinstance(result, str)
-    assert len(result) > 0
+async def test_generate_thesis_short_pick_is_not_bullish():
+    # The whole point of the grounding fix: a SHORT pick must never come back arguing long.
+    result = await generate_thesis(_ctx("CRM", direction="short"))
+    assert isinstance(result, str) and len(result) > 10
+    assert _contradicts("short", result) is False, f"short thesis argued long: {result}"

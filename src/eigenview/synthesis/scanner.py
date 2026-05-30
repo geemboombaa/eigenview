@@ -35,8 +35,10 @@ from eigenview.data.universe import get_options_universe
 from eigenview.synthesis.gate import (
     SHORT_SETUP_PATTERNS,
     TickerScorecard,
+    conviction_score,
     entry_zone,
     estimate_target,
+    setup_type,
     stop_level,
 )
 from eigenview.synthesis.ranker import rank_picks, write_picks
@@ -443,7 +445,7 @@ async def run_daily_scan(
                         session, ticker=sc.ticker, scan_date=today_str,
                         setup_type=sc.technical.label, direction=direction,
                         entry_low=ez[0], entry_high=ez[1], stop=sl,
-                        target=None, confidence=sc.technical.strength,
+                        target=sc.target, confidence=sc.technical.strength,
                     )
                 except Exception as exc:
                     log.warning("signal_trigger_write_failed", ticker=sc.ticker, error=str(exc))
@@ -502,7 +504,25 @@ async def run_daily_scan(
                 f.factor_id: {"firing": f.firing, "label": f.label, "detail": f.detail}
                 for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
             }
-            theses[sc.ticker] = await generate_thesis(sc.ticker, factors_dict, sc.spot_price, None)
+            direction = "short" if sc.technical.label in SHORT_SETUP_PATTERNS else "long"
+            ez = entry_zone(sc)
+            sl = stop_level(sc)
+            entry_ref = ez[0] if direction == "short" else ez[1]
+            rr = (round(abs(sc.target - entry_ref) / abs(entry_ref - sl), 2)
+                  if sc.target and entry_ref != sl else None)
+            ctx = {
+                "ticker": sc.ticker,
+                "direction": direction,
+                "setup": setup_type(sc),
+                "entry_low": ez[0], "entry_high": ez[1],
+                "stop": sl, "target": sc.target, "rr": rr,
+                "conviction": conviction_score(sc),
+                "price": sc.spot_price,
+                "catalyst": None,
+                "macro_label": sc.macro.label,
+                "factors": factors_dict,
+            }
+            theses[sc.ticker] = await generate_thesis(ctx)
             _report("thesis", j, f"Generating theses {j}/{n_q}…")
         # Phase 2 — write all theses in one short transaction (no concurrent writer).
         for ticker, thesis in theses.items():

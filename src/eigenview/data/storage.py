@@ -291,6 +291,21 @@ class SignalTrigger(Base):
     valid_until: Mapped[str | None] = mapped_column(String(30))  # ISO datetime or None
 
 
+def compute_rr(
+    direction: str,
+    entry_low: float | None,
+    entry_high: float | None,
+    stop: float | None,
+    target: float | None,
+) -> float | None:
+    """Reward:risk for a signal. Direction-aware: short entry ref = entry_low,
+    long entry ref = entry_high; reward and risk both use absolute distance."""
+    entry_ref = entry_low if direction == "short" else entry_high
+    if not (stop and target and entry_ref) or entry_ref == stop:
+        return None
+    return round(abs(target - entry_ref) / abs(entry_ref - stop), 3)
+
+
 async def write_signal_trigger(
     session: AsyncSession,
     ticker: str,
@@ -303,9 +318,7 @@ async def write_signal_trigger(
     target: float | None,
     confidence: float | None,
 ) -> SignalTrigger:
-    rr: float | None = None
-    if stop and target and entry_high and entry_high != stop:
-        rr = (target - entry_high) / (entry_high - stop)
+    rr = compute_rr(direction, entry_low, entry_high, stop, target)
     trigger = SignalTrigger(
         ticker=ticker,
         scan_date=scan_date,

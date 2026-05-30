@@ -33,6 +33,7 @@ def aggregate_sentiment(
     catalyst_score: int,
     news_count: int,
     lookback_days: int,
+    top_headline: str | None = None,
 ) -> FactorResult:
     """Pure aggregation of per-article (label, confidence) into a sentiment FactorResult.
 
@@ -91,6 +92,7 @@ def aggregate_sentiment(
             "bull": bull, "bear": bear, "neutral": neut,
             "catalyst_score": catalyst_score,
             "catalyst_near": catalyst_near,
+            "top_headline": top_headline,
         },
         narrative=" ".join(parts),
     )
@@ -122,5 +124,6 @@ async def score_sentiment(
     texts = [f"{n.headline or ''}. {n.summary or ''}".strip() for n in news]
     ages = [max(0.0, (now - n.timestamp).total_seconds() / 86400.0) for n in news]
     classified = classify(texts)
+    top_headline = max(news, key=lambda n: n.timestamp).headline
 
-    return aggregate_sentiment(classified, ages, catalyst_score, len(news), lookback_days)
+    return aggregate_sentiment(classified, ages, catalyst_score, len(news), lookback_days, top_headline)

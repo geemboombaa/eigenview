@@ -53,9 +53,18 @@ def test_qualify_all_gates_pass() -> None:
     assert qualify_pick(sc, macro_score=8) is True
 
 
-def test_qualify_red_macro_blocks() -> None:
+def test_qualify_red_macro_does_not_block_long() -> None:
+    # Macro is context only — it never gates pick direction (user-locked 2026-05-29).
+    # A fully-gated LONG pick qualifies even when macro is RED.
+    sc = make_scorecard()  # technical label "breakout" = long
+    assert qualify_pick(sc, macro_score=2) is True
+
+
+def test_qualify_green_macro_does_not_block_short() -> None:
+    # Strong (GREEN) macro must not gate a SHORT pick.
     sc = make_scorecard()
-    assert qualify_pick(sc, macro_score=2) is False
+    sc.technical = FactorResult(factor_id="technical", firing=True, strength=0.8, label="breakdown")
+    assert qualify_pick(sc, macro_score=9) is True
 
 
 def test_qualify_ta_gate_blocks() -> None:
@@ -74,13 +83,16 @@ def test_conviction_score_high() -> None:
     assert result in (4, 5)
 
 
-def test_setup_type_priority() -> None:
-    sc = make_scorecard(dormant_strength=0.8)
-    assert setup_type(sc) == "dormant_activation"
+def test_setup_type_keeps_ta_label_with_high_dormant() -> None:
+    # Dormant is its own flag — it must NOT overwrite the real TA setup name (user-locked 2026-05-29).
+    # A breakdown short with high dormant stays "breakdown", not "dormant_activation".
+    sc = make_scorecard(dormant_strength=1.0)
+    sc.technical = FactorResult(factor_id="technical", firing=True, strength=0.8, label="breakdown")
+    assert setup_type(sc) == "breakdown"
 
 
-def test_qualify_absent_macro_blocks_even_shorts() -> None:
-    # Absent macro (no_data) must block ALL picks — including shorts that a RED macro would allow.
+def test_qualify_absent_macro_does_not_block() -> None:
+    # Macro NO DATA is not a gate — a stock pick stands on its own TA+GEX+soft factors.
     sc = TickerScorecard(
         ticker=_real_ticker(),
         macro=FactorResult.no_data("macro_regime", "no macro data in DB"),
@@ -91,4 +103,4 @@ def test_qualify_absent_macro_blocks_even_shorts() -> None:
         sentiment=FactorResult(factor_id="sentiment", firing=True, strength=0.6, label="bearish"),
         spot_price=500.0,
     )
-    assert qualify_pick(sc, macro_score=8) is False
+    assert qualify_pick(sc, macro_score=0) is True

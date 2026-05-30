@@ -70,9 +70,11 @@ def test_rank_picks_drops_unqualified():
     assert rank_picks([_bench_sc()], macro_score=8) == []
 
 
-def test_rank_picks_red_macro_blocks_long():
-    # RED macro (below red threshold) blocks a long pick.
-    assert rank_picks([_qualified_sc()], macro_score=1) == []
+def test_rank_picks_red_macro_does_not_block_long():
+    # Macro never gates direction (user-locked 2026-05-29): a fully-gated long
+    # pick still ranks under RED macro.
+    sc = _qualified_sc()
+    assert sc in rank_picks([sc], macro_score=1)
 
 
 @pytest.mark.asyncio

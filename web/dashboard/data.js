@@ -35,6 +35,31 @@ window.EV_DATA = (() => {
   };
   function setupName(raw) { return SETUP_MAP[raw] || raw; }
 
+  // Factor label → friendly chip {text, cls}. Empty text → caller renders "—".
+  // Surfaces the classifier's own label (Bullish/Bearish/Neutral, Calls/Puts,
+  // Active/Dormant) instead of a bare strength number.
+  function factorLabel(kind, raw) {
+    const s = (raw || '').toLowerCase();
+    if (kind === 'sent') {
+      if (s.includes('bull')) return { text: 'Bullish', cls: 'pos' };
+      if (s.includes('bear')) return { text: 'Bearish', cls: 'neg' };
+      if (s.includes('neutral')) return { text: 'Neutral', cls: 'neu' };
+      return { text: '', cls: '' };
+    }
+    if (kind === 'flow') {
+      if (s.includes('call')) return { text: 'Calls', cls: 'pos' };
+      if (s.includes('put')) return { text: 'Puts', cls: 'neg' };
+      return { text: '', cls: '' };   // NO FLOW / not-in-universe
+    }
+    if (kind === 'dorm') {
+      if (s.includes('active')) return { text: 'Active', cls: 'pos' };
+      if (s.includes('accumul')) return { text: 'Accum', cls: 'neu' };
+      if (s.includes('dormant')) return { text: 'Dormant', cls: 'neu' };
+      return { text: '', cls: '' };   // not-in-universe / not-liquid / no-data
+    }
+    return { text: '', cls: '' };
+  }
+
   // TA probability tier → short display.
   function taTier(raw) {
     const s = (raw || '').toUpperCase();
@@ -72,6 +97,7 @@ window.EV_DATA = (() => {
         flow: fl.strength || 0, dorm: dm.strength || 0, sent: st.strength || 0,
         ta: ta.strength || 0, gex: gex.strength || 0,
       },
+      fLbl: { flow: fl.label || '', dorm: dm.label || '', sent: st.label || '' },
       inPicks: true,
       exchange: p.exchange || null,
       src,
@@ -100,6 +126,7 @@ window.EV_DATA = (() => {
         flow: r.flow_str || 0, dorm: r.dormant_str || 0, sent: r.sentiment_str || 0,
         ta: r.ta_str || 0, gex: r.gex_str || 0,
       },
+      fLbl: { flow: r.flow_label || '', dorm: r.dormant_label || '', sent: r.sentiment_label || '' },
       inPicks: !!r.in_picks,
       exchange: null,
       src: 'all',
@@ -147,5 +174,5 @@ window.EV_DATA = (() => {
   }
   function scanStatus() { return fetchJSON('/api/scan/status'); }
 
-  return { loadAll, tvLink, triggerScan, scanStatus, gexRegime, setupName, taTier };
+  return { loadAll, tvLink, triggerScan, scanStatus, gexRegime, setupName, taTier, factorLabel };
 })();

@@ -5,6 +5,22 @@ You are the build agent for **EigenView**, a curated daily options + futures int
 
 ---
 
+## REPORTING STYLE — MANDATORY (no rambling)
+
+When reporting findings, audits, or status: **plain English, one table where it fits, no preamble.**
+- NO code-speak in prose: don't cite file paths, line numbers, function names, or internal variable names in explanations. Explain what the thing *does* in trader/user terms. Pseudo-code only if logic must be shown.
+- NO narrating the investigation ("I read X, then traced Y…"). State the conclusion.
+- Issues → ONE table: Problem | Fix | Status. No per-item essays.
+- No restating the question, no "great question", no back-and-forth filler.
+- Detailed file/line evidence belongs in a doc under `docs/`, not in chat.
+- Token discipline is a hard rule here, not a preference.
+
+## STALE-SPEC RULE — code is truth (locked 2026-05-29)
+
+Any doc/spec older than 2 weeks is NOT authoritative. Before trusting any doc (incl. the taxonomy/dormant/macro descriptions in THIS file), verify against code; on conflict, **code wins** and the doc must be rewritten. Known-stale: TA "21 setups" (code has 16), dormant "6-signal scorer" (code is a 4-trigger tally), macro "5 signals" (code has 4).
+
+---
+
 ## WHAT THE PRODUCT IS — ONE PARAGRAPH
 
 A dashboard that runs every morning and outputs **a short ranked list of specific instruments to look at today** — stocks (options plays) and optionally futures — each with a score, setup type, entry zone, stop level, and a plain-English thesis. Not a scanner. Not a data dump. A curated, opinionated, ready-to-act list. The macro regime is checked first; if it's red, no long picks appear regardless of individual stock signals.

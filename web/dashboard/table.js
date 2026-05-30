@@ -174,6 +174,11 @@ window.EV_APP = (() => {
       case 'tatier': return `<td ${cls}>${r.taTier ? `<span class="pill ta-${r.taTier.toLowerCase()}">${r.taTier}</span>` : '<span class="muted">—</span>'}</td>`;
       case 'gexpill': return `<td ${cls}>${r.gexKey ? `<span class="pill gx-${r.gexCls}">${esc(r.gexLabel)}</span>` : '<span class="muted">—</span>'}</td>`;
       case 'fbar': { const v = c.get(r); return `<td ${cls}><span class="fbar"><span class="fb-fill" style="width:${pct(v)}%"></span></span><span class="fnum">${v ? pct(v) : ''}</span></td>`; }
+      case 'flabel': {
+        const m = D.factorLabel(c.key, r.fLbl[c.key]); const n = r.fStr[c.key] || 0;
+        if (!m.text) return `<td ${cls}><span class="muted">—</span></td>`;
+        return `<td ${cls}><span class="flbl ${m.cls}">${esc(m.text)}</span>${n ? `<span class="fnum-sm">${pct(n)}</span>` : ''}</td>`;
+      }
       case 'fresh': return `<td ${cls}>${r.fresh ? '<span class="fresh-yes">✓</span>' : ''}</td>`;
       case 'tv': return `<td ${cls}><a class="tv-link" href="${D.tvLink(r)}" target="_blank" rel="noopener" data-tv="1">↗</a></td>`;
       case 'price': { const v = c.get(r); return `<td ${cls}><span class="price">${v == null ? '—' : '$' + fmtPrice(v)}</span></td>`; }
