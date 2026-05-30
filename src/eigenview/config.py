@@ -59,6 +59,12 @@ class Settings(BaseSettings):
 
     # Sentiment novelty baseline (factors/sentiment.py) — expected articles/day
     sentiment_expected_articles_per_day: float = 1.0
+    # Sentiment model (factors/sentiment_model.py) — FinBERT-tone primary (benchmark 2026-05-29:
+    # 74% agreement w/ ProsusAI, finance-tuned, 40ms/headline CPU), VADER lexicon fallback.
+    sentiment_model_id: str = "yiyanghkust/finbert-tone"
+    sentiment_min_articles: int = 1              # min recent articles to score at all
+    sentiment_fire_strength: float = 0.45        # net directional strength (0-1) to fire
+    sentiment_recency_halflife_days: float = 2.0 # article weight halves every N days old
 
     # ── Dormant screen (factors/dormant.py) ──
     dormant_strike_band: int = 3                    # ± strikes for isolation window
