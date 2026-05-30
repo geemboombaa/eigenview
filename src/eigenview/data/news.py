@@ -15,10 +15,32 @@ from eigenview.data.storage import AsyncSessionLocal, NewsItem
 
 log = structlog.get_logger(__name__)
 
-# Alpha Vantage free tier: 25 calls/day → 1 call per 12 s to stay safe
-_AV_RATE_LIMIT_SECS = 12.0
-_av_lock = asyncio.Lock()
-_av_last_call: float = 0.0
+class AsyncRateLimiter:
+    """Serialize awaiters to >= min_interval_secs apart (process-wide gate).
+
+    First acquire fires immediately; each subsequent acquire waits until the
+    interval has elapsed since the prior one. Shared across all coroutines so
+    bounded concurrency cannot exceed the provider's per-minute ceiling.
+    """
+
+    def __init__(self, min_interval_secs: float):
+        self._min_interval = min_interval_secs
+        self._lock = asyncio.Lock()
+        self._last = 0.0
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            wait = self._min_interval - (loop.time() - self._last)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last = loop.time()
+
+
+# Alpha Vantage free tier: 25 calls/day → 1 call per 12 s to stay safe.
+_AV_LIMITER = AsyncRateLimiter(min_interval_secs=12.0)
+# Finnhub free tier: 60 req/min → 1 call per ~1.1 s leaves margin, no 429 storm.
+_FINNHUB_LIMITER = AsyncRateLimiter(min_interval_secs=1.1)
 
 
 def _url_hash(url: str) -> str:
@@ -39,14 +61,7 @@ def _parse_av_timestamp(ts: str) -> datetime | None:
     wait=wait_exponential(multiplier=1, min=2, max=30),
 )
 async def _fetch_av(client: httpx.AsyncClient, ticker: str) -> list[dict]:
-    global _av_last_call
-
-    async with _av_lock:
-        now = asyncio.get_event_loop().time()
-        elapsed = now - _av_last_call
-        if elapsed < _AV_RATE_LIMIT_SECS:
-            await asyncio.sleep(_AV_RATE_LIMIT_SECS - elapsed)
-        _av_last_call = asyncio.get_event_loop().time()
+    await _AV_LIMITER.acquire()
 
     url = (
         "https://www.alphavantage.co/query"
@@ -85,6 +100,8 @@ async def _fetch_av(client: httpx.AsyncClient, ticker: str) -> list[dict]:
 async def _fetch_finnhub(
     client: httpx.AsyncClient, ticker: str, lookback_days: int
 ) -> list[dict]:
+    await _FINNHUB_LIMITER.acquire()
+
     today = datetime.now(tz=timezone.utc).date()
     from_date = today - timedelta(days=lookback_days)
 
