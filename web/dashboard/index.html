@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EigenEdge — Glass Velvet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="glass.css"/>
+<link rel="stylesheet" href="glam.css"/>
+</head>
+<body>
+  <div id="regimeBar"></div>
+
+  <div id="controlRow">
+    <div id="modeTabs" class="modes"></div>
+    <div class="search-wrap">
+      <input id="searchInput" type="text" placeholder="Search ticker, dir, setup, freshness…  (space = AND, ESC = clear)" autocomplete="off"/>
+      <button class="search-clear" id="searchClear" title="Clear">×</button>
+    </div>
+    <div class="actions">
+      <button class="iconbtn" id="viewBtn">VIEW ▾</button>
+      <button class="iconbtn" id="favsBtn">★ FAVS <span class="badge-ct" id="favCount">0</span></button>
+      <button class="iconbtn" id="saveBtn">+ SAVE VIEW</button>
+      <button class="iconbtn" id="colsBtn">⚙ COLS</button>
+      <label class="dl-check" title="Refresh data first: pull fresh macro + news (free) + prices + chains (paid Databento) before the scan. Unchecked = run the pipeline on existing data."><input type="checkbox" id="dlCheck"/> REFRESH DATA</label>
+      <button class="iconbtn primary" id="scanBtn">⟳ SCAN</button>
+    </div>
+    <div id="scanBar">
+      <div class="scan-track"><div class="scan-fill" id="scanFill"></div></div>
+      <div class="scan-text" id="scanText"></div>
+    </div>
+  </div>
+
+  <div id="chipRow"></div>
+
+  <div id="tableHost"></div>
+  <div id="actionBar"></div>
+
+  <div id="popLayer"><div class="pop-scrim" id="popScrim"></div></div>
+  <div id="modal"></div>
+
+  <script src="data.js"></script>
+  <script src="views.js"></script>
+  <script src="filters.js"></script>
+  <script src="scan.js"></script>
+  <script src="table.js"></script>
+  <script src="glam.js"></script>
+  <script>EV_APP.init();</script>
+</body>
+</html>

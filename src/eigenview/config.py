@@ -13,11 +13,17 @@ class Settings(BaseSettings):
     databento_key: str = ""
 
     log_level: str = "INFO"
-    universe: str = "NDX100"
+    universe: str = "ndx100"
     daily_scan_hour: int = 8
-    max_picks: int = 10
     macro_regime_green_threshold: int = 7
     macro_regime_red_threshold: int = 3
+    # Macro regime per-signal thresholds + weights (factors/macro_regime.py) — no hardcode.
+    macro_dix_bullish_threshold: float = 0.43   # DIX > this = dark-pool buying (calibrated 2026-04-29)
+    macro_vix_low_threshold: float = 20.0       # VIX m1 < this = low-vol regime
+    macro_weight_gex: int = 3                    # points for positive net GEX
+    macro_weight_contango: int = 2              # points for VIX contango (term structure up)
+    macro_weight_dix: int = 3                    # points for DIX above threshold
+    macro_weight_vix: int = 2                    # points for low VIX
 
     # Factor thresholds — tune without code changes
     dormant_firing_threshold: float = 0.5
@@ -51,8 +57,20 @@ class Settings(BaseSettings):
     # COT (data/macro.py) — default futures instrument for CFTC COT fetch
     cot_default_instrument: str = "ES"
 
+    # ── News refresh job (cli.py fetch-news) — decoupled from daily scan ──
+    news_refresh_concurrency: int = 8       # parallel ticker semaphore (Finnhub ~60 req/min)
+    news_av_daily_budget: int = 20          # max tickers routed through Alpha Vantage/day
+                                            # (AV free = 25/day; reserve headroom)
+    news_lookback_days: int = 3             # how far back each refresh pulls per ticker
+
     # Sentiment novelty baseline (factors/sentiment.py) — expected articles/day
     sentiment_expected_articles_per_day: float = 1.0
+    # Sentiment model (factors/sentiment_model.py) — FinBERT-tone primary (benchmark 2026-05-29:
+    # 74% agreement w/ ProsusAI, finance-tuned, 40ms/headline CPU), VADER lexicon fallback.
+    sentiment_model_id: str = "yiyanghkust/finbert-tone"
+    sentiment_min_articles: int = 1              # min recent articles to score at all
+    sentiment_fire_strength: float = 0.45        # net directional strength (0-1) to fire
+    sentiment_recency_halflife_days: float = 2.0 # article weight halves every N days old
 
     # ── Dormant screen (factors/dormant.py) ──
     dormant_strike_band: int = 3                    # ± strikes for isolation window
@@ -93,6 +111,22 @@ class Settings(BaseSettings):
     scanner_history_backfill_days: int = 120        # initial Databento backfill window
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
+    scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both
+    scanner_chunk_size: int = 10                    # tickers scored + committed per chunk (live progress)
+    scanner_ticker_timeout_secs: int = 30           # per-ticker hard timeout — one bad name can't stall the run
+
+    # ── Pick quality gates (each independently toggleable) ───────────────────
+    # Set enable_* = false in .env to turn off individual filters without changing thresholds.
+    min_avg_daily_dollar_volume: int = 15_000_000  # $15M ADV — options-tradeable minimum
+                                                   # ($50M over-filters NDX: AMGN/ADBE/ISRG all below)
+    enable_liquidity_filter: bool = True           # gate on min_avg_daily_dollar_volume
+
+    min_rr_ratio: float = 3.0                      # minimum reward:risk ratio for any pick
+    enable_rr_filter: bool = True                  # gate on min_rr_ratio
+
+    rs_percentile_min: int = 50                    # longs: top 50% of universe by 20d RS;
+                                                   # shorts: bottom 50%
+    enable_rs_filter: bool = True                  # gate on rs_percentile_min
 
 
 settings = Settings()

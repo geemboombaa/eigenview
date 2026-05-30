@@ -121,18 +121,37 @@ async def _fetch_finnhub(
     return articles
 
 
-async def fetch_news(ticker: str, lookback_days: int = 3) -> list[dict]:
-    """Fetch from Alpha Vantage + Finnhub, deduplicate, upsert, return list."""
+async def fetch_news(
+    ticker: str,
+    lookback_days: int = 3,
+    sources: tuple[str, ...] = ("av", "finnhub"),
+) -> list[dict]:
+    """Fetch news, deduplicate, upsert, return list.
+
+    `sources` selects which providers run. Default uses both (Alpha Vantage +
+    Finnhub). Pass ("finnhub",) for bulk runs so AV's 25/day budget is not
+    burned — the news-refresh job uses this to keep AV for a small subset only.
+    """
     ticker = ticker.upper()
 
+    av_results: list[dict] | Exception = []
+    fh_results: list[dict] | Exception = []
     async with httpx.AsyncClient() as client:
-        av_task = asyncio.create_task(_fetch_av(client, ticker))
-        fh_task = asyncio.create_task(
-            _fetch_finnhub(client, ticker, lookback_days)
+        tasks = []
+        if "av" in sources:
+            tasks.append(("av", asyncio.create_task(_fetch_av(client, ticker))))
+        if "finnhub" in sources:
+            tasks.append(
+                ("finnhub", asyncio.create_task(_fetch_finnhub(client, ticker, lookback_days)))
+            )
+        gathered = await asyncio.gather(
+            *(t for _, t in tasks), return_exceptions=True
         )
-        av_results, fh_results = await asyncio.gather(
-            av_task, fh_task, return_exceptions=True
-        )
+        for (name, _), result in zip(tasks, gathered, strict=True):
+            if name == "av":
+                av_results = result
+            else:
+                fh_results = result
 
     av_articles: list[dict] = av_results if isinstance(av_results, list) else []
     fh_articles: list[dict] = fh_results if isinstance(fh_results, list) else []

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EigenEdge — Logo Concepts v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Sora:wght@600;700;800&family=JetBrains+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root{--vio:#a78bfa;--cyan:#4dd2ff;--green:#2eff95;--ink:#070a14;--t1:#fff;--t3:#8896b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(circle at 20% 15%,#1a0d3a,transparent 45%),radial-gradient(circle at 85% 85%,#003a4a,transparent 50%),#050614;color:var(--t1);font-family:'Inter',system-ui,sans-serif;min-height:100vh;padding:48px 32px}
+h1{font-size:30px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
+h1 em{font-style:normal;background:linear-gradient(135deg,var(--vio),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--t3);font-size:14px;margin-bottom:36px;max-width:720px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:24px}
+.card{background:rgba(20,28,48,.55);backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.n{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--t3);text-transform:uppercase}
+.title{font-weight:700;font-size:18px;margin:6px 0 4px}
+.sub{color:var(--t3);font-size:12.5px;margin-bottom:18px}
+.lock{display:flex;align-items:center;gap:16px;margin:14px 0;padding:22px;border-radius:16px;background:linear-gradient(135deg,rgba(0,0,0,.35),rgba(0,0,0,.15))}
+.wm{font-family:'Sora',sans-serif;font-weight:800;font-size:27px;letter-spacing:-.8px}
+.wm em{font-style:normal;background:linear-gradient(135deg,var(--vio),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.icons{display:flex;gap:12px;align-items:center;margin-top:14px}
+.icons .cap{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)}
+.desc{color:var(--t3);font-size:12.5px;line-height:1.6;margin-top:14px}
+.light{background:#eef1f8 !important}.light .wm{color:#0b1020}
+.app{filter:drop-shadow(0 8px 20px rgba(124,109,250,.35))}
+</style>
+</head>
+<body>
+<h1>Eigen<em>Edge</em> · Logo v2</h1>
+<p class="lede">Reworked — no flat triangle. Each icon is geometric, gradient-built, and works as a 16px favicon and a big app tile. "Eigen" = dominant vector / characteristic direction (quant heritage); "Edge" = the trading edge + a literal rising breakout. Pick a direction; I'll refine the winner and wire it into the header + favicon.</p>
+<div class="grid">
+
+  <!-- A: Breakout monogram E -->
+  <div class="card">
+    <span class="n">Concept A · recommended</span>
+    <div class="title">Breakout E</div>
+    <div class="sub">An "E" whose three rungs are ascending price bars breaking out up-right.</div>
+    <div class="lock">
+      <svg class="app" width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs>
+          <linearGradient id="ga" x1="10" y1="54" x2="54" y2="10" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#a78bfa"/><stop offset="1" stop-color="#4dd2ff"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="#0b1022" stroke="rgba(255,255,255,.08)"/>
+        <rect x="16" y="14" width="6" height="36" rx="3" fill="url(#ga)"/>
+        <rect x="26" y="34" width="6" height="16" rx="3" fill="#4dd2ff"/>
+        <rect x="36" y="26" width="6" height="24" rx="3" fill="#7c9bfa"/>
+        <rect x="46" y="16" width="6" height="34" rx="3" fill="#2eff95"/>
+        <path d="M27 33 L39 25 L51 15" stroke="#2eff95" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+      </svg>
+      <span class="wm">Eigen<em>Edge</em></span>
+    </div>
+    <div class="icons">
+      <svg width="34" height="34" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#0b1022"/><rect x="16" y="14" width="6" height="36" rx="3" fill="#a78bfa"/><rect x="26" y="34" width="6" height="16" rx="3" fill="#4dd2ff"/><rect x="36" y="26" width="6" height="24" rx="3" fill="#7c9bfa"/><rect x="46" y="16" width="6" height="34" rx="3" fill="#2eff95"/></svg>
+      <svg width="22" height="22" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#0b1022"/><rect x="16" y="14" width="6" height="36" rx="3" fill="#a78bfa"/><rect x="26" y="34" width="6" height="16" rx="3" fill="#4dd2ff"/><rect x="36" y="26" width="6" height="24" rx="3" fill="#7c9bfa"/><rect x="46" y="16" width="6" height="34" rx="3" fill="#2eff95"/></svg>
+      <span class="cap">favicon 34 / 22px</span>
+    </div>
+    <div class="desc">The vertical spine + three rising rungs = both a capital <b>E</b> and a breakout bar-chart. Bullish, unmistakably markets, legible at any size.</div>
+  </div>
+
+  <!-- B: Eigenvector node -->
+  <div class="card">
+    <span class="n">Concept B · quant</span>
+    <div class="title">Eigen Node</div>
+    <div class="sub">A vector snapping to its dominant axis — the eigenvector idea, literally.</div>
+    <div class="lock">
+      <svg class="app" width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs><linearGradient id="gb" x1="12" y1="52" x2="52" y2="12" gradientUnits="userSpaceOnUse"><stop stop-color="#4dd2ff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="#0b1022" stroke="rgba(255,255,255,.08)"/>
+        <line x1="14" y1="50" x2="50" y2="14" stroke="url(#gb)" stroke-width="5" stroke-linecap="round"/>
+        <path d="M40 14 L50 14 L50 24" stroke="url(#gb)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="14" cy="50" r="5" fill="#2eff95"/>
+        <line x1="14" y1="50" x2="30" y2="44" stroke="#8896b8" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+        <line x1="14" y1="50" x2="24" y2="34" stroke="#8896b8" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>
+      </svg>
+      <span class="wm">Eigen<em>Edge</em></span>
+    </div>
+    <div class="icons">
+      <svg width="34" height="34" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#0b1022"/><line x1="14" y1="50" x2="50" y2="14" stroke="#7cc0fa" stroke-width="5" stroke-linecap="round"/><path d="M40 14 L50 14 L50 24" stroke="#7cc0fa" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="50" r="5" fill="#2eff95"/></svg>
+      <span class="cap">vector → arrowhead = breakout edge</span>
+    </div>
+    <div class="desc">A dim cloud of minor vectors collapses into one bold gradient arrow up-right (the eigenvector / dominant direction) tipped with an edge arrowhead. The most "characteristic-vector" of the set.</div>
+  </div>
+
+  <!-- C: Negative-space E edge -->
+  <div class="card light">
+    <span class="n">Concept C · minimal</span>
+    <div class="title" style="color:#0b1020">Edge Cut</div>
+    <div class="sub" style="color:#5b6478">Solid tile, an E carved by a diagonal "edge" of negative space.</div>
+    <div class="lock" style="background:linear-gradient(135deg,rgba(124,109,250,.12),rgba(77,210,255,.12))">
+      <svg class="app" width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <defs><linearGradient id="gc" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#7c6dfa"/><stop offset="1" stop-color="#00b4ff"/></linearGradient></defs>
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#gc)"/>
+        <rect x="18" y="16" width="30" height="6" rx="3" fill="#fff"/>
+        <rect x="18" y="29" width="22" height="6" rx="3" fill="#fff"/>
+        <rect x="18" y="42" width="30" height="6" rx="3" fill="#fff"/>
+        <rect x="18" y="16" width="6" height="32" rx="3" fill="#fff"/>
+        <path d="M52 8 L60 8 L24 56 L16 56 Z" fill="#eef1f8"/>
+      </svg>
+      <span class="wm">Eigen<em>Edge</em></span>
+    </div>
+    <div class="icons">
+      <svg width="34" height="34" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="url(#gc)"/><rect x="18" y="16" width="28" height="6" rx="3" fill="#fff"/><rect x="18" y="29" width="20" height="6" rx="3" fill="#fff"/><rect x="18" y="42" width="28" height="6" rx="3" fill="#fff"/><rect x="18" y="16" width="6" height="32" rx="3" fill="#fff"/><path d="M52 8 L60 8 L24 56 L16 56 Z" fill="#eef1f8"/></svg>
+      <span class="cap" style="color:#5b6478">slash = the "edge"</span>
+    </div>
+    <div class="desc" style="color:#5b6478">A clean white <b>E</b> on a gradient tile, sliced by a diagonal — the literal "edge." Modern, Stripe-like, works mono. Shown on light to prove versatility.</div>
+  </div>
+
+</div>
+</body>
+</html>

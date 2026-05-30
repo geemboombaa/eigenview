@@ -53,6 +53,10 @@ def _fetch_sp500() -> list[str]:
 
 async def get_universe(name: str) -> list[str]:
     today = date.today()
+    if name == "both":
+        ndx, sp = await get_index_lists()
+        return sorted(set(ndx) | set(sp))
+
     cached = _cache.get(name)
     if cached and cached[0] == today and cached[1]:
         return cached[1]
@@ -69,3 +73,14 @@ async def get_universe(name: str) -> list[str]:
         _cache[name] = (today, tickers)
         log.info("universe.loaded", name=name, count=len(tickers))
     return tickers
+
+
+async def get_index_lists() -> tuple[list[str], list[str]]:
+    """Return (ndx100, sp500) member lists from the already-wired source.
+
+    Used both to build the 'both' scan universe and to tag index membership.
+    No new data source — same lists the scanner already uses.
+    """
+    ndx = await get_universe("ndx100")
+    sp = await get_universe("sp500")
+    return ndx, sp
