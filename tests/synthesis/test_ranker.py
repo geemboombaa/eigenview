@@ -60,7 +60,9 @@ def test_rank_sorts_by_conviction() -> None:
 def test_rank_filters_unqualified() -> None:
     tickers = _real_tickers(2)
     qualified = make_scorecard(tickers[0])
-    unqualified = make_scorecard(tickers[1], gex=False)
+    # Unqualified under the new gate = missing a soft factor (dormant/sentiment).
+    # GEX off no longer disqualifies (demoted to conviction modifier 2026-05-30).
+    unqualified = make_scorecard(tickers[1], sentiment=False)
 
     ranked = rank_picks([qualified, unqualified], macro_score=8)
     result_tickers = [s.ticker for s in ranked]

@@ -387,7 +387,7 @@ See `pyproject.toml` for the dependency list and `.env.example` for required API
 2. **Branch + PR** — `git checkout -b feature/<name>`. Open draft PR immediately (`gh pr create --draft`).
 3. **Tests first** — write failing tests before touching `src/`. Commit tests. Confirm they fail.
 4. **Implement** — write `src/` code. Run full test suite locally. Must pass before pushing.
-5. **Review + Merge** — push, wait for CI green, user merges. No self-merge on master.
+5. **Review + Merge** — push and open the PR **automatically** when a unit is committed; never ask permission to push or PR (user-locked 2026-05-30). Then wait for CI green. **User merges — no self-merge on master.** Auto applies to push + PR only, never to merge.
 
 ### Rules
 - Never edit `src/` on master

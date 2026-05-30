@@ -33,26 +33,26 @@ class TickerScorecard:
 
 def qualify_pick(scorecard: TickerScorecard, macro_score: int = 0) -> bool:
     # Macro is context/conviction only — it NEVER gates a pick's direction (user-locked 2026-05-29).
-    # A GREEN macro must not block shorts; a RED/NO-DATA macro must not block longs.
-    # A pick stands on its own structure: TA fires (hard) AND GEX fires (hard) AND ≥2 of 3 soft factors.
+    # TA is the one structural hard gate. GEX demoted to a conviction modifier
+    # (it fires in every regime, so it gated nothing — user-locked 2026-05-30).
+    # Soft gate is dormant AND sentiment (2 of 2); flow is kept in code but not counted yet.
     if not scorecard.technical.firing:
         return False
-    if not scorecard.gex.firing:
-        return False
-    soft_firing = sum([scorecard.flow.firing, scorecard.dormant.firing, scorecard.sentiment.firing])
-    return soft_firing >= 2
+    return scorecard.dormant.firing and scorecard.sentiment.firing
 
 
 def conviction_score(scorecard: TickerScorecard) -> int:
-    factors = [scorecard.technical, scorecard.gex, scorecard.flow,
+    # GEX is a modifier, not a counted factor (demoted 2026-05-30). Counted: TA,
+    # flow, dormant, sentiment. A qualified pick fires TA+dormant+sentiment (min 3);
+    # flow firing is the 4th that lifts the count_ratio to 1.
+    factors = [scorecard.technical, scorecard.flow,
                scorecard.dormant, scorecard.sentiment]
     firing = [f for f in factors if f.firing]
     if not firing:
         return 1
     avg_strength = sum(f.strength for f in firing) / len(firing)
-    # count_ratio: 0 when minimum 2 fire, 1 when all 5 fire
-    # qualify_pick requires TA+GEX+≥2soft = min 4, so effective range 4-5
-    count_ratio = max(0.0, (len(firing) - 2) / (len(factors) - 2))
+    # count_ratio: 0 at the min-qualifying 3 firing, 1 when all 4 fire.
+    count_ratio = max(0.0, (len(firing) - 3) / (len(factors) - 3))
     composite = avg_strength * settings.conviction_strength_weight + count_ratio * settings.conviction_count_weight
     if composite >= settings.conviction_t5_threshold:
         tier = 5
@@ -64,6 +64,14 @@ def conviction_score(scorecard: TickerScorecard) -> int:
         tier = 2
     else:
         tier = 1
+
+    # GEX regime modifier (demoted from a hard gate). short_gamma amplifies moves
+    # → bump; long_gamma pins/mean-reverts → trim; flip_zone is unstable → no change.
+    if scorecard.gex.firing:
+        if scorecard.gex.label == "short_gamma":
+            tier = min(5, tier + 1)
+        elif scorecard.gex.label == "long_gamma":
+            tier = max(1, tier - 1)
 
     # R:R downgrade (spec: a pick with target/risk below min_rr is DOWNGRADED in conviction,
     # not eliminated — a real gate would drop valid setups). Drop one tier when RR < floor.

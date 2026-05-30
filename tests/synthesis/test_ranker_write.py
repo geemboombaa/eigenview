@@ -30,7 +30,7 @@ def _qualified_sc(ticker="QUAL"):
         gex=_fr("gex", True, 0.75, "long_gamma"),
         flow=_fr("flow", True, 0.7, "calls"),
         dormant=_fr("dormant", True, 0.6, "ACTIVE"),
-        sentiment=_fr("sentiment", False, 0.0, "NO DATA"),
+        sentiment=_fr("sentiment", True, 0.6, "bullish"),
         spot_price=100.0,
     )
 
