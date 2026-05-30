@@ -113,13 +113,19 @@ async def _resolve_news_scope(scope: str, limit: int | None) -> list[str]:
         from eigenview.data.universe import get_universe
 
         tickers = await get_universe(scope)
+    elif scope == "options":
+        # The scanner scores ONLY the broker-screened options universe, so news
+        # must cover exactly these names for sentiment to fire on scored tickers.
+        from eigenview.data.universe import get_options_universe
+
+        tickers = get_options_universe()
     elif scope == "all":
         from eigenview.data.universe import get_index_lists
 
         ndx, sp = await get_index_lists()
         tickers = sorted(set(ndx) | set(sp))
     else:
-        raise ValueError(f"unknown scope '{scope}' (all|sp500|ndx100|picks)")
+        raise ValueError(f"unknown scope '{scope}' (all|options|sp500|ndx100|picks)")
 
     if limit is not None and limit > 0:
         tickers = tickers[:limit]
@@ -187,7 +193,7 @@ async def refresh_news(scope: str = "all", limit: int | None = None) -> dict[str
 
 @app.command(name="fetch-news")
 def fetch_news_cmd(
-    scope: str = typer.Option("all", help="all | sp500 | ndx100 | picks"),
+    scope: str = typer.Option("all", help="all | options | sp500 | ndx100 | picks"),
     limit: int = typer.Option(0, help="Cap tickers (0 = no cap)"),
 ) -> None:
     """Refresh the news table for the scan universe (decoupled from daily scan).
@@ -332,9 +338,26 @@ def daily_scan(
                 typer.echo(f"Failed to load universe '{universe}' from Wikipedia. Check network.")
                 return
             typer.echo(f"Universe '{universe}': {len(tickers)} tickers loaded.")
+        # Stamp scan start so coverage counts ONLY rows this run wrote — stale rows
+        # from an earlier scan today must never mask a ticker that dropped now.
+        from datetime import datetime as _dt
+        scan_start = _dt.utcnow()
         async with AsyncSessionLocal() as session:
             qualified = await run_daily_scan(tickers, session, download=download)
             await session.commit()
+            from datetime import date as _date
+
+            from eigenview.data.storage import FactorScore as _FS
+            scored_rows = await session.execute(
+                select(_FS.ticker).where(
+                    _FS.date == _date.today(), _FS.updated_at >= scan_start
+                )
+            )
+            scored = {t.upper() for (t,) in scored_rows.all()}
+        dropped = [t for t in tickers if t.upper() not in scored]
+        typer.echo(f"\nScored {len(tickers) - len(dropped)}/{len(tickers)} tickers.")
+        if dropped:
+            typer.echo(f"DROPPED ({len(dropped)}) — NOT scored (timeout/error/no-data): {', '.join(dropped)}")
         if not qualified:
             typer.echo("No qualifying picks today.")
             return

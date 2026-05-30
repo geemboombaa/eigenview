@@ -30,6 +30,7 @@ from eigenview.factors.flow import score_flow
 from eigenview.factors.gex import score_gex
 from eigenview.factors.macro_regime import score_macro_regime
 from eigenview.factors.sentiment import score_sentiment
+from eigenview.factors.sentiment_model import warm_up as warm_up_sentiment
 from eigenview.factors.technical import score_technical
 from eigenview.data.universe import get_options_universe
 from eigenview.synthesis.gate import (
@@ -44,6 +45,11 @@ from eigenview.synthesis.gate import (
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
+
+# SQLite allows ONE writer at a time. The scan scores tickers concurrently, each on
+# its own session; serialize just the brief dormant-bet write+commit so concurrent
+# writers never contend the lock (a transient lock used to drop the whole ticker).
+_DORMANT_WRITE_LOCK = asyncio.Lock()
 
 # Broker-screened options universe (184 names). Only these get GEX/flow/dormant
 # scored — TA + sentiment run on the full scan universe. Loaded once.
@@ -320,7 +326,11 @@ async def _score_ticker(
                 # never fire — their chains are too thin to judge dealer/dormant positioning.
                 ticker_oi = sum(int(getattr(c, "oi", 0) or 0) for c in chains)
                 if ticker_oi >= settings.dormant_min_ticker_oi:
-                    await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
+                    # Serialize the write+commit so concurrent tickers can't collide on
+                    # SQLite's single write lock (was dropping a ticker on transient lock).
+                    async with _DORMANT_WRITE_LOCK:
+                        await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
+                        await session.commit()
                     dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
                 else:
                     dormant = FactorResult(
@@ -396,6 +406,11 @@ async def run_daily_scan(
     if download:
         _report("download", 0, "Refreshing dormant watchlist history…")
         await _refresh_watchlist_history(session)
+
+    # Pre-load FinBERT once (~14s) OUTSIDE the per-ticker timeout, so heavy-news
+    # names (hundreds of articles) never lose their budget to the cold model load.
+    _report("warmup", 0, "Loading sentiment model…")
+    await asyncio.get_event_loop().run_in_executor(None, warm_up_sentiment)
 
     today_date = date.today()
     today_str = today_date.isoformat()
@@ -474,6 +489,14 @@ async def run_daily_scan(
             log.warning("trickle_write_failed", error=str(exc))
         done += len(batch)
         _report("score", done, f"Scored {done}/{total}…")
+
+    # ── Account for EVERY input ticker — a scored set smaller than the input means
+    #    some names dropped (timeout/error/no-data). Never silent: surface count + names. ──
+    scored_set = {sc.ticker for sc in scorecards}
+    dropped = [t for t in tickers if t not in scored_set]
+    if dropped:
+        log.warning("scan.dropped_tickers", count=len(dropped), total=total, tickers=dropped)
+        _report("rank", total, f"⚠ {len(dropped)} dropped (not scored): {', '.join(dropped)}")
 
     # ── Rank + write picks (needs the full set) ──
     _report("rank", total, "Ranking picks…")
