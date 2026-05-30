@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
@@ -90,6 +90,8 @@ def _pick_to_dict(p: Pick, spot: float | None = None) -> dict:
         "entry_low": p.entry_low,
         "entry_high": p.entry_high,
         "stop": p.stop,
+        "target": p.target,
+        "ta_tier": ta_detail.get("probability_tier"),
         "thesis": p.thesis or "",
         "spot": spot,
         "iv_rank": iv_rank,
@@ -99,6 +101,26 @@ def _pick_to_dict(p: Pick, spot: float | None = None) -> dict:
         "structure": structure,
         "factors": factors_raw,
     }
+
+
+@router.get("/picks/week")
+async def get_picks_week(days: int = 7) -> list:
+    """Picks from last `days` days, excluding today. Used for the Prior Picks panel."""
+    today = date.today()
+    start = today - timedelta(days=days)
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Pick)
+            .where(Pick.date >= start, Pick.date < today)
+            .order_by(Pick.date.desc(), Pick.conviction.desc())
+        )
+        picks = result.scalars().all()
+        spot_result = await session.execute(
+            select(FactorScore.ticker, FactorScore.date, FactorScore.spot_price)
+            .where(FactorScore.date >= start, FactorScore.date < today)
+        )
+        spot_map = {(r[0], str(r[1])): r[2] for r in spot_result}
+    return [_pick_to_dict(p, spot_map.get((p.ticker, str(p.date)))) for p in picks]
 
 
 @router.get("/picks/dates")

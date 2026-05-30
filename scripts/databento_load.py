@@ -36,7 +36,19 @@ ST_OPEN_INTEREST = 9 # OI (quantity)
 ST_CLOSE = 11        # close price (price)
 
 RISK_FREE = 0.045
-END = "2026-05-23"  # latest available EQUS/OPRA day (T+1)
+END = "2026-05-23"  # fallback only — real end is computed per-dataset via latest_day()
+
+
+def latest_day(client, dataset: str) -> str:
+    """Latest available trading day for a dataset (Databento OPRA/EQUS are ~T+1).
+
+    Replaces the old hardcoded END so the download always pulls the freshest data
+    instead of a frozen date. Falls back to END if the metadata call fails.
+    """
+    try:
+        return client.metadata.get_dataset_range(dataset=dataset)["end"][:10]
+    except Exception:
+        return END
 
 
 def load_key() -> str:
@@ -80,9 +92,10 @@ def is_monthly(expiry: dt.date) -> bool:
 
 
 # ---------------------------------------------------------------- equities
-def load_equities(client: db.Historical, tickers: list[str], con: sqlite3.Connection) -> None:
-    today = dt.date.fromisoformat(END)
+def load_equities(client: db.Historical, tickers: list[str], con: sqlite3.Connection, end: str | None = None) -> None:
     rng = client.metadata.get_dataset_range(dataset="EQUS.MINI")
+    end_str = end or rng["end"][:10]
+    today = dt.date.fromisoformat(end_str)
     avail_start = dt.date.fromisoformat(rng["start"][:10])
     start_1d = max(today - dt.timedelta(days=730), avail_start).isoformat()
     start_1h = max(today - dt.timedelta(days=90), avail_start).isoformat()
@@ -91,7 +104,7 @@ def load_equities(client: db.Historical, tickers: list[str], con: sqlite3.Connec
     for schema, start, tf in [("ohlcv-1d", start_1d, "1d"), ("ohlcv-1h", start_1h, "1h")]:
         data = client.timeseries.get_range(
             dataset="EQUS.MINI", schema=schema, symbols=tickers,
-            start=start, end=END, stype_in="raw_symbol",
+            start=start, end=end_str, stype_in="raw_symbol",
         )
         df = data.to_df()
         if df.empty:
@@ -107,7 +120,7 @@ def load_equities(client: db.Historical, tickers: list[str], con: sqlite3.Connec
             "INSERT OR REPLACE INTO prices (ticker,date,open,high,low,close,volume,timeframe) "
             "VALUES (?,?,?,?,?,?,?,?)", rows)
         con.commit()
-        print(f"  equities {schema}: {len(rows)} rows ({start}..{END})")
+        print(f"  equities {schema}: {len(rows)} rows ({start}..{end_str})")
 
 
 def spot_map(con: sqlite3.Connection) -> dict[str, float]:
@@ -131,13 +144,13 @@ def _last_per(df: pd.DataFrame, stat: int, value_col: str) -> dict[str, float]:
     return sub.groupby("symbol")[value_col].last().to_dict()
 
 
-def _load_options_batch(client, tickers, con, today, start, spots, greeks) -> int:
+def _load_options_batch(client, tickers, con, today, start, spots, greeks, end) -> int:
     bs_delta, bs_gamma, implied_volatility = greeks
     opt_syms = [f"{t}.OPT" for t in tickers]
 
     ddf = client.timeseries.get_range(
         dataset="OPRA.PILLAR", schema="definition", symbols=opt_syms,
-        start=start, end=END, stype_in="parent",
+        start=start, end=end, stype_in="parent",
     ).to_df()
     defs: dict[str, tuple] = {}
     for r in ddf.itertuples():
@@ -151,7 +164,7 @@ def _load_options_batch(client, tickers, con, today, start, spots, greeks) -> in
 
     sdf = client.timeseries.get_range(
         dataset="OPRA.PILLAR", schema="statistics", symbols=opt_syms,
-        start=start, end=END, stype_in="parent",
+        start=start, end=end, stype_in="parent",
     ).to_df()
     oi = _last_per(sdf, ST_OPEN_INTEREST, "quantity")
     vol = _last_per(sdf, ST_VOLUME, "quantity")
@@ -175,7 +188,7 @@ def _load_options_batch(client, tickers, con, today, start, spots, greeks) -> in
                 gma = bs_gamma(flag, S, strike, t, RISK_FREE, iv)
             except Exception:  # noqa: BLE001  below-intrinsic / no-solution
                 pass
-        rows.append((root, END, strike, exp.isoformat(), cls,
+        rows.append((root, end, strike, exp.isoformat(), cls,
                      b, a, int(vol.get(sym, 0)) or None,
                      int(oi.get(sym, 0)) or None, iv, dlt, gma))
 
@@ -186,11 +199,12 @@ def _load_options_batch(client, tickers, con, today, start, spots, greeks) -> in
     return len(rows)
 
 
-def load_options(client: db.Historical, tickers: list[str], con: sqlite3.Connection, batch: int = 40) -> None:
+def load_options(client: db.Historical, tickers: list[str], con: sqlite3.Connection, batch: int = 40, end: str | None = None) -> None:
     from py_vollib.black_scholes.greeks.analytical import delta as bs_delta, gamma as bs_gamma
     from py_vollib.black_scholes.implied_volatility import implied_volatility
 
-    today = dt.date.fromisoformat(END)
+    end_str = end or latest_day(client, "OPRA.PILLAR")
+    today = dt.date.fromisoformat(end_str)
     start = (today - dt.timedelta(days=1)).isoformat()
     spots = spot_map(con)
     greeks = (bs_delta, bs_gamma, implied_volatility)
@@ -198,10 +212,48 @@ def load_options(client: db.Historical, tickers: list[str], con: sqlite3.Connect
     total = 0
     for i in range(0, len(tickers), batch):
         chunk = tickers[i:i + batch]
-        n = _load_options_batch(client, chunk, con, today, start, spots, greeks)
+        n = _load_options_batch(client, chunk, con, today, start, spots, greeks, end_str)
         total += n
         print(f"  options batch {i // batch + 1} ({chunk[0]}..{chunk[-1]}): {n} rows  [total {total}]")
-    print(f"  options: {total} chain rows written (snapshot {END})")
+    print(f"  options: {total} chain rows written (snapshot {end_str})")
+
+
+def probe_liquidity(client: db.Historical, tickers: list[str], batch: int = 40, end: str | None = None) -> dict[str, tuple[int, int]]:
+    """Real-time liquidity probe: pull ONLY OPRA statistics (open interest + volume) per
+    ticker — no definitions, greeks, or chain writes. Used to filter the download universe
+    at SOURCE (current OI/vol from Databento), not from the stale SQL dump.
+
+    Returns {ticker: (agg_oi, agg_volume)} aggregated over each ticker's contracts.
+    """
+    end_str = end or latest_day(client, "OPRA.PILLAR")
+    start = (dt.date.fromisoformat(end_str) - dt.timedelta(days=1)).isoformat()
+    # OSI root (separators stripped) -> input ticker, to map per-contract stats back
+    root_map = {t.replace("-", "").replace(".", ""): t for t in tickers}
+    out: dict[str, list[int]] = {t: [0, 0] for t in tickers}
+    for i in range(0, len(tickers), batch):
+        chunk = tickers[i:i + batch]
+        opt_syms = [f"{t}.OPT" for t in chunk]
+        try:
+            sdf = client.timeseries.get_range(
+                dataset="OPRA.PILLAR", schema="statistics", symbols=opt_syms,
+                start=start, end=end_str, stype_in="parent",
+            ).to_df()
+        except Exception as exc:  # noqa: BLE001
+            print(f"  probe batch {i // batch + 1}: error {exc}")
+            continue
+        if sdf.empty:
+            continue
+        oi = _last_per(sdf, ST_OPEN_INTEREST, "quantity")
+        vol = _last_per(sdf, ST_VOLUME, "quantity")
+        for sym, q in oi.items():
+            t = root_map.get(sym.strip().split()[0])
+            if t:
+                out[t][0] += int(q or 0)
+        for sym, q in vol.items():
+            t = root_map.get(sym.strip().split()[0])
+            if t:
+                out[t][1] += int(q or 0)
+    return {t: (v[0], v[1]) for t, v in out.items()}
 
 
 # ---------------------------------------------------------------- cost
@@ -246,6 +298,7 @@ def main() -> None:
         return
 
     con = sqlite3.connect(DB_PATH)
+    con.execute("PRAGMA busy_timeout=30000")  # wait on lock instead of erroring instantly
     if args.clear:
         con.execute("DELETE FROM prices")
         con.execute("DELETE FROM chains")

@@ -249,7 +249,7 @@ class TestSynthesis:
         )
         assert qualify_pick(sc, macro_score) is False, "GEX hard gate must block qualification"
 
-    def test_gate_blocks_when_macro_red(self, nvda_prices, nvda_chains, nvda_spot, macro_result):
+    def test_macro_does_not_gate_qualification(self, nvda_prices, nvda_chains, nvda_spot, macro_result):
         from eigenview.factors.base import FactorResult
         from eigenview.factors.flow import score_flow
         from eigenview.factors.gex import score_gex
@@ -266,7 +266,9 @@ class TestSynthesis:
             ticker="NVDA", macro=macro_result, technical=ta,
             gex=gex, flow=flow, dormant=dormant_on, sentiment=sent_on, spot_price=nvda_spot,
         )
-        assert qualify_pick(sc, macro_score=2) is False, "RED macro must block qualification"
+        # Macro never gates qualification (user-locked 2026-05-29): the verdict is
+        # identical whether macro is RED (2) or GREEN (9).
+        assert qualify_pick(sc, macro_score=2) == qualify_pick(sc, macro_score=9)
 
     def test_conviction_in_range(self, nvda_prices, nvda_chains, nvda_spot, macro_result):
         from eigenview.factors.base import FactorResult

@@ -10,7 +10,15 @@ from sqlalchemy.dialects.sqlite import insert as upsert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eigenview.config import settings
-from eigenview.data.storage import Chain, ContractHistory, DormantBet, FactorScore, Price, write_signal_trigger
+from eigenview.data.storage import (
+    AsyncSessionLocal,
+    Chain,
+    ContractHistory,
+    DormantBet,
+    FactorScore,
+    Price,
+    write_signal_trigger,
+)
 from eigenview.factors.base import FactorResult
 from eigenview.factors.dormant import (
     candidate_dwoi_floor,
@@ -23,10 +31,23 @@ from eigenview.factors.gex import score_gex
 from eigenview.factors.macro_regime import score_macro_regime
 from eigenview.factors.sentiment import score_sentiment
 from eigenview.factors.technical import score_technical
-from eigenview.synthesis.gate import SHORT_SETUP_PATTERNS, TickerScorecard, entry_zone, stop_level
+from eigenview.data.universe import get_options_universe
+from eigenview.synthesis.gate import (
+    SHORT_SETUP_PATTERNS,
+    TickerScorecard,
+    conviction_score,
+    entry_zone,
+    estimate_target,
+    setup_type,
+    stop_level,
+)
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
+
+# Broker-screened options universe (184 names). Only these get GEX/flow/dormant
+# scored — TA + sentiment run on the full scan universe. Loaded once.
+_OPTIONS_UNIVERSE = set(get_options_universe())
 
 
 async def _identify_dormant_bets(
@@ -148,6 +169,12 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     )
     end = date.today().isoformat()
 
+    # Databento rejects start >= end (422). When history is already current through
+    # yesterday, the window collapses — nothing to fetch, skip cleanly.
+    if start >= end:
+        log.info("refresh_watchlist.up_to_date", start=start, end=end)
+        return
+
     from eigenview.data.databento_history import fetch_statistics, osi_symbol as _osi
 
     bet_by_osi = {_osi(b.ticker, b.expiry, b.call_put, b.strike): b for b in bets}
@@ -161,10 +188,15 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
 
     loop = asyncio.get_event_loop()
     try:
-        df = await loop.run_in_executor(
-            None, fetch_statistics, list(bet_by_osi.keys()), start, end
+        # Databento sync client has no request timeout — bound it so a stuck pull
+        # can't hang the whole scan's download phase.
+        df = await asyncio.wait_for(
+            loop.run_in_executor(
+                None, fetch_statistics, list(bet_by_osi.keys()), start, end
+            ),
+            timeout=120.0,
         )
-    except Exception as exc:
+    except (Exception, asyncio.TimeoutError) as exc:
         log.warning("refresh_watchlist.databento_failed", error=str(exc))
         return
 
@@ -199,23 +231,33 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
         log.info("refresh_watchlist.done", rows=len(to_insert))
 
 
-def _score_with_lookback(df: pd.DataFrame, ticker: str, lookback: int = settings.scanner_ta_lookback_days):
+def _score_with_lookback(
+    df: pd.DataFrame,
+    ticker: str,
+    lookback: int = settings.scanner_ta_lookback_days,
+    gex_levels: dict | None = None,
+):
     n = len(df)
     max_back = min(lookback, n - 50)
     for i in range(max(0, max_back) + 1):
         sl = df.iloc[:n - i] if i > 0 else df
-        r = score_technical(sl, ticker)
+        r = score_technical(sl, ticker, gex_levels=gex_levels)
         if r.firing:
             return r
-    return score_technical(df, ticker)
+    return score_technical(df, ticker, gex_levels=gex_levels)
 
 
 async def _score_ticker(
     ticker: str,
     macro_result,
     macro_score: int,
-    session: AsyncSession,
 ) -> TickerScorecard | None:
+    """Score one ticker on its OWN session — never a shared one.
+
+    Sharing a single AsyncSession across concurrent tasks deadlocks; each ticker
+    gets an isolated session here so scoring is safely parallel. SQLite WAL +
+    busy_timeout (set in storage) serialize the dormant-bet writes cleanly.
+    """
     try:
         df = await _fetch_live(ticker)
         if df.empty:
@@ -223,43 +265,86 @@ async def _score_ticker(
             return None
         spot = float(df["close"].iloc[-1])
 
-        # Read latest available chain snapshot (not necessarily today — Databento
-        # snapshot date may lag by a day or more)
-        latest_snap_row = await session.execute(
-            select(func.max(Chain.snapshot_date)).where(Chain.ticker == ticker)
-        )
-        snap_date = latest_snap_row.scalar()
-        if snap_date is None:
-            chains = []
-        else:
-            chain_rows = await session.execute(
-                select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == snap_date)
+        async with AsyncSessionLocal() as session:
+            # Read latest available chain snapshot (not necessarily today — Databento
+            # snapshot date may lag by a day or more)
+            latest_snap_row = await session.execute(
+                select(func.max(Chain.snapshot_date)).where(Chain.ticker == ticker)
             )
-            chains = chain_rows.scalars().all()
+            snap_date = latest_snap_row.scalar()
+            if snap_date is None:
+                chains = []
+            else:
+                chain_rows = await session.execute(
+                    select(Chain).where(Chain.ticker == ticker, Chain.snapshot_date == snap_date)
+                )
+                chains = chain_rows.scalars().all()
 
-        ta = _score_with_lookback(df, ticker)
-        gex = score_gex(list(chains), spot, ticker)
-        flow = score_flow(list(chains), ticker)
+            # Options factors (GEX/flow/dormant) run ONLY for the broker-screened
+            # options universe — chains exist for these names. Everything else scores
+            # TA + sentiment only and cannot qualify as an options pick.
+            in_options = ticker in _OPTIONS_UNIVERSE
 
-        # Options-liquidity gate (OI proxy until real options-volume history is
-        # pulled). Illiquid names: don't accumulate dormant candidates, don't score,
-        # never fire — their chains are too thin to judge dealer/dormant positioning.
-        ticker_oi = sum(int(getattr(c, "oi", 0) or 0) for c in chains)
-        if ticker_oi >= settings.dormant_min_ticker_oi:
-            await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
-            dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
-        else:
-            dormant = FactorResult(
-                factor_id="dormant", firing=False, strength=0.0, label="NOT_LIQUID",
-                detail={"ticker_oi": ticker_oi, "min_oi": settings.dormant_min_ticker_oi},
-                narrative=(
-                    f"Options illiquid (agg OI {ticker_oi} < "
-                    f"{settings.dormant_min_ticker_oi}) — not screened for dormant bets."
-                ),
-            )
-        sentiment = await score_sentiment(ticker, session)
+            if in_options:
+                # GEX first so its dealer levels feed TA confluence (strength-only).
+                gex = score_gex(list(chains), spot, ticker)
+                gex_levels = {
+                    "call_wall": gex.detail.get("call_wall"),
+                    "put_wall": gex.detail.get("put_wall"),
+                    "gamma_flip": gex.detail.get("gamma_flip"),
+                } if gex.detail else None
+            else:
+                gex = FactorResult(
+                    factor_id="gex", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None,
+                    narrative="Not in options universe — no chains; GEX gate withheld.",
+                )
+                gex_levels = None
 
-        return TickerScorecard(
+            ta = _score_with_lookback(df, ticker, gex_levels=gex_levels)
+
+            if not in_options:
+                flow = FactorResult(
+                    factor_id="flow", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None, narrative="Not in options universe — flow not scored.",
+                )
+                dormant = FactorResult(
+                    factor_id="dormant", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None, narrative="Not in options universe — dormant not screened.",
+                )
+            else:
+                flow = score_flow(list(chains), ticker)
+
+                # Options-liquidity gate (OI proxy until real options-volume history is
+                # pulled). Illiquid names: don't accumulate dormant candidates, don't score,
+                # never fire — their chains are too thin to judge dealer/dormant positioning.
+                ticker_oi = sum(int(getattr(c, "oi", 0) or 0) for c in chains)
+                if ticker_oi >= settings.dormant_min_ticker_oi:
+                    await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
+                    dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
+                else:
+                    dormant = FactorResult(
+                        factor_id="dormant", firing=False, strength=0.0, label="NOT_LIQUID",
+                        detail={"ticker_oi": ticker_oi, "min_oi": settings.dormant_min_ticker_oi},
+                        narrative=(
+                            f"Options illiquid (agg OI {ticker_oi} < "
+                            f"{settings.dormant_min_ticker_oi}) — not screened for dormant bets."
+                        ),
+                    )
+                    # Not options-tradeable → neutralize the GEX hard gate so the pick cannot
+                    # qualify (a thin chain's dealer levels aren't trustworthy to trade on).
+                    gex = FactorResult(
+                        factor_id="gex", firing=False, strength=0.0, label="NOT_LIQUID",
+                        detail=gex.detail,
+                        narrative=(
+                            f"Options illiquid (agg OI {ticker_oi} < "
+                            f"{settings.dormant_min_ticker_oi}) — GEX gate withheld."
+                        ),
+                    )
+            sentiment = await score_sentiment(ticker, session)
+            await session.commit()  # persist dormant_bets accumulated above
+
+        card = TickerScorecard(
             ticker=ticker,
             macro=macro_result,
             technical=ta,
@@ -269,100 +354,136 @@ async def _score_ticker(
             sentiment=sentiment,
             spot_price=spot,
         )
+
+        # Price target (for R:R + the UI Target column) — computed here where the
+        # price df + pattern detail are in scope.
+        if ta.firing and ta.label:
+            try:
+                is_short = ta.label in SHORT_SETUP_PATTERNS
+                ez = entry_zone(card)
+                sl = stop_level(card)
+                entry_ref = ez[0] if is_short else ez[1]
+                card.target = estimate_target(ta.label, ta.detail, entry_ref, sl, df)
+            except Exception as exc:
+                log.warning("target_estimate_failed", ticker=ticker, error=str(exc))
+
+        return card
     except Exception as exc:
         log.warning("ticker_score_failed", ticker=ticker, error=str(exc))
         return None
 
 
-async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[TickerScorecard]:
+async def run_daily_scan(
+    tickers: list[str],
+    session: AsyncSession,
+    download: bool = True,
+    progress=None,
+    chunk_size: int | None = None,
+) -> list[TickerScorecard]:
+    chunk = chunk_size or settings.scanner_chunk_size
+    timeout = settings.scanner_ticker_timeout_secs
+    total = len(tickers)
+
+    def _report(phase: str, done: int, message: str | None = None) -> None:
+        if progress:
+            progress(phase=phase, done=done, total=total, message=message)
+
     macro = await score_macro_regime(session)
     macro_score = int(macro.detail.get("score", 0))
 
-    # Refresh contract history for dormant watchlist before scoring
-    await _refresh_watchlist_history(session)
+    # Refresh contract history for dormant watchlist before scoring.
+    # Skipped when download=False — a no-download scan must touch no external source.
+    if download:
+        _report("download", 0, "Refreshing dormant watchlist history…")
+        await _refresh_watchlist_history(session)
 
+    today_date = date.today()
+    today_str = today_date.isoformat()
     sem = asyncio.Semaphore(settings.scanner_concurrency)
 
-    async def bounded(t: str) -> TickerScorecard | None:
+    async def _one(t: str) -> TickerScorecard | None:
+        # Per-ticker timeout — one stuck name cannot stall the whole scan.
         async with sem:
-            return await _score_ticker(t, macro, macro_score, session)
+            try:
+                return await asyncio.wait_for(_score_ticker(t, macro, macro_score), timeout=timeout)
+            except asyncio.TimeoutError:
+                log.warning("ticker_timeout", ticker=t, secs=timeout)
+                return None
+            except Exception as exc:
+                log.warning("ticker_failed_outer", ticker=t, error=str(exc))
+                return None
 
-    results = await asyncio.gather(*[bounded(t) for t in tickers])
-    scorecards = [r for r in results if r is not None]
+    async def _persist(cards: list[TickerScorecard]) -> None:
+        # All aggregate writes happen here on the single shared session, AFTER the
+        # chunk's concurrent scoring (own sessions) has finished — never overlapping.
+        for sc in cards:
+            factors_firing = sum([
+                sc.technical.firing, sc.gex.firing,
+                sc.flow.firing, sc.dormant.firing, sc.sentiment.firing,
+            ])
+            vals = dict(
+                ta_strength=sc.technical.strength, ta_label=sc.technical.label,
+                ta_tier=(sc.technical.detail or {}).get("probability_tier"),
+                gex_strength=sc.gex.strength, gex_label=sc.gex.label,
+                flow_strength=sc.flow.strength, flow_label=sc.flow.label,
+                dormant_strength=sc.dormant.strength, dormant_label=sc.dormant.label,
+                sentiment_strength=sc.sentiment.strength, sentiment_label=sc.sentiment.label,
+                macro_score=macro_score, spot_price=sc.spot_price,
+                factors_firing=factors_firing, updated_at=datetime.utcnow(),
+            )
+            stmt = upsert(FactorScore).values(
+                date=today_date, ticker=sc.ticker, **vals
+            ).on_conflict_do_update(index_elements=["date", "ticker"], set_=vals)
+            await session.execute(stmt)
 
+            if sc.technical.firing and sc.technical.label:
+                direction = "short" if sc.technical.label in SHORT_SETUP_PATTERNS else "long"
+                ez = entry_zone(sc)
+                sl = stop_level(sc)
+                try:
+                    await write_signal_trigger(
+                        session, ticker=sc.ticker, scan_date=today_str,
+                        setup_type=sc.technical.label, direction=direction,
+                        entry_low=ez[0], entry_high=ez[1], stop=sl,
+                        target=sc.target, confidence=sc.technical.strength,
+                    )
+                except Exception as exc:
+                    log.warning("signal_trigger_write_failed", ticker=sc.ticker, error=str(exc))
+        await session.commit()
+
+    # ── Score in chunks; commit + report after each → live progress, no giant lock ──
+    scorecards: list[TickerScorecard] = []
+    done = 0
+    _report("score", 0, f"Scoring 0/{total}…")
+    for i in range(0, total, chunk):
+        batch = tickers[i:i + chunk]
+        results = await asyncio.gather(*[_one(t) for t in batch])
+        cards = [r for r in results if r is not None]
+        scorecards.extend(cards)
+        await _persist(cards)
+        # Trickle picks: write this chunk's qualifiers immediately so DAILY fills in
+        # batches as scoring progresses (the UI polls /api/picks every 2s). qualify_pick
+        # is per-scorecard independent and write_picks upserts, so the final full-set
+        # rank/write below is an idempotent reconcile, not a conflict.
+        try:
+            chunk_qualified = rank_picks(cards, macro_score)
+            if chunk_qualified:
+                await write_picks(chunk_qualified, macro_score, session, all_scorecards=cards)
+                await session.commit()
+        except Exception as exc:
+            log.warning("trickle_write_failed", error=str(exc))
+        done += len(batch)
+        _report("score", done, f"Scored {done}/{total}…")
+
+    # ── Rank + write picks (needs the full set) ──
+    _report("rank", total, "Ranking picks…")
     qualified = rank_picks(scorecards, macro_score)
     await write_picks(qualified, macro_score, session, all_scorecards=scorecards)
+    await session.commit()
 
-    # Write per-ticker factor scores for all scanned tickers (heat map / debug source)
-    today_date = date.today()
-    for sc in scorecards:
-        factors_firing = sum([
-            sc.technical.firing, sc.gex.firing,
-            sc.flow.firing, sc.dormant.firing, sc.sentiment.firing,
-        ])
-        stmt = upsert(FactorScore).values(
-            date=today_date,
-            ticker=sc.ticker,
-            ta_strength=sc.technical.strength,
-            ta_label=sc.technical.label,
-            gex_strength=sc.gex.strength,
-            gex_label=sc.gex.label,
-            flow_strength=sc.flow.strength,
-            flow_label=sc.flow.label,
-            dormant_strength=sc.dormant.strength,
-            dormant_label=sc.dormant.label,
-            sentiment_strength=sc.sentiment.strength,
-            sentiment_label=sc.sentiment.label,
-            macro_score=macro_score,
-            spot_price=sc.spot_price,
-            factors_firing=factors_firing,
-            updated_at=datetime.utcnow(),
-        ).on_conflict_do_update(
-            index_elements=["date", "ticker"],
-            set_={
-                "ta_strength": sc.technical.strength,
-                "ta_label": sc.technical.label,
-                "gex_strength": sc.gex.strength,
-                "gex_label": sc.gex.label,
-                "flow_strength": sc.flow.strength,
-                "flow_label": sc.flow.label,
-                "dormant_strength": sc.dormant.strength,
-                "dormant_label": sc.dormant.label,
-                "sentiment_strength": sc.sentiment.strength,
-                "sentiment_label": sc.sentiment.label,
-                "macro_score": macro_score,
-                "spot_price": sc.spot_price,
-                "factors_firing": factors_firing,
-                "updated_at": datetime.utcnow(),
-            },
-        )
-        await session.execute(stmt)
-    await session.flush()
-
-    today_str = date.today().isoformat()
-    for sc in scorecards:
-        if not sc.technical.firing or not sc.technical.label:
-            continue
-        direction = "short" if sc.technical.label in SHORT_SETUP_PATTERNS else "long"
-        ez = entry_zone(sc)
-        sl = stop_level(sc)
-        try:
-            await write_signal_trigger(
-                session,
-                ticker=sc.ticker,
-                scan_date=today_str,
-                setup_type=sc.technical.label,
-                direction=direction,
-                entry_low=ez[0],
-                entry_high=ez[1],
-                stop=sl,
-                target=None,
-                confidence=sc.technical.strength,
-            )
-        except Exception as exc:
-            log.warning("signal_trigger_write_failed", ticker=sc.ticker, error=str(exc))
-
-    # Generate LLM theses for qualifying picks
+    # ── LLM theses (only network step; bounded, reported) ──
+    n_q = len(qualified)
+    _report("thesis", 0, f"Generating theses 0/{n_q}…")
     try:
         from datetime import date as _date
 
@@ -371,7 +492,11 @@ async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[Tick
         from eigenview.data.storage import Pick
         from eigenview.llm.thesis import generate_thesis
 
-        for sc in qualified:
+        # Phase 1 — generate theses (network). generate_thesis writes its own llm_log
+        # on a separate session; keep the main session idle here so those commits never
+        # contend with an open Pick-write txn (the cause of the SQLite "database is locked").
+        theses: dict[str, str] = {}
+        for j, sc in enumerate(qualified, 1):
             if sc.technical.label == "NO DATA":
                 log.warning("thesis_skipped_no_data", ticker=sc.ticker)
                 continue
@@ -379,14 +504,36 @@ async def run_daily_scan(tickers: list[str], session: AsyncSession) -> list[Tick
                 f.factor_id: {"firing": f.firing, "label": f.label, "detail": f.detail}
                 for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
             }
-            thesis = await generate_thesis(sc.ticker, factors_dict, sc.spot_price, None)
+            direction = "short" if sc.technical.label in SHORT_SETUP_PATTERNS else "long"
+            ez = entry_zone(sc)
+            sl = stop_level(sc)
+            entry_ref = ez[0] if direction == "short" else ez[1]
+            rr = (round(abs(sc.target - entry_ref) / abs(entry_ref - sl), 2)
+                  if sc.target and entry_ref != sl else None)
+            ctx = {
+                "ticker": sc.ticker,
+                "direction": direction,
+                "setup": setup_type(sc),
+                "entry_low": ez[0], "entry_high": ez[1],
+                "stop": sl, "target": sc.target, "rr": rr,
+                "conviction": conviction_score(sc),
+                "price": sc.spot_price,
+                "catalyst": None,
+                "macro_label": sc.macro.label,
+                "factors": factors_dict,
+            }
+            theses[sc.ticker] = await generate_thesis(ctx)
+            _report("thesis", j, f"Generating theses {j}/{n_q}…")
+        # Phase 2 — write all theses in one short transaction (no concurrent writer).
+        for ticker, thesis in theses.items():
             await session.execute(
                 update(Pick)
-                .where(Pick.ticker == sc.ticker, Pick.date == _date.today())
+                .where(Pick.ticker == ticker, Pick.date == _date.today())
                 .values(thesis=thesis)
             )
-        await session.flush()
+        await session.commit()
     except Exception as exc:
         log.warning("thesis_generation_failed", error=str(exc))
 
+    _report("done", total, f"Done — {n_q} pick{'s' if n_q != 1 else ''}")
     return qualified

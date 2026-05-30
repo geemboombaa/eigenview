@@ -5,6 +5,22 @@ You are the build agent for **EigenView**, a curated daily options + futures int
 
 ---
 
+## REPORTING STYLE — MANDATORY (no rambling)
+
+When reporting findings, audits, or status: **plain English, one table where it fits, no preamble.**
+- NO code-speak in prose: don't cite file paths, line numbers, function names, or internal variable names in explanations. Explain what the thing *does* in trader/user terms. Pseudo-code only if logic must be shown.
+- NO narrating the investigation ("I read X, then traced Y…"). State the conclusion.
+- Issues → ONE table: Problem | Fix | Status. No per-item essays.
+- No restating the question, no "great question", no back-and-forth filler.
+- Detailed file/line evidence belongs in a doc under `docs/`, not in chat.
+- Token discipline is a hard rule here, not a preference.
+
+## STALE-SPEC RULE — code is truth (locked 2026-05-29)
+
+Any doc/spec older than 2 weeks is NOT authoritative. Before trusting any doc (incl. the taxonomy/dormant/macro descriptions in THIS file), verify against code; on conflict, **code wins** and the doc must be rewritten. Known-stale: TA "21 setups" (code has 16), dormant "6-signal scorer" (code is a 4-trigger tally), macro "5 signals" (code has 4).
+
+---
+
 ## WHAT THE PRODUCT IS — ONE PARAGRAPH
 
 A dashboard that runs every morning and outputs **a short ranked list of specific instruments to look at today** — stocks (options plays) and optionally futures — each with a score, setup type, entry zone, stop level, and a plain-English thesis. Not a scanner. Not a data dump. A curated, opinionated, ready-to-act list. The macro regime is checked first; if it's red, no long picks appear regardless of individual stock signals.
@@ -66,7 +82,7 @@ Qualify = Macro Regime (Gate 0) passes AND TA (Gate 1) fires AND GEX (Gate 2) fi
           AND at least 2 of {Flow, Dormant, Sentiment} fire
 Conviction = 1–5 based on firing count × strength
 Rank = conviction DESC, then dormant bonus, then IV rank (cheaper vol = better R:R)
-Output = top 3–10 qualifying instruments per day
+Output = every qualifying instrument per day (NO cap — show what the scan returns)
 ```
 
 ---
@@ -93,32 +109,6 @@ MVP scope:
 - Closed picks archive / journal
 
 **Why this sequence:** Prove the data pipeline works → prove the scoring produces real picks → prove the AI thesis is useful → THEN build the surrounding product.
-
----
-
-## PHASE 0 — Already Done (repo scaffold)
-Repo exists at: `C:\Users\v_per\OneDrive\Documents\Claude\Projects\Tradingview\eigenview-handoff`
-Wireframes at: `C:\Users\v_per\OneDrive\Documents\Claude\Projects\Tradingview\eigenview-wireframe-v2.html`
-
-**Phase 0 remaining tasks:**
-- [ ] Create `src/eigenview/` directory structure (see repo layout below)
-- [ ] Create `pyproject.toml` with uv dependencies
-- [ ] Create `.env.example` with all required API key slots
-- [ ] Copy wireframe-v2.html into `web/index.html` as starting point
-- [ ] First commit: "phase-0: scaffold + handoff docs"
-
-**API keys needed (Phase 1 blockers):**
-```
-ALPHA_VANTAGE_KEY=        # free at alphavantage.co — news + sentiment
-FINNHUB_KEY=              # free at finnhub.io — news + earnings calendar
-ANTHROPIC_API_KEY=        # for thesis generation + chat (Phase 4+)
-
-# These are FREE — no key needed:
-# yfinance — no key, just pip install
-# SqueezeMetrics DIX+GEX — public page scrape
-# VIXCentral — public page scrape
-# CFTC COT reports — public data download
-```
 
 ---
 
@@ -371,63 +361,9 @@ eigenview/
 
 ---
 
-## PYPROJECT.TOML DEPENDENCIES (Phase 1 minimum)
+## DEPENDENCIES & CONFIG
 
-```toml
-[project]
-name = "eigenview"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-    "yfinance>=0.2.40",
-    "pandas>=2.0",
-    "pandas-ta>=0.3.14b",
-    "py_vollib>=1.0.1",
-    "requests>=2.31",
-    "beautifulsoup4>=4.12",   # for SqueezeMetrics + VIXCentral scraping
-    "anthropic>=0.25",
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
-    "pydantic-settings>=2.0",
-    "structlog>=24.0",
-    "tenacity>=8.2",          # retry logic for API calls
-    "typer>=0.12",            # CLI framework
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-    "pytest-vcr>=1.0",        # HTTP cassettes for tests
-    "httpx>=0.27",            # for FastAPI test client
-]
-
-[project.optional-dependencies]
-ml = [
-    "scikit-learn>=1.4",
-    "sentence-transformers>=2.7",   # local MiniLM embeddings
-    "transformers>=4.40",           # FinBERT
-    "torch>=2.2",                   # required by transformers
-]
-```
-
----
-
-## .ENV.EXAMPLE
-
-```
-# Required for Phase 1
-ALPHA_VANTAGE_KEY=your_key_here        # free: alphavantage.co/support/#api-key
-FINNHUB_KEY=your_key_here              # free: finnhub.io/register
-
-# Required for Phase 4 (AI features)
-ANTHROPIC_API_KEY=your_key_here        # anthropic.com/api
-
-# Optional overrides
-DB_PATH=data/eigenview.db
-LOG_LEVEL=INFO
-UNIVERSE=SP500+NDX                     # or: test5 (NVDA AAPL TSLA META AMD)
-DAILY_SCAN_HOUR=8                      # pre-market scan hour (ET)
-MAX_PICKS=10
-MACRO_REGIME_GREEN_THRESHOLD=7
-MACRO_REGIME_RED_THRESHOLD=3
-```
+See `pyproject.toml` for the dependency list and `.env.example` for required API keys / config slots. Do not duplicate them here.
 
 ---
 
@@ -513,8 +449,18 @@ Rationale: Module framework is infrastructure, not product. Building it before t
 **2026-04-29 · Macro regime scoring thresholds calibrated**
 Decision: DIX bullish threshold = 43% (not 45%). Breadth healthy threshold = 50% above 50dma (not 55%).
 Rationale: 45%/55% thresholds produced RED on mixed-signal conditions that historically were YELLOW (pre-rally coiled states). Looser thresholds correctly classify those as YELLOW with caution flag rather than blocking all picks.
-Decision: Phase 1 (data) must be complete before Phase 2 (factors). Phase 2 must be complete before Phase 3 (synthesis). Never mix layers.
-Rationale: Data failures are impossible to debug in factor code. Factor failures are impossible to debug in synthesis code. Strict sequencing = faster debugging.
+
+**2026-05-29 · max_picks cap REMOVED everywhere**
+Decision: No cap on the number of picks. Removed the `[: settings.max_picks]` trim from the ranker, deleted the `max_picks` config field, removed `MAX_PICKS` from `.env.example` and this file, and updated the synthesis spec. DAILY now shows every ticker that passes the gate.
+Rationale: User directive — the dashboard must show exactly what the scan returns, never an artificial top-N. Curated short-list framing is dropped; ranking order is preserved (conviction → dormant → gex), only the trim is gone.
+
+**2026-05-29 · Dashboard list semantics locked (Glass Velvet wiring)**
+- **DAILY** = today's final picks (passed the full gate: macro OK, TA firing, GEX firing, ≥2 soft factors). No cap.
+- **WEEKLY** = picks from the prior 7 days, today excluded. A ticker in today's DAILY is excluded from WEEKLY. WEEKLY shows each ticker once (its most recent prior alert). "Today wins."
+- **ALL** = every scanned ticker where TA OR dormant fired (signal matrix). No cap. Matrix endpoint filter changed from `ta>0` to `ta>0 OR dormant>0` to match this.
+- **SCAN button** triggers the full pipeline async (download → factors → gate → rank → thesis → save), UI stays live, animated progress bar + engine status text (no true %), polls status, auto-refreshes when done, surfaces the engine's 4h-cooldown message honestly.
+- **No fallback** to old scan dates, no invented client-side thresholds, no caps, no fake data. Today is empty until a scan runs — honest state.
+Rationale: User-locked over a multi-round clarification. Full detail in docs/13-dashboard-spec.md.
 
 ---
 
@@ -625,7 +571,7 @@ stop_short = min(swing_high * 1.005, entry_high + atr * 1.25)
 | Reversal | 50% or 61.8% Fibonacci retracement of prior move |
 | Mean Reversion | EMA20 or BB midline |
 
-**R:R minimum:** target / (entry − stop) ≥ 2.0. Setups below 2.0 are downgraded in conviction (not eliminated).
+**R:R minimum:** target / (entry − stop) ≥ 3.0 (R:R floor; below = downgraded). Setups below 3.0 are downgraded in conviction (not eliminated).
 
 **Trailing stop methods (display-only, chart overlays):**
 
@@ -748,17 +694,6 @@ LLM is NOT a pattern classifier. Confirmed waste of effort:
 LLM correct scope (downstream only): thesis generation, material/noise news filter, chat.
 
 Future (180+ days, needs training data): GBT on `(indicator_state_vector → pattern_label)` can learn non-linear interactions. Start collecting `indicator_state` + `forward_return` columns in `signal_bench` from Day 1 of scanning.
-
----
-
-### Open Questions (decisions pending)
-
-- [ ] **Q1** Mean reversion setups (BB reversion, EMA200 snap-back) in scope for v1?
-- [ ] **Q2** Chart trail (SuperTrend / Chandelier) — display-only vs executable signal?
-- [ ] **Q3** R:R minimum threshold: 2.0 fixed or configurable?
-- [ ] **Q4** `valid_until` logic: 5 trading days flat, or extend if price still in setup zone?
-- [ ] **Q5** BOS vs breakout: should BOS replace `breakout`/`breakdown` or supplement as higher-confidence variant?
-- [ ] **Q6** `swingtrend` not on PyPI — `scipy.signal.argrelextrema` confirmed as replacement (same output). Lock this?
 
 ---
 

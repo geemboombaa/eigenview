@@ -13,18 +13,22 @@ class Settings(BaseSettings):
     databento_key: str = ""
 
     log_level: str = "INFO"
-    universe: str = "NDX100"
+    universe: str = "ndx100"
     daily_scan_hour: int = 8
-    max_picks: int = 10
     macro_regime_green_threshold: int = 7
     macro_regime_red_threshold: int = 3
+    # Macro regime per-signal thresholds + weights (factors/macro_regime.py) — no hardcode.
+    macro_dix_bullish_threshold: float = 0.43   # DIX > this = dark-pool buying (calibrated 2026-04-29)
+    macro_vix_low_threshold: float = 20.0       # VIX m1 < this = low-vol regime
+    macro_weight_gex: int = 3                    # points for positive net GEX
+    macro_weight_contango: int = 2              # points for VIX contango (term structure up)
+    macro_weight_dix: int = 3                    # points for DIX above threshold
+    macro_weight_vix: int = 2                    # points for low VIX
 
     # Factor thresholds — tune without code changes
     dormant_firing_threshold: float = 0.5
     flow_min_premium_usd: float = 500_000
     flow_min_voi_ratio: float = 3.0
-    sentiment_novelty_z_threshold: float = 1.5
-    ta_pattern_confidence_threshold: float = 0.6
     gex_short_gamma_threshold: float = 0.0
 
     # Risk-free rate — single source for all options pricing (BS mark, IV solve)
@@ -51,8 +55,20 @@ class Settings(BaseSettings):
     # COT (data/macro.py) — default futures instrument for CFTC COT fetch
     cot_default_instrument: str = "ES"
 
+    # ── News refresh job (cli.py fetch-news) — decoupled from daily scan ──
+    news_refresh_concurrency: int = 8       # parallel ticker semaphore (Finnhub ~60 req/min)
+    news_av_daily_budget: int = 20          # max tickers routed through Alpha Vantage/day
+                                            # (AV free = 25/day; reserve headroom)
+    news_lookback_days: int = 3             # how far back each refresh pulls per ticker
+
     # Sentiment novelty baseline (factors/sentiment.py) — expected articles/day
     sentiment_expected_articles_per_day: float = 1.0
+    # Sentiment model (factors/sentiment_model.py) — FinBERT-tone primary (benchmark 2026-05-29:
+    # 74% agreement w/ ProsusAI, finance-tuned, 40ms/headline CPU), VADER lexicon fallback.
+    sentiment_model_id: str = "yiyanghkust/finbert-tone"
+    sentiment_min_articles: int = 1              # min recent articles to score at all
+    sentiment_neutral_deadzone: float = 0.05     # |net| within this = neutral (no direction, no fire)
+    sentiment_recency_halflife_days: float = 2.0 # article weight halves every N days old
 
     # ── Dormant screen (factors/dormant.py) ──
     dormant_strike_band: int = 3                    # ± strikes for isolation window
@@ -93,6 +109,35 @@ class Settings(BaseSettings):
     scanner_history_backfill_days: int = 120        # initial Databento backfill window
     scanner_concurrency: int = 5                    # parallel ticker semaphore size
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
+    scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both
+    scanner_chunk_size: int = 10                    # tickers scored + committed per chunk (live progress)
+    scanner_ticker_timeout_secs: int = 30           # per-ticker hard timeout — one bad name can't stall the run
+
+    # ── Download-scope filter (cli.py fetch-data) — pull data ONLY for tradeable names ──
+    # Applied to the NDX∪SP500 universe BEFORE download: build the keep-list, then fetch.
+    download_min_atr: float = 1.0           # ATR14 in $ — below this the name is too quiet
+                                            #   to trade a defined-risk options setup (reason:
+                                            #   stop/target distances collapse under ~$1 ATR)
+    download_earnings_blackout_days: int = 5  # skip names with earnings within N days — binary
+                                            #   event risk swamps the technical setup
+    download_options_volume_min: int = 2000  # avg daily option volume floor; applied only where
+                                            #   chains.volume is populated (≈85% null in Databento
+                                            #   OPRA statistics) — OI gate below is the real proxy
+    # OI≥dormant_min_ticker_oi (5000) is reused as the liquidity proxy for download scope.
+    download_concurrency: int = 3           # chunks fetched concurrently (gather + semaphore).
+                                            #   3 because a single 504 already appeared at serial
+                                            #   pace — Databento throttles; >3 raises 504/429 risk
+
+    # ── R:R conviction downgrade (synthesis/gate.py conviction_score) ─────────
+    min_rr_ratio: float = 3.0                      # target/risk below this DOWNGRADES conviction
+    enable_rr_filter: bool = True                  #   one tier (spec: downgrade, never eliminate)
+
+    # ── Funnel-analysis ONLY (scripts/ta_firing_count.py) — NOT live-scan gates ──
+    # These drive the standalone TA-firing funnel report, not qualify_pick/rank_picks.
+    min_avg_daily_dollar_volume: int = 15_000_000  # $15M ADV — used by the funnel script
+    enable_liquidity_filter: bool = True
+    rs_percentile_min: int = 50                    # 20d relative-strength percentile (funnel script)
+    enable_rs_filter: bool = True
 
 
 settings = Settings()

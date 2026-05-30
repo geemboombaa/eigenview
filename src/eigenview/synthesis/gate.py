@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+import numpy as np
+from scipy.signal import argrelextrema
 
 from eigenview.config import settings
+
+if TYPE_CHECKING:
+    import pandas as pd
 from eigenview.factors.base import FactorResult
 
 SHORT_SETUP_PATTERNS = {
-    "bearish_reversal", "breakdown", "rally_in_downtrend",
-    "compression_break_down", "ema_rejection", "base_breakdown",
-    "overbought_reversal", "failed_breakout",
-    # detect_pattern (P6) short setups — registered so entry/stop/macro gating
-    # treat them as shorts once the scan runs on the detect_pattern engine.
-    "bos_bearish", "choch_bearish",
-    "bb_mean_reversion_short", "ema200_snap_short",
+    "breakdown", "ema_rejection", "rally_short", "reversal_short",
+    "failed_breakout", "bb_mr_short", "ema200_snap_short",
 }
 
 
@@ -26,16 +28,13 @@ class TickerScorecard:
     dormant: FactorResult
     sentiment: FactorResult
     spot_price: float = 0.0
+    target: float | None = None
 
 
-def qualify_pick(scorecard: TickerScorecard, macro_score: int) -> bool:
-    # Macro data entirely absent → regime cannot be validated → no picks (long or short)
-    if scorecard.macro.label == "NO DATA":
-        return False
-    is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
-    # RED macro: no long picks (short picks still qualify)
-    if macro_score < settings.macro_regime_red_threshold and not is_short:
-        return False
+def qualify_pick(scorecard: TickerScorecard, macro_score: int = 0) -> bool:
+    # Macro is context/conviction only — it NEVER gates a pick's direction (user-locked 2026-05-29).
+    # A GREEN macro must not block shorts; a RED/NO-DATA macro must not block longs.
+    # A pick stands on its own structure: TA fires (hard) AND GEX fires (hard) AND ≥2 of 3 soft factors.
     if not scorecard.technical.firing:
         return False
     if not scorecard.gex.firing:
@@ -56,14 +55,28 @@ def conviction_score(scorecard: TickerScorecard) -> int:
     count_ratio = max(0.0, (len(firing) - 2) / (len(factors) - 2))
     composite = avg_strength * settings.conviction_strength_weight + count_ratio * settings.conviction_count_weight
     if composite >= settings.conviction_t5_threshold:
-        return 5
-    if composite >= settings.conviction_t4_threshold:
-        return 4
-    if composite >= settings.conviction_t3_threshold:
-        return 3
-    if composite >= settings.conviction_t2_threshold:
-        return 2
-    return 1
+        tier = 5
+    elif composite >= settings.conviction_t4_threshold:
+        tier = 4
+    elif composite >= settings.conviction_t3_threshold:
+        tier = 3
+    elif composite >= settings.conviction_t2_threshold:
+        tier = 2
+    else:
+        tier = 1
+
+    # R:R downgrade (spec: a pick with target/risk below min_rr is DOWNGRADED in conviction,
+    # not eliminated — a real gate would drop valid setups). Drop one tier when RR < floor.
+    if settings.enable_rr_filter and scorecard.target:
+        is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
+        elo, ehi = entry_zone(scorecard)
+        entry_ref = elo if is_short else ehi
+        risk = abs(entry_ref - stop_level(scorecard))
+        if risk > 0:
+            rr = abs(scorecard.target - entry_ref) / risk
+            if rr < settings.min_rr_ratio:
+                tier = max(1, tier - 1)
+    return tier
 
 
 def tier_score(scorecard: TickerScorecard, macro_score: int) -> str | None:
@@ -88,26 +101,26 @@ def tier_score(scorecard: TickerScorecard, macro_score: int) -> str | None:
 
 
 def setup_type(scorecard: TickerScorecard) -> str:
+    # Dormant never overwrites the setup name — it's surfaced as its own factor flag.
+    # Setup type is always the real TA pattern (user-locked 2026-05-29).
     lbl = scorecard.technical.label
-    if scorecard.dormant.firing and scorecard.dormant.strength >= 0.7:
-        return "dormant_activation"
     _map = {
+        "pullback": "pullback",
         "breakout": "breakout",
-        "pullback_in_trend": "pullback",
-        "compression_break": "compression",
         "ema_reclaim": "ema_reclaim",
-        "base_breakout": "base_breakout",
-        "oversold_bounce": "oversold_bounce",
-        "failed_breakdown": "failed_breakdown",
-        "bullish_reversal": "bullish_reversal",
+        "reversal_long": "reversal_long",
+        "rally_short": "rally_short",
         "breakdown": "breakdown",
-        "rally_in_downtrend": "short_rally",
-        "compression_break_down": "compression_short",
         "ema_rejection": "ema_rejection",
-        "base_breakdown": "base_breakdown",
-        "overbought_reversal": "overbought_reversal",
+        "reversal_short": "reversal_short",
+        "pullback_structure": "pullback_structure",
+        "flag": "flag",
+        "failed_breakdown": "failed_breakdown",
         "failed_breakout": "failed_breakout",
-        "bearish_reversal": "bearish_reversal",
+        "bb_mr_long": "bb_mr_long",
+        "bb_mr_short": "bb_mr_short",
+        "ema200_snap_long": "ema200_snap_long",
+        "ema200_snap_short": "ema200_snap_short",
     }
     return _map.get(lbl, "flow_driven")
 
@@ -132,3 +145,73 @@ def stop_level(scorecard: TickerScorecard) -> float:
     if is_short:
         return round(swing_high * (1 + settings.stop_buffer_pct), 2)
     return round(swing_low * (1 - settings.stop_buffer_pct), 2)
+
+
+def estimate_target(
+    pattern: str,
+    detail: dict,
+    entry: float,
+    stop: float,
+    df: "pd.DataFrame",
+) -> float | None:
+    """Estimate price target for R:R computation.
+
+    Uses pattern-specific logic:
+    - Longs: nearest prior swing HIGH above entry
+    - Shorts: nearest prior swing LOW below entry
+    - Pattern-specific fallbacks (breakout measured move, BB midline, EMA200)
+
+    Returns None when a target cannot be determined from available data.
+    """
+    is_short = pattern in SHORT_SETUP_PATTERNS
+    risk = abs(entry - stop)
+    if risk <= 0:
+        return None
+
+    highs = df["high"].values.astype(float) if "high" in df.columns else df["close"].values.astype(float)
+    lows  = df["low"].values.astype(float)  if "low"  in df.columns else df["close"].values.astype(float)
+    closes = df["close"].values.astype(float)
+
+    if not is_short:
+        # Primary: nearest swing high above entry
+        hi_idx = argrelextrema(highs, np.greater, order=5)[0]
+        above  = [highs[i] for i in hi_idx if highs[i] > entry * 1.005]
+        if above:
+            return float(min(above))
+        # Breakout measured move: level + (level - recent_base)
+        if pattern == "breakout" and detail.get("n_bar_high"):
+            nbh = float(detail["n_bar_high"])
+            base = float(np.min(closes[-20:]))
+            return round(nbh + (nbh - base) * 0.5, 2)
+        # BB mean reversion: upper band
+        if pattern == "bb_mr_long" and detail.get("bbl"):
+            bbl = float(detail["bbl"])
+            bbu = detail.get("bbu")
+            if bbu:
+                return round(float(bbl) + (float(bbu) - bbl) * 0.5, 2)
+        # EMA200 snap: target = EMA200
+        if pattern == "ema200_snap_long" and detail.get("ema200"):
+            return float(detail["ema200"])
+        return None
+
+    else:
+        # Primary: nearest swing low below entry
+        lo_idx = argrelextrema(lows, np.less, order=5)[0]
+        below  = [lows[i] for i in lo_idx if lows[i] < entry * 0.995]
+        if below:
+            return float(max(below))
+        # Breakdown measured move: level - (recent_peak - level)
+        if pattern == "breakdown" and detail.get("n_bar_low"):
+            nbl = float(detail["n_bar_low"])
+            peak = float(np.max(closes[-20:]))
+            return round(nbl - (peak - nbl) * 0.5, 2)
+        # BB mean reversion: lower band
+        if pattern == "bb_mr_short" and detail.get("bbu"):
+            bbu = float(detail["bbu"])
+            bbl = detail.get("bbl")
+            if bbl:
+                return round(float(bbu) - (bbu - float(bbl)) * 0.5, 2)
+        # EMA200 snap: target = EMA200
+        if pattern == "ema200_snap_short" and detail.get("ema200"):
+            return float(detail["ema200"])
+        return None

@@ -239,7 +239,7 @@ AND None: does not meet any tier threshold
 ### REQ-SYNTH-5 — Ranking order
 GIVEN list of qualified scorecards
 THEN sorted descending by (conviction_score, dormant.strength, gex.strength)
-AND result capped at settings.max_picks (default 10)
+AND every qualifying scorecard is returned (NO cap — removed 2026-05-29)
 
 ### REQ-SYNTH-6 — Entry zone calculation
 GIVEN scorecard and direction (long/short)

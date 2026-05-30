@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import structlog
 import typer
+
+log = structlog.get_logger(__name__)
 
 # Windows cp1252 console can't render non-BMP chars from external data
 if sys.platform == "win32":
@@ -95,6 +98,179 @@ def fetch_macro_cmd() -> None:
     asyncio.run(_run())
 
 
+async def _resolve_news_scope(scope: str, limit: int | None) -> list[str]:
+    """Resolve the ticker list for the news-refresh job from a scope name."""
+    scope = scope.lower()
+    if scope == "picks":
+        from datetime import date as _date
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Pick.ticker).where(Pick.date == _date.today()).distinct()
+            )
+            tickers = [t.upper() for (t,) in result.all()]
+    elif scope in ("sp500", "ndx100"):
+        from eigenview.data.universe import get_universe
+
+        tickers = await get_universe(scope)
+    elif scope == "all":
+        from eigenview.data.universe import get_index_lists
+
+        ndx, sp = await get_index_lists()
+        tickers = sorted(set(ndx) | set(sp))
+    else:
+        raise ValueError(f"unknown scope '{scope}' (all|sp500|ndx100|picks)")
+
+    if limit is not None and limit > 0:
+        tickers = tickers[:limit]
+    return tickers
+
+
+async def refresh_news(scope: str = "all", limit: int | None = None) -> dict[str, int]:
+    """Decoupled news refresh for the scan universe.
+
+    Finnhub fetches every ticker (bulk-safe, ~60 req/min). Alpha Vantage's
+    25/day free budget is reserved for a small subset only — today's picks if
+    available, else the first N tickers — so a 600-name bulk run never throttles
+    AV. Bounded concurrency, fail-soft per ticker. Idempotent (URL-hash dedup).
+
+    Returns counts: {tickers, ok, failed, articles, av_tickers}.
+    """
+    from eigenview.config import settings as _settings
+    from eigenview.data.news import fetch_news
+
+    tickers = await _resolve_news_scope(scope, limit)
+    if not tickers:
+        log.info("refresh_news.empty", scope=scope)
+        return {"tickers": 0, "ok": 0, "failed": 0, "articles": 0, "av_tickers": 0}
+
+    # AV path: today's picks (small), else first-N up to the daily budget.
+    budget = _settings.news_av_daily_budget
+    if scope == "picks":
+        av_set = set(tickers[:budget])
+    else:
+        try:
+            picks = await _resolve_news_scope("picks", None)
+        except Exception:
+            picks = []
+        av_candidates = [t for t in tickers if t in set(picks)] or tickers
+        av_set = set(av_candidates[:budget])
+
+    sem = asyncio.Semaphore(_settings.news_refresh_concurrency)
+    counts = {"ok": 0, "failed": 0, "articles": 0}
+
+    async def _one(tk: str) -> None:
+        srcs = ("av", "finnhub") if tk in av_set else ("finnhub",)
+        async with sem:
+            try:
+                arts = await fetch_news(
+                    tk, lookback_days=_settings.news_lookback_days, sources=srcs
+                )
+                counts["ok"] += 1
+                counts["articles"] += len(arts)
+            except Exception as exc:  # fail-soft: one ticker never wedges the run
+                counts["failed"] += 1
+                log.warning("refresh_news.ticker_failed", ticker=tk, error=str(exc))
+
+    await asyncio.gather(*(_one(tk) for tk in tickers))
+
+    result = {
+        "tickers": len(tickers),
+        "ok": counts["ok"],
+        "failed": counts["failed"],
+        "articles": counts["articles"],
+        "av_tickers": len(av_set),
+    }
+    log.info("refresh_news.done", scope=scope, **result)
+    return result
+
+
+@app.command(name="fetch-news")
+def fetch_news_cmd(
+    scope: str = typer.Option("all", help="all | sp500 | ndx100 | picks"),
+    limit: int = typer.Option(0, help="Cap tickers (0 = no cap)"),
+) -> None:
+    """Refresh the news table for the scan universe (decoupled from daily scan).
+
+    Finnhub covers the full universe in bulk; Alpha Vantage (25/day free) is
+    reserved for today's picks / a capped subset. Run intraday + pre-market.
+
+    Schedule via Windows Task Scheduler (run from the repo root, adjust paths):
+
+        schtasks /Create /TN "EigenView-NewsPremarket" /SC DAILY /ST 08:00 ^
+          /TR "C:\\Users\\v_per\\Claude\\Projects\\Eigenview\\.venv\\Scripts\\eigenview.exe fetch-news --scope all" /F
+
+        schtasks /Create /TN "EigenView-NewsIntraday" /SC MINUTE /MO 90 ^
+          /ST 09:30 /ET 16:00 /K ^
+          /TR "C:\\Users\\v_per\\Claude\\Projects\\Eigenview\\.venv\\Scripts\\eigenview.exe fetch-news --scope picks" /F
+    """
+
+    async def _run() -> None:
+        lim = limit if limit > 0 else None
+        typer.echo(f"Refreshing news — scope={scope} limit={lim or 'none'} ...")
+        try:
+            res = await refresh_news(scope=scope, limit=lim)
+        except ValueError as exc:
+            typer.echo(f"ERROR: {exc}")
+            raise typer.Exit(code=1) from exc
+        typer.echo(
+            f"\n  tickers     {res['tickers']}"
+            f"\n  ok          {res['ok']}"
+            f"\n  failed      {res['failed']}"
+            f"\n  articles    {res['articles']}"
+            f"\n  av_tickers  {res['av_tickers']}"
+        )
+
+    asyncio.run(_run())
+
+
+@app.command(name="fetch-data")
+def fetch_data_cmd(
+    limit: int = typer.Option(0, help="Cap tickers (0 = no cap) — for a small test pull"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the keep-list + stats, download nothing"),
+) -> None:
+    """Filter-first prices+chains pull: build the tradeable keep-list from data already in
+    the DB (ATR>floor, no earnings in blackout, OI>=liquidity), then download ONLY those.
+
+    Pulls just what the scan needs — not the whole universe. Run before a no-download scan.
+    """
+
+    async def _run() -> None:
+        from eigenview.config import settings
+        from eigenview.data.download import download_chunked
+        from eigenview.data.universe import select_download_universe
+
+        async with AsyncSessionLocal() as session:
+            keep, stats = await select_download_universe(session)
+        typer.echo(
+            f"\nDownload keep-list (filter-first; OI+vol probed LIVE from Databento):"
+            f"\n  universe (NDX∪SP500)   {stats['universe']}"
+            f"\n  ATR>{settings.download_min_atr} pass            {stats['atr_pass']}"
+            f"\n  earnings excluded      {stats['earnings_excluded']}"
+            f"\n  candidates probed live {stats['candidates_probed']}"
+            f"\n  OI>={stats['min_oi']} pass         {stats['oi_pass_live']}"
+            f"\n  + vol>={stats['min_vol']} (=> KEEP)   {stats['keep']}"
+        )
+        if limit > 0:
+            keep = keep[:limit]
+            typer.echo(f"  (capped to {len(keep)} for this run)")
+        if dry_run:
+            typer.echo("\n--dry-run: nothing downloaded.")
+            return
+        typer.echo(f"\nDownloading prices + chains for {len(keep)} tickers (chunked, async)…")
+        done_seen = {"n": 0}
+
+        def _progress(done: int, total: int) -> None:
+            if done != done_seen["n"]:
+                done_seen["n"] = done
+                typer.echo(f"  {done}/{total}…")
+
+        await download_chunked(keep, progress=_progress)
+        typer.echo("Done.")
+
+    asyncio.run(_run())
+
+
 @app.command()
 def status() -> None:
     """Print DB row counts and latest timestamps per table."""
@@ -141,6 +317,7 @@ def status() -> None:
 def daily_scan(
     universe: str = typer.Option("ndx100", help="ndx100 | sp500"),
     tickers_csv: str = typer.Option("", "--tickers", help="Comma-separated tickers (overrides universe)"),
+    download: bool = typer.Option(True, "--download/--no-download", help="Pull fresh prices/chains/news (Databento) before scoring"),
 ) -> None:
     """Run full daily scan pipeline and print top picks."""
 
@@ -156,7 +333,7 @@ def daily_scan(
                 return
             typer.echo(f"Universe '{universe}': {len(tickers)} tickers loaded.")
         async with AsyncSessionLocal() as session:
-            qualified = await run_daily_scan(tickers, session)
+            qualified = await run_daily_scan(tickers, session, download=download)
             await session.commit()
         if not qualified:
             typer.echo("No qualifying picks today.")

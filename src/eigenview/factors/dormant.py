@@ -300,8 +300,8 @@ async def score_dormant(
         if s > best_score:
             best_score, best_bet, best_detail = s, bet, detail
 
-    activation_probability = best_score / _MAX_SCORE
-    fires = activation_probability >= settings.dormant_firing_threshold
+    activation_score = best_score / _MAX_SCORE
+    fires = activation_score >= settings.dormant_firing_threshold
 
     if best_bet is None:
         return FactorResult(
@@ -327,10 +327,10 @@ async def score_dormant(
     return FactorResult(
         factor_id=_FACTOR_ID,
         firing=fires,
-        strength=activation_probability,
+        strength=activation_score,
         label="ACTIVE" if fires else "DORMANT",
         detail={
-            "activation_probability": round(activation_probability, 3),
+            "activation_score": round(activation_score, 3),
             "best_bet_strike": best_bet.strike,
             "best_bet_expiry": str(best_bet.expiry),
             "best_score": round(best_score, 2),
@@ -451,9 +451,10 @@ async def score_dormant_from_history(
 
     assert best_bet is not None
     premium_m = (best_bet.original_premium or 0) / 1_000_000
+    n_fired = len(best_result.triggers)
     parts = [
         f"Dormant ${premium_m:.1f}M {best_bet.call_put} at ${best_bet.strike:.0f} "
-        f"(exp {best_bet.expiry}) — activation {best_result.strength:.0%}."
+        f"(exp {best_bet.expiry}) — {n_fired} of {settings.activation_max_triggers} activation signals firing."
     ]
     if best_result.triggers:
         parts.append(f"Signals: {', '.join(best_result.triggers)}.")
@@ -466,7 +467,10 @@ async def score_dormant_from_history(
         strength=best_result.strength,
         label="ACTIVE",
         detail={
-            "activation_probability": round(best_result.strength, 3),
+            # Not a probability — it's how many of N activation triggers fired (count/N).
+            "activation_score": round(best_result.strength, 3),
+            "triggers_fired": n_fired,
+            "triggers_max": settings.activation_max_triggers,
             "triggers": best_result.triggers,
             "age_days": best_result.age_days,
             "born_on": str(best_result.born_on) if best_result.born_on else None,

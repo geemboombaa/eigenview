@@ -104,4 +104,19 @@ Update this file in Claude Code whenever a non-obvious decision locks.
 
 ---
 
+## 2026-05-29 · Macro data sources rebuilt (DIX/GEX self-computed, VIX/COT swapped)
+
+**Decision:** All three macro scrapers were dead — VIXCentral (JS-rendered, regex stale), SqueezeMetrics DIX/GEX (paywalled, `hist.json` 404), CFTC `newcot/deafut.txt` (404). Rebuilt with free, self-owned sources:
+- **VIX** → yfinance `^VIX` (m1) + `^VIX3M` (m2 = 3-mo constant-maturity contango proxy).
+- **DIX** → reconstructed from free FINRA daily short-volume file (`cdn.finra.org/.../CNMSshvol{date}.txt`), dollar-weighted DPI over S&P 500 members: `DIX = Σ(close×short)/Σ(close×total)`.
+- **GEX** → native aggregate: Σ dealer `net_gex` (existing `factors/gex.py::score_gex`) across S&P 500 component chains in DB. NOT SPX-index GEX — documented difference. Stale until chains refresh.
+- **COT** → CFTC Socrata API (`publicreporting.cftc.gov/resource/6dca-aqww.json`). Not used in Gate-0 score (futures only).
+- **NO DATA label** → `macro_regime.score_macro_row` returns honest `NO DATA` when all signals null, not fake RED 0/10. `market.py` route reuses the same pure scorer (no duplicated logic).
+
+**Rationale:** SqueezeMetrics packages free public data; both DIX (FINRA) and GEX (option chains) are reconstructable per their own white papers. No paid dependency, no fragile scrape. Refs: jensolson/Dark-Pool-Buying, jensolson/SPX-Gamma-Exposure.
+
+**Impact:** Macro Gate 0 fully feeds again (verified GREEN 10/10 on 2026-05-29, all real). Full 506-symbol scan (download=false, no Databento) runs clean. DAILY still 0 — separate blocker (sentiment dead + flow sparse); ≥2-soft gate NOT loosened pending sentiment fix. Sources documented in `docs/14-data-sources.md`; sentiment rebuild proposal in `docs/15-sentiment-proposal.md`.
+
+---
+
 ## All blocking questions resolved — ready to start Phase 0.

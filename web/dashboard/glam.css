@@ -1,0 +1,57 @@
+/* EigenEdge — GLAM layer (additive polish on top of glass.css).
+   100% additive. To fully revert: remove the glam.css <link> + glam.js <script> from index.html.
+   Each effect is numbered + independently revertable (delete its block + its glam.js hook).
+   Palette reuses glass.css vars only — no new colors invented. */
+
+/* ── GLAM-1 · Regime aurora (whole-dashboard ambient tint by Gate-0 regime) ──
+   Revert: delete this block + the setRegime() hook in glam.js. */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  opacity:0;transition:opacity 1.2s ease, background 1.2s ease;
+}
+body.regime-g::after{opacity:1;background:radial-gradient(circle at 50% 0%,rgba(46,255,149,.07),transparent 55%)}
+body.regime-a::after{opacity:1;background:radial-gradient(circle at 50% 0%,rgba(255,216,74,.06),transparent 55%)}
+body.regime-r::after{opacity:1;background:radial-gradient(circle at 50% 0%,rgba(255,69,112,.07),transparent 55%)}
+
+/* ── GLAM-2 · Active row: aurora edge + outer glow (enhances .sel) ──
+   Revert: delete this block. */
+.dtable tbody tr.sel{
+  box-shadow:inset 3px 0 0 0 var(--violet), 0 0 26px rgba(124,109,250,.30);
+}
+
+/* ── GLAM-3 · Gradient direction edge on every row (LONG green→cyan / SHORT red→orange) ──
+   Revert: delete this block. (Restores glass.css flat 4px today-row bar.) */
+.dtable tbody tr.long > td:first-child,
+.dtable tbody tr.short > td:first-child{position:relative}
+.dtable tbody tr.long > td:first-child::before,
+.dtable tbody tr.short > td:first-child::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px;
+}
+.dtable tbody tr.long  > td:first-child::before{background:linear-gradient(180deg,var(--long),var(--gex))}
+.dtable tbody tr.short > td:first-child::before{background:linear-gradient(180deg,var(--short),#ff8a3d)}
+/* drop glass.css's flat inset bar so the gradient edge is the single source */
+.dtable tbody tr.today.long,.dtable tbody tr.today.short{box-shadow:none}
+
+/* ── GLAM-4 · Conviction stars: staggered pop on row hover ──
+   Revert: delete this block. */
+.dtable tbody tr:hover .cv.on{animation:glamCvPop .4s ease both}
+.dtable tbody tr:hover .cv.on:nth-child(1){animation-delay:0s}
+.dtable tbody tr:hover .cv.on:nth-child(2){animation-delay:.04s}
+.dtable tbody tr:hover .cv.on:nth-child(3){animation-delay:.08s}
+.dtable tbody tr:hover .cv.on:nth-child(4){animation-delay:.12s}
+.dtable tbody tr:hover .cv.on:nth-child(5){animation-delay:.16s}
+@keyframes glamCvPop{0%{transform:scaleY(1)}45%{transform:scaleY(1.9);filter:brightness(1.5)}100%{transform:scaleY(1)}}
+
+/* ── GLAM-5 · Live-arrival flash: rows streaming in during a scan pulse once ──
+   Revert: delete this block + the new-row hook in glam.js. */
+.dtable tbody tr.glam-new{animation:glamArrive 1.4s ease}
+@keyframes glamArrive{
+  0%{background:rgba(77,210,255,.22)}
+  40%{background:rgba(124,109,250,.16)}
+  100%{background:transparent}
+}
+
+/* ── GLAM-6 · Number pulse: price/score cells glow when their value changes ──
+   Revert: delete this block + the changed-value hook in glam.js. */
+.glam-upd{animation:glamNum .8s ease}
+@keyframes glamNum{0%{color:var(--gex);text-shadow:0 0 10px rgba(77,210,255,.8)}100%{}}

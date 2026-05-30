@@ -98,7 +98,8 @@ async def get_signals_matrix(date_str: str = Query(None, alias="date")) -> dict:
 
     rows = []
     for s in scores:
-        if not (s.ta_strength or 0) > 0:
+        # ALL = every scanned ticker where TA OR dormant fired (matches product definition).
+        if not ((s.ta_strength or 0) > 0 or (s.dormant_strength or 0) > 0):
             continue
         pick_info = picks_map.get(s.ticker, {})
         rows.append({
@@ -110,6 +111,7 @@ async def get_signals_matrix(date_str: str = Query(None, alias="date")) -> dict:
             "macro_str": round(min(3.0, (s.macro_score or 0) * 0.3), 2),
             "ta_str": s.ta_strength or 0.0,
             "ta_label": s.ta_label or "",
+            "ta_tier": s.ta_tier or "",
             "gex_str": s.gex_strength or 0.0,
             "gex_label": s.gex_label or "",
             "flow_str": s.flow_strength or 0.0,
