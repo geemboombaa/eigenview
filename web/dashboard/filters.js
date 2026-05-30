@@ -36,17 +36,33 @@ window.EV_FILTERS = (() => {
     { id: 'long',  label: 'LONG',  test: r => r.dir === 'long' },
     { id: 'short', label: 'SHORT', test: r => r.dir === 'short' },
     { id: 'flow',  label: 'FLOW',  test: r => r.fStr.flow > 0 },
-    { id: 'dorm',  label: 'DORM',  test: r => r.fStr.dorm > 0 },
-    { id: 'sent',  label: 'SENT',  test: r => r.fStr.sent > 0 },
     { id: 'fresh', label: 'FRESH', test: r => r.fresh === true },
   ];
   const CHIP_BY_ID = Object.fromEntries(CHIPS.map(c => [c.id, c]));
+
+  // Dormant state / sentiment direction → dropdown category keys.
+  function dormCat(raw) {
+    const s = (raw || '').toLowerCase();
+    if (s.includes('active')) return 'active';
+    if (s.includes('accumul')) return 'accum';
+    if (s.includes('dormant')) return 'dormant';
+    return 'none';
+  }
+  function sentCat(raw) {
+    const s = (raw || '').toLowerCase();
+    if (s.includes('bull')) return 'bull';
+    if (s.includes('bear')) return 'bear';
+    if (s.includes('neutral')) return 'neutral';
+    return 'none';
+  }
 
   // Multi-select sets (dropdowns). An empty set = no constraint.
   const SETS = {
     conv: { label: 'Conv', options: [1, 2, 3, 4, 5].map(v => ({ v, label: `${v}★` })), getKey: r => r.conv || 0 },
     ta:   { label: 'TA',   options: [{ v: 'HIGH', label: 'High' }, { v: 'SPEC', label: 'Speculative' }], getKey: r => r.taTier },
     gex:  { label: 'GEX',  options: [{ v: 'pin', label: 'Price Pin' }, { v: 'run', label: 'Price Run' }, { v: 'flip', label: 'Flip Pivot' }], getKey: r => r.gexKey },
+    dorm: { label: 'Dormant', options: [{ v: 'active', label: 'Active' }, { v: 'accum', label: 'Accumulating' }, { v: 'dormant', label: 'Dormant' }, { v: 'none', label: 'Not in universe' }], getKey: r => dormCat(r.fLbl.dorm) },
+    sent: { label: 'Sentiment', options: [{ v: 'bull', label: 'Bullish' }, { v: 'bear', label: 'Bearish' }, { v: 'neutral', label: 'Neutral' }, { v: 'none', label: 'No data' }], getKey: r => sentCat(r.fLbl.sent) },
   };
 
   function searchString(row) {

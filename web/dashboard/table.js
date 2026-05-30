@@ -4,10 +4,11 @@
 window.EV_APP = (() => {
   const F = window.EV_FILTERS, V = window.EV_VIEWS, D = window.EV_DATA;
   const $ = id => document.getElementById(id);
+  const emptySets = () => Object.fromEntries(Object.keys(F.SETS).map(k => [k, []]));
 
   let DATA = { daily: [], week: [], all: [], regime: null, todaySet: new Set(), errors: [] };
   const S = {
-    mode: 'daily', search: '', chips: [], sets: { conv: [], ta: [], gex: [] },
+    mode: 'daily', search: '', chips: [], sets: emptySets(),
     numeric: {}, favsOnly: false,
     cols: F.defaultVisible(), sort: [{ key: 'conv', dir: 'desc' }], selTk: null,
   };
@@ -112,7 +113,7 @@ window.EV_APP = (() => {
     const favOn = S.favsOnly ? 'on' : '';
     $('chipRow').innerHTML =
       `<button class="iconbtn" id="filtersToggle">Filters ▾</button>` +
-      chips + setBtn('conv') + setBtn('ta') + setBtn('gex') +
+      chips + setBtn('conv') + setBtn('ta') + setBtn('gex') + setBtn('dorm') + setBtn('sent') +
       `<button class="chip ${favOn}" id="favsOnlyChip">★ FAVS ONLY</button>` +
       `<button class="chip clear" id="clearAll">CLEAR</button>`;
   }
@@ -313,8 +314,7 @@ window.EV_APP = (() => {
       S.mode = v.mode || 'daily';
       S.search = v.search || ''; $('searchInput').value = S.search;
       S.chips = [...(v.chips || [])];
-      S.sets = v.sets ? JSON.parse(JSON.stringify(v.sets)) : { conv: [], ta: [], gex: [] };
-      if (!S.sets.conv) S.sets.conv = []; if (!S.sets.ta) S.sets.ta = []; if (!S.sets.gex) S.sets.gex = [];
+      S.sets = { ...emptySets(), ...(v.sets ? JSON.parse(JSON.stringify(v.sets)) : {}) };
       S.numeric = { ...(v.numeric || {}) };
       S.cols = v.cols ? [...v.cols] : F.defaultVisible();
       S.sort = v.sort ? v.sort.map(s => ({ ...s })) : [{ key: 'conv', dir: 'desc' }];
@@ -363,7 +363,7 @@ window.EV_APP = (() => {
     $('searchClear').onclick = () => { si.value = ''; mutate(() => { S.search = ''; }); };
 
     $('chipRow').addEventListener('click', e => {
-      if (e.target.id === 'clearAll') { si.value = ''; mutate(() => { S.chips = []; S.sets = { conv: [], ta: [], gex: [] }; S.numeric = {}; S.search = ''; S.favsOnly = false; }); return; }
+      if (e.target.id === 'clearAll') { si.value = ''; mutate(() => { S.chips = []; S.sets = emptySets(); S.numeric = {}; S.search = ''; S.favsOnly = false; }); return; }
       if (e.target.id === 'filtersToggle') { $('chipRow').classList.toggle('collapsed'); return; }
       if (e.target.id === 'favsOnlyChip') { mutate(() => { S.favsOnly = !S.favsOnly; }); return; }
       const sb = e.target.closest('[data-set]'); if (sb) { openSetMenu(sb.dataset.set, sb.getBoundingClientRect()); return; }
@@ -405,7 +405,7 @@ window.EV_APP = (() => {
   async function init() {
     const ui = V.loadUI();
     if (ui) Object.assign(S, ui);
-    if (!S.sets) S.sets = { conv: [], ta: [], gex: [] };
+    S.sets = { ...emptySets(), ...(S.sets || {}) };
     V.seedDefaults();
     wire();
     $('searchInput').value = S.search || '';
