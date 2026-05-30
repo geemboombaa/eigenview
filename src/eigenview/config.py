@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     sentiment_min_articles: int = 1              # min recent articles to score at all
     sentiment_neutral_deadzone: float = 0.05     # |net| within this = neutral (no direction, no fire)
     sentiment_recency_halflife_days: float = 2.0 # article weight halves every N days old
+    sentiment_batch_size: int = 16               # FinBERT inference batch — heavy-news names (100s of articles) finish fast
 
     # ── Dormant screen (factors/dormant.py) ──
     dormant_strike_band: int = 3                    # ± strikes for isolation window
@@ -111,7 +112,7 @@ class Settings(BaseSettings):
     scanner_ta_lookback_days: int = 3               # bars to walk back for a firing TA signal
     scanner_universe: str = "both"                  # default scan scope: ndx100 | sp500 | both
     scanner_chunk_size: int = 10                    # tickers scored + committed per chunk (live progress)
-    scanner_ticker_timeout_secs: int = 30           # per-ticker hard timeout — one bad name can't stall the run
+    scanner_ticker_timeout_secs: int = 45           # per-ticker hard timeout — one bad name can't stall the run
 
     # ── Download-scope filter (cli.py fetch-data) — pull data ONLY for tradeable names ──
     # Applied to the NDX∪SP500 universe BEFORE download: build the keep-list, then fetch.

@@ -38,6 +38,16 @@ def _get_pipeline():
     return _pipeline
 
 
+def warm_up() -> None:
+    """Load the FinBERT pipeline up front (~14s cold).
+
+    Called once before a scan's per-ticker loop so the model load never counts
+    against any single ticker's timeout budget (the cause of heavy-news names
+    like AAPL/NVDA timing out and being dropped).
+    """
+    _get_pipeline()
+
+
 def _vader(texts: list[str]) -> list[tuple[str, float]]:
     try:
         from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -63,7 +73,7 @@ def classify(texts: list[str]) -> list[tuple[str, float]]:
     clf = _get_pipeline()
     if clf is not None:
         try:
-            out = clf(texts, truncation=True, max_length=128)
+            out = clf(texts, truncation=True, max_length=128, batch_size=settings.sentiment_batch_size)
             return [(o["label"].lower(), float(o["score"])) for o in out]
         except Exception as exc:
             log.warning("sentiment_model.infer_failed", error=str(exc))
