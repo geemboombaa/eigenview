@@ -61,9 +61,10 @@ def aggregate_sentiment(
     net = (num / den) if den > 0 else 0.0   # -1..1, recency+confidence weighted
     catalyst_near = catalyst_score >= 3
 
-    if net > 0.05:
+    dead = settings.sentiment_neutral_deadzone
+    if net > dead:
         direction = "bullish"
-    elif net < -0.05:
+    elif net < -dead:
         direction = "bearish"
     else:
         direction = "neutral"
@@ -71,7 +72,9 @@ def aggregate_sentiment(
     # strength = model conviction (|net|) + small catalyst nudge; honest 0..1
     catalyst_bonus = min(0.2, catalyst_score * 0.05)
     strength = max(0.0, min(1.0, abs(net) + catalyst_bonus))
-    fires = abs(net) >= settings.sentiment_fire_strength or catalyst_near
+    # Standard finance-sentiment firing: FinBERT classifies direction; factor fires
+    # when there IS a clear direction (not neutral) — no invented strength bar.
+    fires = direction != "neutral" or catalyst_near
 
     parts = [f"{news_count} article(s) in {lookback_days}d -> {direction} (net {net:+.2f})."]
     if catalyst_near:

@@ -224,6 +224,52 @@ def fetch_news_cmd(
     asyncio.run(_run())
 
 
+@app.command(name="fetch-data")
+def fetch_data_cmd(
+    limit: int = typer.Option(0, help="Cap tickers (0 = no cap) — for a small test pull"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the keep-list + stats, download nothing"),
+) -> None:
+    """Filter-first prices+chains pull: build the tradeable keep-list from data already in
+    the DB (ATR>floor, no earnings in blackout, OI>=liquidity), then download ONLY those.
+
+    Pulls just what the scan needs — not the whole universe. Run before a no-download scan.
+    """
+
+    async def _run() -> None:
+        from eigenview.data.download import download_chunked
+        from eigenview.data.universe import select_download_universe
+
+        async with AsyncSessionLocal() as session:
+            keep, stats = await select_download_universe(session)
+        typer.echo(
+            f"\nDownload keep-list (filter-first):"
+            f"\n  universe          {stats['universe']}"
+            f"\n  ATR>floor pass    {stats['atr_pass']}"
+            f"\n  OI>=liq pass      {stats['oi_pass']}"
+            f"\n  earnings excluded {stats['earnings_excluded']}"
+            f"\n  volume excluded   {stats['vol_excluded']}"
+            f"\n  => KEEP           {stats['keep']}"
+        )
+        if limit > 0:
+            keep = keep[:limit]
+            typer.echo(f"  (capped to {len(keep)} for this run)")
+        if dry_run:
+            typer.echo("\n--dry-run: nothing downloaded.")
+            return
+        typer.echo(f"\nDownloading prices + chains for {len(keep)} tickers (chunked, async)…")
+        done_seen = {"n": 0}
+
+        def _progress(done: int, total: int) -> None:
+            if done != done_seen["n"]:
+                done_seen["n"] = done
+                typer.echo(f"  {done}/{total}…")
+
+        await download_chunked(keep, progress=_progress)
+        typer.echo("Done.")
+
+    asyncio.run(_run())
+
+
 @app.command()
 def status() -> None:
     """Print DB row counts and latest timestamps per table."""
@@ -270,6 +316,7 @@ def status() -> None:
 def daily_scan(
     universe: str = typer.Option("ndx100", help="ndx100 | sp500"),
     tickers_csv: str = typer.Option("", "--tickers", help="Comma-separated tickers (overrides universe)"),
+    download: bool = typer.Option(True, "--download/--no-download", help="Pull fresh prices/chains/news (Databento) before scoring"),
 ) -> None:
     """Run full daily scan pipeline and print top picks."""
 
@@ -285,7 +332,7 @@ def daily_scan(
                 return
             typer.echo(f"Universe '{universe}': {len(tickers)} tickers loaded.")
         async with AsyncSessionLocal() as session:
-            qualified = await run_daily_scan(tickers, session)
+            qualified = await run_daily_scan(tickers, session, download=download)
             await session.commit()
         if not qualified:
             typer.echo("No qualifying picks today.")

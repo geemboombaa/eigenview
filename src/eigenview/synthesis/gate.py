@@ -59,14 +59,28 @@ def conviction_score(scorecard: TickerScorecard) -> int:
     count_ratio = max(0.0, (len(firing) - 2) / (len(factors) - 2))
     composite = avg_strength * settings.conviction_strength_weight + count_ratio * settings.conviction_count_weight
     if composite >= settings.conviction_t5_threshold:
-        return 5
-    if composite >= settings.conviction_t4_threshold:
-        return 4
-    if composite >= settings.conviction_t3_threshold:
-        return 3
-    if composite >= settings.conviction_t2_threshold:
-        return 2
-    return 1
+        tier = 5
+    elif composite >= settings.conviction_t4_threshold:
+        tier = 4
+    elif composite >= settings.conviction_t3_threshold:
+        tier = 3
+    elif composite >= settings.conviction_t2_threshold:
+        tier = 2
+    else:
+        tier = 1
+
+    # R:R downgrade (spec: a pick with target/risk below min_rr is DOWNGRADED in conviction,
+    # not eliminated — a real gate would drop valid setups). Drop one tier when RR < floor.
+    if settings.enable_rr_filter and scorecard.target:
+        is_short = scorecard.technical.label in SHORT_SETUP_PATTERNS
+        elo, ehi = entry_zone(scorecard)
+        entry_ref = elo if is_short else ehi
+        risk = abs(entry_ref - stop_level(scorecard))
+        if risk > 0:
+            rr = abs(scorecard.target - entry_ref) / risk
+            if rr < settings.min_rr_ratio:
+                tier = max(1, tier - 1)
+    return tier
 
 
 def tier_score(scorecard: TickerScorecard, macro_score: int) -> str | None:

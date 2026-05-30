@@ -162,6 +162,12 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     )
     end = date.today().isoformat()
 
+    # Databento rejects start >= end (422). When history is already current through
+    # yesterday, the window collapses — nothing to fetch, skip cleanly.
+    if start >= end:
+        log.info("refresh_watchlist.up_to_date", start=start, end=end)
+        return
+
     from eigenview.data.databento_history import fetch_statistics, osi_symbol as _osi
 
     bet_by_osi = {_osi(b.ticker, b.expiry, b.call_put, b.strike): b for b in bets}
@@ -175,10 +181,15 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
 
     loop = asyncio.get_event_loop()
     try:
-        df = await loop.run_in_executor(
-            None, fetch_statistics, list(bet_by_osi.keys()), start, end
+        # Databento sync client has no request timeout — bound it so a stuck pull
+        # can't hang the whole scan's download phase.
+        df = await asyncio.wait_for(
+            loop.run_in_executor(
+                None, fetch_statistics, list(bet_by_osi.keys()), start, end
+            ),
+            timeout=120.0,
         )
-    except Exception as exc:
+    except (Exception, asyncio.TimeoutError) as exc:
         log.warning("refresh_watchlist.databento_failed", error=str(exc))
         return
 
@@ -286,6 +297,16 @@ async def _score_ticker(
                     narrative=(
                         f"Options illiquid (agg OI {ticker_oi} < "
                         f"{settings.dormant_min_ticker_oi}) — not screened for dormant bets."
+                    ),
+                )
+                # Not options-tradeable → neutralize the GEX hard gate so the pick cannot
+                # qualify (a thin chain's dealer levels aren't trustworthy to trade on).
+                gex = FactorResult(
+                    factor_id="gex", firing=False, strength=0.0, label="NOT_LIQUID",
+                    detail=gex.detail,
+                    narrative=(
+                        f"Options illiquid (agg OI {ticker_oi} < "
+                        f"{settings.dormant_min_ticker_oi}) — GEX gate withheld."
                     ),
                 )
             sentiment = await score_sentiment(ticker, session)
@@ -439,6 +460,10 @@ async def run_daily_scan(
         from eigenview.data.storage import Pick
         from eigenview.llm.thesis import generate_thesis
 
+        # Phase 1 — generate theses (network). generate_thesis writes its own llm_log
+        # on a separate session; keep the main session idle here so those commits never
+        # contend with an open Pick-write txn (the cause of the SQLite "database is locked").
+        theses: dict[str, str] = {}
         for j, sc in enumerate(qualified, 1):
             if sc.technical.label == "NO DATA":
                 log.warning("thesis_skipped_no_data", ticker=sc.ticker)
@@ -447,13 +472,15 @@ async def run_daily_scan(
                 f.factor_id: {"firing": f.firing, "label": f.label, "detail": f.detail}
                 for f in [sc.technical, sc.gex, sc.flow, sc.dormant, sc.sentiment]
             }
-            thesis = await generate_thesis(sc.ticker, factors_dict, sc.spot_price, None)
+            theses[sc.ticker] = await generate_thesis(sc.ticker, factors_dict, sc.spot_price, None)
+            _report("thesis", j, f"Generating theses {j}/{n_q}…")
+        # Phase 2 — write all theses in one short transaction (no concurrent writer).
+        for ticker, thesis in theses.items():
             await session.execute(
                 update(Pick)
-                .where(Pick.ticker == sc.ticker, Pick.date == _date.today())
+                .where(Pick.ticker == ticker, Pick.date == _date.today())
                 .values(thesis=thesis)
             )
-            _report("thesis", j, f"Generating theses {j}/{n_q}…")
         await session.commit()
     except Exception as exc:
         log.warning("thesis_generation_failed", error=str(exc))

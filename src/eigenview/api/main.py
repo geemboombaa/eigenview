@@ -5,12 +5,15 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from eigenview.api.routes import bench, chart, chat, heat, layouts, market, picks, spec, ta_scan
 from eigenview.data.storage import create_tables
+
+log = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
@@ -56,34 +59,6 @@ _scan_bg_tasks: set = set()
 @app.get("/api/scan/status")
 async def scan_status() -> dict:
     return _scan_state
-
-
-def _download_universe_data(tickers: list[str]) -> None:
-    """Blocking: pull fresh prices + option chains from Databento into the DB.
-
-    Imports the standalone loader in scripts/. Runs in an executor thread so the
-    event loop stays responsive. Only invoked when a scan is requested with
-    download=True (the checkbox is ticked).
-    """
-    import sqlite3
-    import sys
-
-    scripts_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "scripts")
-    )
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-
-    import databento as _db
-    from databento_load import DB_PATH, load_equities, load_key, load_options
-
-    client = _db.Historical(load_key())
-    con = sqlite3.connect(DB_PATH)
-    try:
-        load_equities(client, tickers, con)
-        load_options(client, tickers, con)
-    finally:
-        con.close()
 
 
 @app.post("/api/scan")
@@ -141,9 +116,17 @@ async def trigger_scan(universe: str | None = None, download: bool = False) -> d
                     await fetch_macro()
                 except Exception:
                     pass  # macro is non-fatal — pipeline still runs on existing macro_daily
-                _scan_state["message"] = f"Downloading: prices + chains for {len(tickers)} tickers…"
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, _download_universe_data, tickers)
+                # Chunked async download (shared module): one executor call per chunk,
+                # event loop free between chunks, per-chunk timeout, data trickles in.
+                from eigenview.data.download import download_chunked
+                ntk = len(tickers)
+
+                def _dl_progress(done: int, total: int) -> None:
+                    _scan_state["phase"] = "download"
+                    _scan_state["done"] = done
+                    _scan_state["message"] = f"Downloading prices + chains {done}/{total}…"
+
+                await download_chunked(tickers, progress=_dl_progress)
 
                 # News (free: Alpha Vantage + Finnhub) so sentiment can fire. Bounded
                 # concurrency; each fetch_news upserts to the news table and fails soft

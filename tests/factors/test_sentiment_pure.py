@@ -13,7 +13,7 @@ def test_bullish_news_fires_bullish():
     r = aggregate_sentiment([("positive", 0.9), ("positive", 0.8)], [0.0, 0.0], 0, 2, 3)
     assert r.label == "bullish"
     assert r.firing is True
-    assert r.strength > settings.sentiment_fire_strength
+    assert r.strength > settings.sentiment_neutral_deadzone
 
 
 def test_bearish_news_fires_bearish():

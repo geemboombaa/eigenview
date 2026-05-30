@@ -29,8 +29,6 @@ class Settings(BaseSettings):
     dormant_firing_threshold: float = 0.5
     flow_min_premium_usd: float = 500_000
     flow_min_voi_ratio: float = 3.0
-    sentiment_novelty_z_threshold: float = 1.5
-    ta_pattern_confidence_threshold: float = 0.6
     gex_short_gamma_threshold: float = 0.0
 
     # Risk-free rate — single source for all options pricing (BS mark, IV solve)
@@ -69,7 +67,7 @@ class Settings(BaseSettings):
     # 74% agreement w/ ProsusAI, finance-tuned, 40ms/headline CPU), VADER lexicon fallback.
     sentiment_model_id: str = "yiyanghkust/finbert-tone"
     sentiment_min_articles: int = 1              # min recent articles to score at all
-    sentiment_fire_strength: float = 0.45        # net directional strength (0-1) to fire
+    sentiment_neutral_deadzone: float = 0.05     # |net| within this = neutral (no direction, no fire)
     sentiment_recency_halflife_days: float = 2.0 # article weight halves every N days old
 
     # ── Dormant screen (factors/dormant.py) ──
@@ -115,18 +113,28 @@ class Settings(BaseSettings):
     scanner_chunk_size: int = 10                    # tickers scored + committed per chunk (live progress)
     scanner_ticker_timeout_secs: int = 30           # per-ticker hard timeout — one bad name can't stall the run
 
-    # ── Pick quality gates (each independently toggleable) ───────────────────
-    # Set enable_* = false in .env to turn off individual filters without changing thresholds.
-    min_avg_daily_dollar_volume: int = 15_000_000  # $15M ADV — options-tradeable minimum
-                                                   # ($50M over-filters NDX: AMGN/ADBE/ISRG all below)
-    enable_liquidity_filter: bool = True           # gate on min_avg_daily_dollar_volume
+    # ── Download-scope filter (cli.py fetch-data) — pull data ONLY for tradeable names ──
+    # Applied to the NDX∪SP500 universe BEFORE download: build the keep-list, then fetch.
+    download_min_atr: float = 1.0           # ATR14 in $ — below this the name is too quiet
+                                            #   to trade a defined-risk options setup (reason:
+                                            #   stop/target distances collapse under ~$1 ATR)
+    download_earnings_blackout_days: int = 5  # skip names with earnings within N days — binary
+                                            #   event risk swamps the technical setup
+    download_options_volume_min: int = 2000  # avg daily option volume floor; applied only where
+                                            #   chains.volume is populated (≈85% null in Databento
+                                            #   OPRA statistics) — OI gate below is the real proxy
+    # OI≥dormant_min_ticker_oi (5000) is reused as the liquidity proxy for download scope.
 
-    min_rr_ratio: float = 3.0                      # minimum reward:risk ratio for any pick
-    enable_rr_filter: bool = True                  # gate on min_rr_ratio
+    # ── R:R conviction downgrade (synthesis/gate.py conviction_score) ─────────
+    min_rr_ratio: float = 3.0                      # target/risk below this DOWNGRADES conviction
+    enable_rr_filter: bool = True                  #   one tier (spec: downgrade, never eliminate)
 
-    rs_percentile_min: int = 50                    # longs: top 50% of universe by 20d RS;
-                                                   # shorts: bottom 50%
-    enable_rs_filter: bool = True                  # gate on rs_percentile_min
+    # ── Funnel-analysis ONLY (scripts/ta_firing_count.py) — NOT live-scan gates ──
+    # These drive the standalone TA-firing funnel report, not qualify_pick/rank_picks.
+    min_avg_daily_dollar_volume: int = 15_000_000  # $15M ADV — used by the funnel script
+    enable_liquidity_filter: bool = True
+    rs_percentile_min: int = 50                    # 20d relative-strength percentile (funnel script)
+    enable_rs_filter: bool = True
 
 
 settings = Settings()

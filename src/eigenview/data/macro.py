@@ -70,8 +70,12 @@ def _fetch_vix_yf_sync() -> tuple[float | None, float | None, float | None]:
 async def _fetch_vix_term() -> tuple[float | None, float | None, float | None]:
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, _fetch_vix_yf_sync)
-    except Exception as exc:
+        # yfinance is sync with no request timeout — bound it so a stuck HTTP call
+        # can't hang the macro fetch (the abandoned thread dies on its own).
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _fetch_vix_yf_sync), timeout=30.0
+        )
+    except (Exception, asyncio.TimeoutError) as exc:
         log.warning("fetch_vix.yf_failed", error=str(exc))
         return None, None, None
 
