@@ -1,8 +1,8 @@
-"""Real-DB orchestration tests for dormant.score_dormant (v2).
+"""Real-DB orchestration test for the LIVE dormant path (score_dormant_from_history).
 
-Uses a temporary real SQLite engine (real inserts, no mocks). Chain rows are
-constructed pure-logic inputs to the scorer; the DB layer (DormantBet/Catalyst)
-is real.
+Uses a temporary real SQLite engine (real inserts, no mocks). The old static path
+(score_dormant/score_bet_v2) was removed — the live scanner uses the activation
+engine only, and hedged contracts are filtered at watchlist-write by bet_confidence.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from eigenview.data.storage import Base, DormantBet
-from eigenview.factors.dormant import _ChainRow, score_dormant, score_dormant_from_history
+from eigenview.factors.dormant import _ChainRow, score_dormant_from_history
 
 _EXPIRY = date.today() + timedelta(days=120)
 
@@ -49,42 +49,17 @@ async def _add_bet(session, strike, cp, oi):
 
 
 @pytest.mark.asyncio
-async def test_accumulating_under_30_days(temp_session):
-    r = await score_dormant("NVDA", temp_session, 100.0, [], days_of_history=10)
-    assert r.firing is False
-    assert r.label == "ACCUMULATING"
-
-
-@pytest.mark.asyncio
 async def test_no_bets_accumulating(temp_session):
-    r = await score_dormant("NVDA", temp_session, 100.0, [], days_of_history=40)
+    r = await score_dormant_from_history("NVDA", temp_session, 100.0, [])
     assert r.firing is False
     assert r.label == "ACCUMULATING"
-
-
-@pytest.mark.asyncio
-async def test_isolated_naked_call_scores(temp_session):
-    await _add_bet(temp_session, 110.0, "C", 200_000)
-    chain = [
-        _row(110.0, "C", 200_000, delta=0.35, iv=0.33),
-        _row(100.0, "C", 300, delta=0.55, iv=0.42),
-        _row(108.0, "C", 150, delta=0.40, iv=0.35),
-        _row(112.0, "C", 120, delta=0.30, iv=0.32),
-    ]
-    r = await score_dormant("NVDA", temp_session, 100.0, chain, days_of_history=40)
-    assert r.factor_id == "dormant"
-    assert r.strength > 0.0
-    assert r.detail["best_score"] > 0
-    assert r.label in ("ACTIVE", "DORMANT")
 
 
 @pytest.mark.asyncio
 async def test_no_contract_history_does_not_fire(temp_session):
-    """Static structure alone must NOT fire (kills the 4/7=0.57 cluster).
-
-    A real bet exists but there is no contract_history, so the activation engine
-    cannot run. The result must be a non-firing ACCUMULATING candidate, not a fire.
-    """
+    """Static structure alone must NOT fire. A real bet exists but there is neither
+    contract_history nor a second chain snapshot, so there is no baseline to compare.
+    The result must be a non-firing ACCUMULATING candidate, not a fire."""
     await _add_bet(temp_session, 110.0, "C", 200_000)
     chain = [
         _row(110.0, "C", 200_000, delta=0.35, iv=0.33),
@@ -93,16 +68,4 @@ async def test_no_contract_history_does_not_fire(temp_session):
     r = await score_dormant_from_history("NVDA", temp_session, 100.0, chain)
     assert r.firing is False
     assert r.label == "ACCUMULATING"
-    assert r.detail.get("activation_ran") is False
-
-
-@pytest.mark.asyncio
-async def test_fully_hedged_bet_not_firing(temp_session):
-    await _add_bet(temp_session, 100.0, "C", 50_000)
-    chain = [
-        _row(100.0, "C", 50_000, delta=0.5, iv=0.4),
-        _row(100.0, "P", 50_000, delta=-0.5, iv=0.4),
-    ]
-    r = await score_dormant("NVDA", temp_session, 100.0, chain, days_of_history=40)
-    assert r.firing is False
-    assert r.detail.get("reason") == "all_candidates_hedged"
+    assert r.detail.get("reason") == "awaiting_baseline"

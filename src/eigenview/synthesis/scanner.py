@@ -21,6 +21,7 @@ from eigenview.data.storage import (
 )
 from eigenview.factors.base import FactorResult
 from eigenview.factors.dormant import (
+    bet_confidence,
     candidate_dwoi_floor,
     is_dormant_candidate,
     mark_price,
@@ -72,13 +73,17 @@ async def _identify_dormant_bets(
             continue
         if (c.oi or 0) < settings.scanner_min_oi:
             continue
+        # Hedge/spread filter: keep only contracts that read as standalone directional
+        # bets. Done HERE so hedged contracts never enter the table or the backfill bill.
+        conf, _cdetail = bet_confidence(c, list(chains), spot)
+        if conf < settings.dormant_bet_confidence_min:
+            continue
         mid = mark_price(c.bid, c.ask, c.iv, spot, c.strike, c.expiry, c.call_put, today)
         premium = mid * (c.oi or 0) * 100
-        # Naming matches find_dormant.py so both scripts produce the same contract key.
         # call_put uppercased: chains table stores both 'C' and 'c' variants.
         contract = f"{ticker}_{c.expiry.isoformat()}_{int(c.strike)}{str(c.call_put).upper()[:1]}"
-        # Upsert on the (ticker, contract, original_date) unique key — atomic, so a
-        # re-scan or an int(strike) contract-id collision updates instead of crashing.
+        # Upsert on the (ticker, contract) unique key — one row per contract. original_date
+        # is first-seen (preserved on conflict); current_oi tracks the latest snapshot.
         stmt = upsert(DormantBet).values(
             ticker=ticker,
             contract=contract,
@@ -91,7 +96,7 @@ async def _identify_dormant_bets(
             original_oi=c.oi,
             updated_at=datetime.utcnow(),
         ).on_conflict_do_update(
-            index_elements=["ticker", "contract", "original_date"],
+            index_elements=["ticker", "contract"],
             set_={"current_oi": c.oi, "updated_at": datetime.utcnow()},
         )
         await session.execute(stmt)
@@ -147,11 +152,16 @@ def _compute_contract_iv(
 
 
 async def _refresh_watchlist_history(session: AsyncSession) -> None:
-    """Pull fresh contract_history from Databento for any stale watchlist entries.
+    """Pull fresh contract_history from Databento for the dormant watchlist.
 
-    Thin incremental pull: only fetches dates after the current max in contract_history.
-    Skips gracefully if no Databento key configured or API call fails.
+    PER-CONTRACT window (not a single global max). Each contract gets backfilled from
+    its OWN last stored date + 1; a brand-new contract with no history gets the full
+    backfill window (settings.scanner_history_backfill_days). Symbols are bucketed by
+    start date so each distinct window is one batched Databento call. This is the fix
+    for the old global-max bug, which only ever pulled a forward tail and never
+    backfilled newly-added contracts. Skips gracefully if no key / API fails.
     """
+    import pandas as pd
     from eigenview.config import settings
     if not settings.databento_key:
         log.info("refresh_watchlist.skip", reason="no_databento_key")
@@ -161,29 +171,33 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     if not bets:
         return
 
-    max_hist_row = await session.execute(select(func.max(ContractHistory.date)))
-    last_date = max_hist_row.scalar()
-
-    if last_date and last_date >= date.today():
-        log.info("refresh_watchlist.up_to_date")
-        return
-
-    start = (
-        (last_date + timedelta(days=1)).isoformat()
-        if last_date
-        else (date.today() - timedelta(days=settings.scanner_history_backfill_days)).isoformat()
-    )
-    end = date.today().isoformat()
-
-    # Databento rejects start >= end (422). When history is already current through
-    # yesterday, the window collapses — nothing to fetch, skip cleanly.
-    if start >= end:
-        log.info("refresh_watchlist.up_to_date", start=start, end=end)
-        return
-
     from eigenview.data.databento_history import fetch_statistics, osi_symbol as _osi
 
     bet_by_osi = {_osi(b.ticker, b.expiry, b.call_put, b.strike): b for b in bets}
+
+    # Per-symbol last stored history date (the whole watchlist in one query).
+    permax_rows = await session.execute(
+        select(ContractHistory.osi_symbol, func.max(ContractHistory.date))
+        .group_by(ContractHistory.osi_symbol)
+    )
+    permax = {sym: d for sym, d in permax_rows.all()}
+
+    today = date.today()
+    end = today.isoformat()
+    full_start = today - timedelta(days=settings.scanner_history_backfill_days)
+
+    # Bucket symbols by their individual start date (incremental tail vs full backfill).
+    buckets: dict[str, list[str]] = {}
+    for osi in bet_by_osi:
+        last = permax.get(osi)
+        start_d = (last + timedelta(days=1)) if last else full_start
+        if start_d >= today:   # already current through yesterday — nothing to pull
+            continue
+        buckets.setdefault(start_d.isoformat(), []).append(osi)
+
+    if not buckets:
+        log.info("refresh_watchlist.up_to_date")
+        return
 
     und_rows = (await session.execute(
         select(Price).where(Price.timeframe == "1d")
@@ -192,19 +206,52 @@ async def _refresh_watchlist_history(session: AsyncSession) -> None:
     for r in und_rows:
         und_close.setdefault(r.ticker.upper(), {})[r.date] = r.close
 
-    loop = asyncio.get_event_loop()
-    try:
-        # Databento sync client has no request timeout — bound it so a stuck pull
-        # can't hang the whole scan's download phase.
-        df = await asyncio.wait_for(
-            loop.run_in_executor(
-                None, fetch_statistics, list(bet_by_osi.keys()), start, end
-            ),
-            timeout=120.0,
-        )
-    except (Exception, asyncio.TimeoutError) as exc:
-        log.warning("refresh_watchlist.databento_failed", error=str(exc))
-        return
+    # Split every bucket along BOTH axes: small symbol sub-batches AND short date windows.
+    # A single 130-sym × 180d call hangs the whole phase; even 25 syms × 180d times out —
+    # the failure axis is window DEPTH, so the long window is sliced into <=N-day pieces.
+    # Each small call finishes fast, runs with bounded concurrency, and a single slow/failed
+    # piece only drops its own symbols×window. All sizes/timeouts are config knobs (no hardcode).
+    loop = asyncio.get_running_loop()
+    batch_n = settings.scanner_history_symbol_batch
+    win = settings.scanner_history_window_days
+    jobs: list[tuple[str, str, list[str]]] = []
+    for start, symbols in buckets.items():
+        s0 = date.fromisoformat(start)
+        windows: list[tuple[str, str]] = []
+        cur = s0
+        while cur < today:
+            nxt = min(cur + timedelta(days=win), today)
+            windows.append((cur.isoformat(), nxt.isoformat()))
+            cur = nxt
+        for ws, we in windows:
+            for i in range(0, len(symbols), batch_n):
+                jobs.append((ws, we, symbols[i:i + batch_n]))
+
+    sem = asyncio.Semaphore(settings.scanner_history_fetch_concurrency)
+    done = 0
+    frames: list[pd.DataFrame] = []
+
+    async def _pull(w_start: str, w_end: str, syms: list[str]) -> pd.DataFrame | None:
+        nonlocal done
+        async with sem:
+            try:
+                part = await asyncio.wait_for(
+                    loop.run_in_executor(None, fetch_statistics, syms, w_start, w_end),
+                    timeout=settings.scanner_history_call_timeout_secs,
+                )
+            except (Exception, asyncio.TimeoutError) as exc:
+                log.warning("refresh_watchlist.databento_failed", start=w_start, end=w_end,
+                            symbols=len(syms), error=str(exc) or type(exc).__name__)
+                return None
+            finally:
+                done += 1
+                log.info("refresh_watchlist.progress", done=done, total=len(jobs))
+            return part
+
+    results = await asyncio.gather(*(_pull(ws, we, y) for ws, we, y in jobs))
+    frames = [p for p in results if p is not None and not p.empty]
+
+    df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
     if df.empty:
         log.info("refresh_watchlist.no_new_data")

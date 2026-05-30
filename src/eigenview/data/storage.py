@@ -187,7 +187,9 @@ class Pick(Base):
 
 class DormantBet(Base):
     __tablename__ = "dormant_bets"
-    __table_args__ = (UniqueConstraint("ticker", "contract", "original_date"),)
+    # One row per contract (was 3-col incl original_date, which re-inserted the same
+    # contract every scan day). original_date is now first-seen, preserved on conflict.
+    __table_args__ = (UniqueConstraint("ticker", "contract"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)

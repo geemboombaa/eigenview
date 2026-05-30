@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from eigenview.config import settings
 
@@ -84,24 +84,33 @@ def score_activation(
     fires on a significant baseline->recent jump in any signal.
     """
     recent_days = settings.activation_recent_days
-    hist = sorted(hist, key=lambda r: r["date"] if r["date"] <= target else date.min)
-    hist = [r for r in hist if r["date"] <= target]
-    if len(hist) < settings.activation_min_history:
-        return ActivationResult(fired=False, detail={"reason": "insufficient_history"})
+    hist = sorted([r for r in hist if r["date"] <= target], key=lambda r: r["date"])
+    # Window to the last N days of the series (bounds lookback; forward series are short).
+    cutoff = target - timedelta(days=settings.activation_lookback_days)
+    hist = [r for r in hist if r["date"] >= cutoff]
+    n = len(hist)
+    if n < settings.activation_forward_min:
+        # Not enough points to compare a baseline to recent — just discovered.
+        return ActivationResult(fired=False, detail={"reason": "insufficient_history", "points": n})
+
+    # Forward (short) series: shrink the recent window so the baseline is never empty.
+    # Lookback (>= min_history points): the full recent_days window.
+    mode = "lookback" if n >= settings.activation_min_history else "forward"
+    rec_n = min(recent_days, max(1, n // 2))
 
     dates = [r["date"] for r in hist]
     ois = [r.get("oi") for r in hist]
     vols = [r.get("volume") for r in hist]
     ivs = [r.get("iv") for r in hist]
 
-    base = slice(0, len(hist) - recent_days)
-    rec = slice(len(hist) - recent_days, len(hist))
+    base = slice(0, n - rec_n)
+    rec = slice(n - rec_n, n)
 
     born = _born_on(dates, ois)
     age = (target - born).days if born else None
 
     triggers: list[str] = []
-    detail: dict = {}
+    detail: dict = {"mode": mode, "points": n}
 
     # OI: current vs dormant baseline (catches gradual accumulation)
     base_oi = _median(ois[base])
