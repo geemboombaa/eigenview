@@ -29,12 +29,19 @@ def download_universe_data(tickers: list[str]) -> None:
     import databento as _db
     from databento_load import DB_PATH, load_equities, load_key, load_options
 
+    from eigenview.data.universe import get_options_universe
+
     client = _db.Historical(load_key())
     con = sqlite3.connect(DB_PATH)
     con.execute("PRAGMA busy_timeout=30000")
     try:
+        # Prices/equities: ALL passed tickers (TA, sentiment, macro need the full universe).
         load_equities(client, tickers, con)
-        load_options(client, tickers, con)
+        # Options/chains: ONLY the broker-screened options universe (the 184-name list).
+        opts_set = set(get_options_universe())
+        opts = [t for t in tickers if t in opts_set]
+        if opts:
+            load_options(client, opts, con)
     finally:
         con.close()
 

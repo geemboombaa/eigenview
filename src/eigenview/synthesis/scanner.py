@@ -31,6 +31,7 @@ from eigenview.factors.gex import score_gex
 from eigenview.factors.macro_regime import score_macro_regime
 from eigenview.factors.sentiment import score_sentiment
 from eigenview.factors.technical import score_technical
+from eigenview.data.universe import get_options_universe
 from eigenview.synthesis.gate import (
     SHORT_SETUP_PATTERNS,
     TickerScorecard,
@@ -41,6 +42,10 @@ from eigenview.synthesis.gate import (
 from eigenview.synthesis.ranker import rank_picks, write_picks
 
 log = structlog.get_logger(__name__)
+
+# Broker-screened options universe (184 names). Only these get GEX/flow/dormant
+# scored — TA + sentiment run on the full scan universe. Loaded once.
+_OPTIONS_UNIVERSE = set(get_options_universe())
 
 
 async def _identify_dormant_bets(
@@ -273,42 +278,67 @@ async def _score_ticker(
                 )
                 chains = chain_rows.scalars().all()
 
-            # GEX first so its dealer levels feed TA confluence (strength-only).
-            gex = score_gex(list(chains), spot, ticker)
-            gex_levels = {
-                "call_wall": gex.detail.get("call_wall"),
-                "put_wall": gex.detail.get("put_wall"),
-                "gamma_flip": gex.detail.get("gamma_flip"),
-            } if gex.detail else None
-            ta = _score_with_lookback(df, ticker, gex_levels=gex_levels)
-            flow = score_flow(list(chains), ticker)
+            # Options factors (GEX/flow/dormant) run ONLY for the broker-screened
+            # options universe — chains exist for these names. Everything else scores
+            # TA + sentiment only and cannot qualify as an options pick.
+            in_options = ticker in _OPTIONS_UNIVERSE
 
-            # Options-liquidity gate (OI proxy until real options-volume history is
-            # pulled). Illiquid names: don't accumulate dormant candidates, don't score,
-            # never fire — their chains are too thin to judge dealer/dormant positioning.
-            ticker_oi = sum(int(getattr(c, "oi", 0) or 0) for c in chains)
-            if ticker_oi >= settings.dormant_min_ticker_oi:
-                await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
-                dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
+            if in_options:
+                # GEX first so its dealer levels feed TA confluence (strength-only).
+                gex = score_gex(list(chains), spot, ticker)
+                gex_levels = {
+                    "call_wall": gex.detail.get("call_wall"),
+                    "put_wall": gex.detail.get("put_wall"),
+                    "gamma_flip": gex.detail.get("gamma_flip"),
+                } if gex.detail else None
             else:
-                dormant = FactorResult(
-                    factor_id="dormant", firing=False, strength=0.0, label="NOT_LIQUID",
-                    detail={"ticker_oi": ticker_oi, "min_oi": settings.dormant_min_ticker_oi},
-                    narrative=(
-                        f"Options illiquid (agg OI {ticker_oi} < "
-                        f"{settings.dormant_min_ticker_oi}) — not screened for dormant bets."
-                    ),
-                )
-                # Not options-tradeable → neutralize the GEX hard gate so the pick cannot
-                # qualify (a thin chain's dealer levels aren't trustworthy to trade on).
                 gex = FactorResult(
-                    factor_id="gex", firing=False, strength=0.0, label="NOT_LIQUID",
-                    detail=gex.detail,
-                    narrative=(
-                        f"Options illiquid (agg OI {ticker_oi} < "
-                        f"{settings.dormant_min_ticker_oi}) — GEX gate withheld."
-                    ),
+                    factor_id="gex", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None,
+                    narrative="Not in options universe — no chains; GEX gate withheld.",
                 )
+                gex_levels = None
+
+            ta = _score_with_lookback(df, ticker, gex_levels=gex_levels)
+
+            if not in_options:
+                flow = FactorResult(
+                    factor_id="flow", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None, narrative="Not in options universe — flow not scored.",
+                )
+                dormant = FactorResult(
+                    factor_id="dormant", firing=False, strength=0.0, label="NOT_IN_OPTIONS_UNIVERSE",
+                    detail=None, narrative="Not in options universe — dormant not screened.",
+                )
+            else:
+                flow = score_flow(list(chains), ticker)
+
+                # Options-liquidity gate (OI proxy until real options-volume history is
+                # pulled). Illiquid names: don't accumulate dormant candidates, don't score,
+                # never fire — their chains are too thin to judge dealer/dormant positioning.
+                ticker_oi = sum(int(getattr(c, "oi", 0) or 0) for c in chains)
+                if ticker_oi >= settings.dormant_min_ticker_oi:
+                    await _identify_dormant_bets(ticker, list(chains), spot, date.today(), session)
+                    dormant = await score_dormant_from_history(ticker, session, spot, list(chains))
+                else:
+                    dormant = FactorResult(
+                        factor_id="dormant", firing=False, strength=0.0, label="NOT_LIQUID",
+                        detail={"ticker_oi": ticker_oi, "min_oi": settings.dormant_min_ticker_oi},
+                        narrative=(
+                            f"Options illiquid (agg OI {ticker_oi} < "
+                            f"{settings.dormant_min_ticker_oi}) — not screened for dormant bets."
+                        ),
+                    )
+                    # Not options-tradeable → neutralize the GEX hard gate so the pick cannot
+                    # qualify (a thin chain's dealer levels aren't trustworthy to trade on).
+                    gex = FactorResult(
+                        factor_id="gex", firing=False, strength=0.0, label="NOT_LIQUID",
+                        detail=gex.detail,
+                        narrative=(
+                            f"Options illiquid (agg OI {ticker_oi} < "
+                            f"{settings.dormant_min_ticker_oi}) — GEX gate withheld."
+                        ),
+                    )
             sentiment = await score_sentiment(ticker, session)
             await session.commit()  # persist dormant_bets accumulated above
 

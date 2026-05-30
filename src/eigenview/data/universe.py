@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import date
 
 import io
@@ -13,6 +14,24 @@ log = structlog.get_logger(__name__)
 
 _cache: dict[str, tuple[date, list[str]]] = {}
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; EigenView/1.0)"}
+
+_OPTIONS_UNIVERSE_FILE = os.path.join(os.path.dirname(__file__), "options_universe.txt")
+_options_universe: list[str] | None = None
+
+
+def get_options_universe() -> list[str]:
+    """Fixed options-tradeable universe (broker-screened: optionable, ≥100M mcap,
+    ATR>1, avg option-volume>2000). Source of truth: data/options_universe.txt.
+
+    Drives ONLY (a) options/chain download and (b) the options factor calcs
+    (GEX, flow, dormant). TA, sentiment, prices, and macro run on the full index
+    universe — this list is the narrow options subset, not the scan universe.
+    """
+    global _options_universe
+    if _options_universe is None:
+        with open(_OPTIONS_UNIVERSE_FILE) as f:
+            _options_universe = [ln.strip() for ln in f if ln.strip()]
+    return _options_universe
 
 
 def _read_wiki(url: str) -> list[pd.DataFrame]:
