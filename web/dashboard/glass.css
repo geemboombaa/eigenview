@@ -66,8 +66,10 @@ body::before{
 #searchInput{width:100%;font-family:var(--fb);font-size:13.5px;color:var(--t1);background:rgba(0,0,0,.28);border:1px solid var(--border-w);border-radius:11px;padding:10px 34px 10px 14px;outline:none;transition:.15s}
 #searchInput::placeholder{color:var(--t3)}
 #searchInput:focus{border-color:var(--border-hot);box-shadow:0 0 16px rgba(167,139,250,.25)}
-.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:15px;padding:4px}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:15px;padding:4px;opacity:0;pointer-events:none;transition:.15s}
 .search-clear:hover{color:var(--t1)}
+.search-wrap.has-term .search-clear{opacity:1;pointer-events:auto}
+.search-wrap.has-term #searchInput{border-color:var(--border-hot);background:rgba(124,109,250,.12);box-shadow:0 0 16px rgba(167,139,250,.25)}
 
 .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .iconbtn{font-family:var(--fm);font-size:11px;letter-spacing:.8px;padding:9px 13px;border-radius:9px;border:1px solid var(--border-w);background:rgba(255,255,255,.04);color:var(--t2);cursor:pointer;backdrop-filter:blur(12px);position:relative;display:inline-flex;align-items:center;gap:6px}
@@ -166,6 +168,22 @@ tr.short .fb-fill{background:linear-gradient(90deg,var(--short),var(--flip))}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--t3);font-family:var(--fm);gap:14px;text-align:center;padding:20px}
 .empty-i{font-size:48px;opacity:.3}
 .empty b{color:var(--t2)}
+
+/* ── active-filter bar — only present when a filter is on ── */
+#filterBar{display:none}
+#filterBar.on{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;margin:10px 16px 0;border-radius:13px;
+  background:rgba(124,109,250,.10);border:1px solid var(--border-hot);box-shadow:0 0 22px rgba(167,139,250,.16);backdrop-filter:blur(14px)}
+.fb-lbl{font-family:var(--fm);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--violet);font-weight:700;padding-right:2px}
+.fb-pill{display:inline-flex;align-items:center;gap:7px;font-family:var(--fm);font-size:11px;letter-spacing:.4px;color:#fff;
+  background:var(--glass-hot);border:1px solid var(--border-hot);border-radius:8px;padding:5px 10px;cursor:pointer;transition:.15s}
+.fb-pill:hover{background:rgba(167,139,250,.32);border-color:var(--violet)}
+.fb-x{font-size:14px;line-height:1;color:var(--t2)}
+.fb-pill:hover .fb-x{color:#fff}
+.fb-count{font-family:var(--fm);font-size:11px;letter-spacing:.5px;color:var(--t3);margin-left:auto}
+.fb-count b{color:var(--t1);font-weight:700}
+.fb-clear{font-family:var(--fm);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--t2);
+  background:rgba(255,255,255,.05);border:1px dashed var(--border-w);border-radius:8px;padding:6px 12px;cursor:pointer;transition:.15s}
+.fb-clear:hover{color:#fff;border-color:var(--border-hot);background:var(--glass-hot)}
 
 /* Action bar */
 #actionBar{position:fixed;bottom:14px;left:16px;right:16px;border-radius:20px;background:var(--glass-2);backdrop-filter:blur(48px) saturate(1.6);border:1px solid var(--border-hot);box-shadow:0 16px 50px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);transform:translateY(180%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);z-index:100;padding:20px 28px;max-height:78vh;overflow:auto}

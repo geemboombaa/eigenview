@@ -99,6 +99,62 @@ window.EV_APP = (() => {
     $('modeTabs').innerHTML = tab('daily', 'DAILY') + tab('week', 'WEEKLY') + tab('all', 'ALL');
   }
 
+  // ---------- active-filter model (search + chips + sets + numeric + favs) ----------
+  function setValLabels(name) {
+    const def = F.SETS[name];
+    return (S.sets[name] || []).map(v => {
+      const o = def.options.find(o => String(o.v) === String(v));
+      return o ? o.label : v;
+    });
+  }
+  function filterPills() {
+    const out = [];
+    if (S.search && S.search.trim()) out.push({ token: 'search', label: `Search "${S.search.trim()}"` });
+    for (const id of S.chips) { const c = F.CHIP_BY_ID[id]; if (c) out.push({ token: `chip:${id}`, label: c.label }); }
+    for (const name of Object.keys(F.SETS)) {
+      if ((S.sets[name] || []).length) out.push({ token: `set:${name}`, label: `${F.SETS[name].label}: ${setValLabels(name).join(', ')}` });
+    }
+    for (const [k, rg] of Object.entries(S.numeric || {})) {
+      const col = F.COL_BY_KEY[k]; if (!col) continue;
+      const r = rg.min != null && rg.max != null ? `${rg.min}–${rg.max}` : rg.min != null ? `≥${rg.min}` : rg.max != null ? `≤${rg.max}` : '';
+      out.push({ token: `num:${k}`, label: `${col.label} ${r}` });
+    }
+    if (S.favsOnly) out.push({ token: 'favs', label: '★ Favs only' });
+    return out;
+  }
+  function clearAllFilters() {
+    $('searchInput').value = '';
+    mutate(() => { S.chips = []; S.sets = emptySets(); S.numeric = {}; S.search = ''; S.favsOnly = false; });
+  }
+  function removeFilter(tok) {
+    const si = $('searchInput');
+    mutate(() => {
+      if (tok === 'search') { S.search = ''; si.value = ''; }
+      else if (tok === 'favs') { S.favsOnly = false; }
+      else if (tok.startsWith('chip:')) { const id = tok.slice(5); S.chips = S.chips.filter(x => x !== id); }
+      else if (tok.startsWith('set:')) { S.sets[tok.slice(4)] = []; }
+      else if (tok.startsWith('num:')) { delete S.numeric[tok.slice(4)]; }
+    });
+  }
+  function syncSearch() {
+    const w = document.querySelector('.search-wrap');
+    if (w) w.classList.toggle('has-term', !!(S.search && S.search.trim()));
+  }
+
+  // ---------- active-filter bar (only visible when a filter is on) ----------
+  function renderFilterBar() {
+    const host = $('filterBar');
+    const pills = filterPills();
+    if (!pills.length) { host.className = ''; host.innerHTML = ''; return; }
+    const shown = filtered(S.mode).length, total = modeRows(S.mode).length;
+    host.className = 'on';
+    host.innerHTML =
+      `<span class="fb-lbl">Filtering</span>` +
+      pills.map(p => `<button class="fb-pill" data-rm="${esc(p.token)}" title="Remove">${esc(p.label)}<span class="fb-x">×</span></button>`).join('') +
+      `<span class="fb-count">Showing <b>${shown}</b> of ${total}</span>` +
+      `<button class="fb-clear" id="fbClearAll">Clear all</button>`;
+  }
+
   // ---------- chip + set-dropdown row ----------
   function renderChips() {
     const chips = F.CHIPS.map(c => {
@@ -129,9 +185,15 @@ window.EV_APP = (() => {
       return;
     }
     if (!rows.length) {
-      const why = modeRows(S.mode).length ? 'No rows match the current search / filters.' :
-        (S.mode === 'all' ? 'No scanned tickers for today yet — hit SCAN.' : `No ${S.mode === 'daily' ? 'picks today' : 'picks this week'} yet — hit SCAN.`);
-      host.innerHTML = `<div class="tablecard"><div class="empty"><div class="empty-i">∅</div><div>${esc(why)}</div></div></div>`;
+      const total = modeRows(S.mode).length;
+      if (total && filterPills().length) {
+        host.innerHTML = `<div class="tablecard"><div class="empty"><div class="empty-i">⊘</div>` +
+          `<div><b>0 of ${total} match your filters.</b><br>${total} ${S.mode} row${total > 1 ? 's' : ''} hidden by the active filters.</div>` +
+          `<button class="fb-clear" id="emptyClear">Clear filters</button></div></div>`;
+      } else {
+        const why = S.mode === 'all' ? 'No scanned tickers for today yet — hit SCAN.' : `No ${S.mode === 'daily' ? 'picks today' : 'picks this week'} yet — hit SCAN.`;
+        host.innerHTML = `<div class="tablecard"><div class="empty"><div class="empty-i">∅</div><div>${esc(why)}</div></div></div>`;
+      }
       return;
     }
 
@@ -340,7 +402,7 @@ window.EV_APP = (() => {
 
   function updateFavCount() { $('favCount').textContent = V.getFavs().length; }
 
-  function renderAll() { renderRegime(); renderTabs(); renderChips(); renderTable(); updateFavCount(); }
+  function renderAll() { renderRegime(); renderTabs(); renderChips(); renderFilterBar(); renderTable(); updateFavCount(); syncSearch(); }
 
   // ---------- data load ----------
   async function reload() {
@@ -358,12 +420,17 @@ window.EV_APP = (() => {
     $('modeTabs').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b) return; closeBar(); mutate(() => { S.mode = b.dataset.mode; }); });
 
     const si = $('searchInput');
-    si.addEventListener('input', () => { S.search = si.value; persist(); renderTabs(); renderTable(); });
+    si.addEventListener('input', () => { S.search = si.value; persist(); syncSearch(); renderTabs(); renderFilterBar(); renderTable(); });
     si.addEventListener('keydown', e => { if (e.key === 'Escape') { si.value = ''; mutate(() => { S.search = ''; }); } });
     $('searchClear').onclick = () => { si.value = ''; mutate(() => { S.search = ''; }); };
 
+    $('filterBar').addEventListener('click', e => {
+      if (e.target.closest('#fbClearAll')) { clearAllFilters(); return; }
+      const p = e.target.closest('[data-rm]'); if (p) removeFilter(p.dataset.rm);
+    });
+
     $('chipRow').addEventListener('click', e => {
-      if (e.target.id === 'clearAll') { si.value = ''; mutate(() => { S.chips = []; S.sets = emptySets(); S.numeric = {}; S.search = ''; S.favsOnly = false; }); return; }
+      if (e.target.id === 'clearAll') { clearAllFilters(); return; }
       if (e.target.id === 'filtersToggle') { $('chipRow').classList.toggle('collapsed'); return; }
       if (e.target.id === 'favsOnlyChip') { mutate(() => { S.favsOnly = !S.favsOnly; }); return; }
       const sb = e.target.closest('[data-set]'); if (sb) { openSetMenu(sb.dataset.set, sb.getBoundingClientRect()); return; }
@@ -373,6 +440,7 @@ window.EV_APP = (() => {
     });
 
     $('tableHost').addEventListener('click', e => {
+      if (e.target.id === 'emptyClear') { clearAllFilters(); return; }
       const fav = e.target.closest('[data-fav]');
       if (fav) { e.stopPropagation(); V.toggleFav(fav.dataset.fav); updateFavCount(); renderTable(); return; }
       if (e.target.closest('[data-tv]')) { e.stopPropagation(); return; }
