@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     # COT (data/macro.py) — default futures instrument for CFTC COT fetch
     cot_default_instrument: str = "ES"
 
+    # ── News refresh job (cli.py fetch-news) — decoupled from daily scan ──
+    news_refresh_concurrency: int = 8       # parallel ticker semaphore (Finnhub ~60 req/min)
+    news_av_daily_budget: int = 20          # max tickers routed through Alpha Vantage/day
+                                            # (AV free = 25/day; reserve headroom)
+    news_lookback_days: int = 3             # how far back each refresh pulls per ticker
+
     # Sentiment novelty baseline (factors/sentiment.py) — expected articles/day
     sentiment_expected_articles_per_day: float = 1.0
     # Sentiment model (factors/sentiment_model.py) — FinBERT-tone primary (benchmark 2026-05-29:
