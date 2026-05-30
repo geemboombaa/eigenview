@@ -96,32 +96,6 @@ MVP scope:
 
 ---
 
-## PHASE 0 — Already Done (repo scaffold)
-Repo exists at: `C:\Users\v_per\OneDrive\Documents\Claude\Projects\Tradingview\eigenview-handoff`
-Wireframes at: `C:\Users\v_per\OneDrive\Documents\Claude\Projects\Tradingview\eigenview-wireframe-v2.html`
-
-**Phase 0 remaining tasks:**
-- [ ] Create `src/eigenview/` directory structure (see repo layout below)
-- [ ] Create `pyproject.toml` with uv dependencies
-- [ ] Create `.env.example` with all required API key slots
-- [ ] Copy wireframe-v2.html into `web/index.html` as starting point
-- [ ] First commit: "phase-0: scaffold + handoff docs"
-
-**API keys needed (Phase 1 blockers):**
-```
-ALPHA_VANTAGE_KEY=        # free at alphavantage.co — news + sentiment
-FINNHUB_KEY=              # free at finnhub.io — news + earnings calendar
-ANTHROPIC_API_KEY=        # for thesis generation + chat (Phase 4+)
-
-# These are FREE — no key needed:
-# yfinance — no key, just pip install
-# SqueezeMetrics DIX+GEX — public page scrape
-# VIXCentral — public page scrape
-# CFTC COT reports — public data download
-```
-
----
-
 ## PHASE 1 — Data Layer (MVP critical path)
 
 **Goal:** Clean data in SQLite. Nothing else. No factors, no UI, no AI.
@@ -371,62 +345,9 @@ eigenview/
 
 ---
 
-## PYPROJECT.TOML DEPENDENCIES (Phase 1 minimum)
+## DEPENDENCIES & CONFIG
 
-```toml
-[project]
-name = "eigenview"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-    "yfinance>=0.2.40",
-    "pandas>=2.0",
-    "pandas-ta>=0.3.14b",
-    "py_vollib>=1.0.1",
-    "requests>=2.31",
-    "beautifulsoup4>=4.12",   # for SqueezeMetrics + VIXCentral scraping
-    "anthropic>=0.25",
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
-    "pydantic-settings>=2.0",
-    "structlog>=24.0",
-    "tenacity>=8.2",          # retry logic for API calls
-    "typer>=0.12",            # CLI framework
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-    "pytest-vcr>=1.0",        # HTTP cassettes for tests
-    "httpx>=0.27",            # for FastAPI test client
-]
-
-[project.optional-dependencies]
-ml = [
-    "scikit-learn>=1.4",
-    "sentence-transformers>=2.7",   # local MiniLM embeddings
-    "transformers>=4.40",           # FinBERT
-    "torch>=2.2",                   # required by transformers
-]
-```
-
----
-
-## .ENV.EXAMPLE
-
-```
-# Required for Phase 1
-ALPHA_VANTAGE_KEY=your_key_here        # free: alphavantage.co/support/#api-key
-FINNHUB_KEY=your_key_here              # free: finnhub.io/register
-
-# Required for Phase 4 (AI features)
-ANTHROPIC_API_KEY=your_key_here        # anthropic.com/api
-
-# Optional overrides
-DB_PATH=data/eigenview.db
-LOG_LEVEL=INFO
-UNIVERSE=SP500+NDX                     # or: test5 (NVDA AAPL TSLA META AMD)
-DAILY_SCAN_HOUR=8                      # pre-market scan hour (ET)
-MACRO_REGIME_GREEN_THRESHOLD=7
-MACRO_REGIME_RED_THRESHOLD=3
-```
+See `pyproject.toml` for the dependency list and `.env.example` for required API keys / config slots. Do not duplicate them here.
 
 ---
 
@@ -512,8 +433,6 @@ Rationale: Module framework is infrastructure, not product. Building it before t
 **2026-04-29 · Macro regime scoring thresholds calibrated**
 Decision: DIX bullish threshold = 43% (not 45%). Breadth healthy threshold = 50% above 50dma (not 55%).
 Rationale: 45%/55% thresholds produced RED on mixed-signal conditions that historically were YELLOW (pre-rally coiled states). Looser thresholds correctly classify those as YELLOW with caution flag rather than blocking all picks.
-Decision: Phase 1 (data) must be complete before Phase 2 (factors). Phase 2 must be complete before Phase 3 (synthesis). Never mix layers.
-Rationale: Data failures are impossible to debug in factor code. Factor failures are impossible to debug in synthesis code. Strict sequencing = faster debugging.
 
 **2026-05-29 · max_picks cap REMOVED everywhere**
 Decision: No cap on the number of picks. Removed the `[: settings.max_picks]` trim from the ranker, deleted the `max_picks` config field, removed `MAX_PICKS` from `.env.example` and this file, and updated the synthesis spec. DAILY now shows every ticker that passes the gate.
@@ -636,7 +555,7 @@ stop_short = min(swing_high * 1.005, entry_high + atr * 1.25)
 | Reversal | 50% or 61.8% Fibonacci retracement of prior move |
 | Mean Reversion | EMA20 or BB midline |
 
-**R:R minimum:** target / (entry − stop) ≥ 2.0. Setups below 2.0 are downgraded in conviction (not eliminated).
+**R:R minimum:** target / (entry − stop) ≥ 3.0 (R:R floor; below = downgraded). Setups below 3.0 are downgraded in conviction (not eliminated).
 
 **Trailing stop methods (display-only, chart overlays):**
 
@@ -759,17 +678,6 @@ LLM is NOT a pattern classifier. Confirmed waste of effort:
 LLM correct scope (downstream only): thesis generation, material/noise news filter, chat.
 
 Future (180+ days, needs training data): GBT on `(indicator_state_vector → pattern_label)` can learn non-linear interactions. Start collecting `indicator_state` + `forward_return` columns in `signal_bench` from Day 1 of scanning.
-
----
-
-### Open Questions (decisions pending)
-
-- [ ] **Q1** Mean reversion setups (BB reversion, EMA200 snap-back) in scope for v1?
-- [ ] **Q2** Chart trail (SuperTrend / Chandelier) — display-only vs executable signal?
-- [ ] **Q3** R:R minimum threshold: 2.0 fixed or configurable?
-- [ ] **Q4** `valid_until` logic: 5 trading days flat, or extend if price still in setup zone?
-- [ ] **Q5** BOS vs breakout: should BOS replace `breakout`/`breakdown` or supplement as higher-confidence variant?
-- [ ] **Q6** `swingtrend` not on PyPI — `scipy.signal.argrelextrema` confirmed as replacement (same output). Lock this?
 
 ---
 
